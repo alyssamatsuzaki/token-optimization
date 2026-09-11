@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "663defd4b9ebca29816f9c958377caf6ff7aa798e0984d1d1020dd37ac0db662",
+  "latency_ms": 3088.46,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "Let me walk you through how this works so the number makes sense.\n\nThe policy here has changed since earlier versions circulated, so let me quote the current wording rather than working from memory.\n\nThe handbook says: \"## Return windows by category  The base return window runs from the delivery date, not the order date.\"\n\nApplying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. Should you disagree with how this has been applied, I can pass it to a specialist who can take another look.\n\nI hope that's clear, and thank you again for your patience.\n\nFinal answer: 0",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_663defd4b9ebca29",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 7704,
+      "input_tokens": 48,
+      "output_tokens": 212
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 7704,
+    "input_tokens": 48,
+    "output_tokens": 212
+  },
+  "recorded_at": "2026-09-11T16:21:22.349313+00:00",
+  "request": {
+    "max_tokens": 2000,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Customer question: An Alpine member bought trail nutrition. How many days is their return window?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "a0a96517cb9a269be5e9889bb60101fa7097840d1bde0a3060fc8f2e5bddebee"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "d81b1ef345a937556b9d09b0385434edc68e33ab4d766e2d18b89a4534a3a586"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "Let me walk you through how this works so the number makes sense.\n\nThe policy here has changed since earlier versions circulated, so let me quote the current wording rather than working from memory.\n\nThe handbook says: \"## Return windows by category  The base return window runs from the delivery date, not the order date.\"\n\nApplying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. Should you disagree with how this has been applied, I can pass it to a specialist who can take another look.\n\nI hope that's clear, and thank you again for your patience.\n\nFinal answer: 0",
+  "stop_reason": "end_turn",
+  "ttft_ms": 756.46,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 7704,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 48,
+    "output_reasoning": 0,
+    "output_visible": 212,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 7704,
+      "input_tokens": 48,
+      "output_tokens": 212
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

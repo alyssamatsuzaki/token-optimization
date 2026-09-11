@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "c946e61af29e8faf7c415781ffe3aaa0988964267f4ea292c34d1733e75e17a6",
+  "latency_ms": 1130.15,
+  "model": "claude-sonnet-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"14\", \"evidence\": \"A return is counted as started on the day the customer requests a return authorisation, not the day the parcel arrives back at the warehouse.\", \"section\": \"sec-returns-windows\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_c946e61af29e8faf",
+    "model": "claude-sonnet-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 7340,
+      "input_tokens": 53,
+      "output_tokens": 87
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 7340,
+    "input_tokens": 53,
+    "output_tokens": 87
+  },
+  "recorded_at": "2026-09-11T16:21:15.612847+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "With the holiday extension, how long is a Standard member's return window on climbing rope, in days?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-sonnet-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "005a702e8c81d5a74c60149acd4e2dea281fe73d212380955392920bdf8f8f70"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "3f17fc1ce4b83e9d92aebcb3f9be13cb0f624b9b8795da99a6831275a9c38dc7"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"14\", \"evidence\": \"A return is counted as started on the day the customer requests a return authorisation, not the day the parcel arrives back at the warehouse.\", \"section\": \"sec-returns-windows\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 564.65,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 7340,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 53,
+    "output_reasoning": 0,
+    "output_visible": 87,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 7340,
+      "input_tokens": 53,
+      "output_tokens": 87
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

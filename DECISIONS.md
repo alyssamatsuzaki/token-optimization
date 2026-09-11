@@ -72,3 +72,22 @@ an agent about, and the conclusion needed to land in the file being written at t
 **D13 — The cascade tier order uses blended input+output price, not input alone.** A model with
 cheap input and expensive output is not a cheap tier for a workload that generates. One line in
 `Registry.tiers_by_cost`.
+
+**D14 — Cassette requests store long blocks by content hash.** The 18 kB handbook appears in
+every one of ~1,300 requests, which made the committed fixture set 34 MB of the same paragraph.
+Block texts over 512 characters now live once in `cassettes/blobs/<sha256>.txt` and the request
+references the hash; the store rehydrates on read, so a request is still fully auditable. 34 MB
+to 6.2 MB.
+
+**D15 — Questions that contain their own gold answer are dropped at generation time.** An Alpine
+member pays no restocking fee, so "what refund on a $129.00 item" has the answer sitting in the
+question. Such items are answerable by copying a number, which makes every tier look identical
+on them and quietly flattens the difficulty gap the cascade depends on. `leaks_own_answer` in
+the generator drops them; a test asserts none survive.
+
+**D16 — Duplicate question texts are dropped too.** Some templates take parameters that do not
+reach every phrasing. Two identical questions are not two tasks: counting them twice would
+inflate n and make the bootstrap treat one observation as two.
+
+**D17 — `fixtures/test/ledger.db` is gitignored.** It is rebuilt from the committed cassettes on
+demand, and a binary blob in git that can be regenerated in seconds is not worth the diff noise.

@@ -40,6 +40,35 @@ def _not_yet(name: str, milestone: str) -> None:
     raise typer.Exit(2)
 
 
+@app.command("build-test-fixtures")
+def build_test_fixtures_cmd() -> None:
+    """Build fixtures/test/ from the deterministic simulated provider. Spends nothing."""
+    from tokop.paths import fixtures_dir
+    from tokop.recorder import build_test_fixtures
+    from tokop.workloads.demo.dataset import build as build_dataset
+    from tokop.workloads.spec import load_workload
+
+    registry = load_registry()
+    workload = load_workload(repo_root() / "data/demo/workload.yaml")
+    bundle = build_dataset(
+        size=workload.dataset.size,
+        calibration_size=workload.dataset.calibration_size,
+        seed=workload.dataset.seed,
+    )
+    root = fixtures_dir() / "test"
+    root.mkdir(parents=True, exist_ok=True)
+    report = build_test_fixtures(workload, registry, bundle, root)
+    for step in report.steps:
+        typer.echo("  " + step.summary())
+    if report.stopped:
+        typer.echo(f"\nSTOPPED: {report.stopped}", err=True)
+        raise typer.Exit(1)
+    typer.echo(
+        f"\n{len(report.steps)} runs, {report.cassette_count} cassettes, "
+        f"simulated cost ${report.total_cost:.4f} (no money was spent: origin=simulated)"
+    )
+
+
 @app.command()
 def record(workload: str = typer.Option(..., "--workload")) -> None:
     """Record a workload against live providers. Capped by RECORD_BUDGET_USD."""
@@ -72,10 +101,115 @@ def lint(path: str = typer.Argument(...)) -> None:
     _not_yet("lint", "M4")
 
 
+@app.command("dataset")
+def dataset_cmd(
+    write: bool = typer.Option(False, "--write", help="Regenerate and write the dataset."),
+) -> None:
+    """Show or regenerate the demo dataset."""
+    from tokop.workloads.demo.dataset import build, write_dataset_doc
+    from tokop.workloads.demo.dataset import write as write_dataset
+
+    bundle = build()
+    if write:
+        path, handbook = write_dataset(bundle)
+        doc = write_dataset_doc(bundle)
+        typer.echo(f"wrote {path.relative_to(repo_root())}")
+        typer.echo(f"wrote {handbook.relative_to(repo_root())}")
+        typer.echo(f"wrote {doc.relative_to(repo_root())}")
+    counts: dict[str, int] = {}
+    for item in bundle.items:
+        counts[item.question_type] = counts.get(item.question_type, 0) + 1
+    typer.echo(
+        f"{len(bundle.items)} items ({len(bundle.calibration)} calibration, "
+        f"{len(bundle.test)} test), seed {bundle.seed}"
+    )
+    for question_type in sorted(counts):
+        typer.echo(f"  {question_type:12} {counts[question_type]:4}")
+
+
 @app.command("fixtures-check")
 def fixtures_check() -> None:
-    """Regenerate gold answers from YAML and assert they match the stored dataset."""
-    _not_yet("fixtures-check", "M3")
+    """Regenerate gold answers from YAML and assert they match the stored dataset.
+
+    Also checks that every cassette carries provider-reported usage and that every run manifest
+    records the model IDs, the prices with their provenance, the seed and the date
+    (SPEC.md section 10, check 4).
+    """
+    from tokop.workloads.demo.dataset import verify
+
+    failures = 0
+    result = verify()
+    for name, ok, detail in result.checks:
+        typer.echo(f"  {'ok  ' if ok else 'FAIL'}  {name}: {detail}")
+        failures += 0 if ok else 1
+
+    for name, ok, detail in _check_fixture_dirs():
+        typer.echo(f"  {'ok  ' if ok else 'FAIL'}  {name}: {detail}")
+        failures += 0 if ok else 1
+
+    if failures:
+        typer.echo(f"\nfixtures-check FAILED ({failures} check(s))", err=True)
+        raise typer.Exit(1)
+    typer.echo("\nfixtures-check passed")
+
+
+def _check_fixture_dirs() -> list[tuple[str, bool, str]]:
+    """Cassette and manifest checks over whichever fixture set this build has."""
+    import json
+
+    from tokop.adapters.cassette import CassetteStore
+    from tokop.paths import fixtures_dir
+
+    checks: list[tuple[str, bool, str]] = []
+    for kind in ("demo", "test"):
+        root = fixtures_dir() / kind
+        cassettes = root / "cassettes"
+        if not cassettes.exists():
+            continue
+        store = CassetteStore(cassettes)
+        all_cassettes = store.all()
+        without_usage = [c.key[:10] for c in all_cassettes if not c.raw_usage and c.error is None]
+        checks.append(
+            (
+                f"fixtures/{kind}: every cassette has provider-reported usage",
+                not without_usage,
+                f"{len(all_cassettes)} cassettes, {len(without_usage)} without usage"
+                + (f": {without_usage[:3]}" if without_usage else ""),
+            )
+        )
+
+        manifest_path = root / "manifest.json"
+        if not manifest_path.exists():
+            checks.append((f"fixtures/{kind}: manifest present", False, f"no {manifest_path.name}"))
+            continue
+        manifest = json.loads(manifest_path.read_text())
+        runs = manifest.get("runs") or []
+        missing: list[str] = []
+        for run in runs:
+            for field in ("model_ids", "seed", "recorded_at", "prices", "split_hash"):
+                if not run.get(field):
+                    missing.append(f"{run.get('pipeline', '?')}.{field}")
+            for model_id, price in (run.get("prices") or {}).items():
+                for field in ("source_url", "retrieved"):
+                    if not price.get(field):
+                        missing.append(f"{model_id}.{field}")
+        checks.append(
+            (
+                f"fixtures/{kind}: every manifest records models, prices, seed and date",
+                not missing and bool(runs),
+                f"{len(runs)} runs"
+                + (f", missing {missing[:4]}" if missing else ", all fields present"),
+            )
+        )
+    if not checks:
+        checks.append(
+            (
+                "fixture directories",
+                False,
+                "neither fixtures/demo/ nor fixtures/test/ has cassettes",
+            )
+        )
+    return checks
 
 
 @app.command("sync-models")

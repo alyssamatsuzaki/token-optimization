@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "ccc77e71c7e8b24242913c15f2e48c3f43eb6feed6fd55ce3d6bb7a5d4440438",
+  "latency_ms": 1080.29,
+  "model": "claude-sonnet-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"yes\", \"evidence\": \"An order that reaches the threshold ships free in every zone, including Zone 5, and the oversize surcharge is waived with it.\", \"section\": \"sec-free-shipping\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_ccc77e71c7e8b242",
+    "model": "claude-sonnet-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 7340,
+      "input_tokens": 50,
+      "output_tokens": 79
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 7340,
+    "input_tokens": 50,
+    "output_tokens": 79
+  },
+  "recorded_at": "2026-09-11T16:21:16.963837+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "A Standard member places an order totalling $76. Does it ship free? Answer yes or no."
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-sonnet-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "005a702e8c81d5a74c60149acd4e2dea281fe73d212380955392920bdf8f8f70"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "3f17fc1ce4b83e9d92aebcb3f9be13cb0f624b9b8795da99a6831275a9c38dc7"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"yes\", \"evidence\": \"An order that reaches the threshold ships free in every zone, including Zone 5, and the oversize surcharge is waived with it.\", \"section\": \"sec-free-shipping\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 566.79,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 7340,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 50,
+    "output_reasoning": 0,
+    "output_visible": 79,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 7340,
+      "input_tokens": 50,
+      "output_tokens": 79
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

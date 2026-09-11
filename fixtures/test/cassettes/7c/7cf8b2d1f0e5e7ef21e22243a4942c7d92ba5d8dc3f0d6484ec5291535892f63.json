@@ -1,0 +1,100 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "7cf8b2d1f0e5e7ef21e22243a4942c7d92ba5d8dc3f0d6484ec5291535892f63",
+  "latency_ms": 3318.23,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "Thanks for reaching out, and I'm happy to help you get to the bottom of this.\n\nThe policy here has changed since earlier versions circulated, so let me quote the current wording rather than working from memory.\n\nThe handbook says: \"## Shipping fees  Fees are charged per order, by the total shipped weight, not per item.\"\n\nApplying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. If anything about your situation differs from what I've assumed, the answer could change, so do let me know and I'll re-check it for you.\n\nI hope that's clear, and thank you again for your patience.\n\nFinal answer: 78.95",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_7cf8b2d1f0e5e7ef",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 7770,
+      "output_tokens": 231
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 7770,
+    "output_tokens": 231
+  },
+  "recorded_at": "2026-09-11T16:21:19.902831+00:00",
+  "request": {
+    "max_tokens": 2000,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Customer question: Work out shipping on 58 lb of backpacks going to Zone 2 (adjacent states), surcharge included where it applies."
+          },
+          {
+            "cache": null,
+            "text": {
+              "$blob": "d81b1ef345a937556b9d09b0385434edc68e33ab4d766e2d18b89a4534a3a586"
+            }
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      },
+      {
+        "cache": null,
+        "text": {
+          "$blob": "a0a96517cb9a269be5e9889bb60101fa7097840d1bde0a3060fc8f2e5bddebee"
+        }
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "Thanks for reaching out, and I'm happy to help you get to the bottom of this.\n\nThe policy here has changed since earlier versions circulated, so let me quote the current wording rather than working from memory.\n\nThe handbook says: \"## Shipping fees  Fees are charged per order, by the total shipped weight, not per item.\"\n\nApplying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. If anything about your situation differs from what I've assumed, the answer could change, so do let me know and I'll re-check it for you.\n\nI hope that's clear, and thank you again for your patience.\n\nFinal answer: 78.95",
+  "stop_reason": "end_turn",
+  "ttft_ms": 777.23,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 7770,
+    "output_reasoning": 0,
+    "output_visible": 231,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 7770,
+      "output_tokens": 231
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

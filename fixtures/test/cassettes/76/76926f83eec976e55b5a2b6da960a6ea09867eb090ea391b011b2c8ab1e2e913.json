@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "76926f83eec976e55b5a2b6da960a6ea09867eb090ea391b011b2c8ab1e2e913",
+  "latency_ms": 499.07,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"15\", \"evidence\": \"A Zone 3 order placed on a Monday therefore arrives on the following Monday, not the preceding Friday.\", \"section\": \"sec-shipping-zones\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_76926f83eec976e5",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 5646,
+      "input_tokens": 37,
+      "output_tokens": 55
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 5646,
+    "input_tokens": 37,
+    "output_tokens": 55
+  },
+  "recorded_at": "2026-09-11T16:21:14.393777+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "For Zone 5 (international), how many business days should we quote for transit?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "005a702e8c81d5a74c60149acd4e2dea281fe73d212380955392920bdf8f8f70"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "3f17fc1ce4b83e9d92aebcb3f9be13cb0f624b9b8795da99a6831275a9c38dc7"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"15\", \"evidence\": \"A Zone 3 order placed on a Monday therefore arrives on the following Monday, not the preceding Friday.\", \"section\": \"sec-shipping-zones\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 306.57,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 5646,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 37,
+    "output_reasoning": 0,
+    "output_visible": 55,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 5646,
+      "input_tokens": 37,
+      "output_tokens": 55
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

@@ -1,0 +1,243 @@
+# Structured facts for the demo workload: a fictional outdoor-gear retailer.
+#
+# Everything in the handbook is rendered from this file, and every gold answer is computed
+# from it in code (SPEC.md section 6). Nothing is written by hand twice, so a question and its
+# answer cannot drift apart.
+#
+# Northwind Ridge Outfitters is invented. Any resemblance to a real retailer's policy is
+# accidental and the numbers should not be used for anything.
+
+company:
+  name: Northwind Ridge Outfitters
+  founded: 2011
+  support_email: help@northwindridge.example
+  policy_version: "2026.3"
+  effective_date: "2026-07-01"
+
+# ---------------------------------------------------------------- loyalty tiers
+loyalty_tiers:
+  standard:
+    name: Standard
+    return_window_bonus_days: 0
+    free_shipping_threshold_usd: 75
+    restocking_fee_waived: false
+    annual_fee_usd: 0
+    priority_support: false
+  summit:
+    name: Summit
+    return_window_bonus_days: 14
+    free_shipping_threshold_usd: 40
+    restocking_fee_waived: false
+    annual_fee_usd: 49
+    priority_support: false
+  alpine:
+    name: Alpine
+    return_window_bonus_days: 30
+    free_shipping_threshold_usd: 0
+    restocking_fee_waived: true
+    annual_fee_usd: 129
+    priority_support: true
+
+# ---------------------------------------------------------------- product categories
+# base_return_days: the window for a Standard member, before any tier bonus or seasonal
+# extension. restocking_fee_pct: charged on the item price when the return is not a defect.
+categories:
+  tents:
+    name: Tents and shelters
+    base_return_days: 45
+    restocking_fee_pct: 10
+    warranty_years: 3
+    warranty_covers: manufacturing defects in fabric, poles and seams
+    final_sale: false
+    requires_original_packaging: true
+  sleeping_bags:
+    name: Sleeping bags
+    base_return_days: 45
+    restocking_fee_pct: 10
+    warranty_years: 5
+    warranty_covers: loft loss, zipper failure and stitching defects
+    final_sale: false
+    requires_original_packaging: true
+  backpacks:
+    name: Backpacks
+    base_return_days: 60
+    restocking_fee_pct: 0
+    warranty_years: 10
+    warranty_covers: seams, buckles, zippers and frame welds
+    final_sale: false
+    requires_original_packaging: false
+  footwear:
+    name: Hiking footwear
+    base_return_days: 30
+    restocking_fee_pct: 0
+    warranty_years: 1
+    warranty_covers: delamination and sole separation
+    final_sale: false
+    requires_original_packaging: true
+  outerwear:
+    name: Insulated outerwear
+    base_return_days: 45
+    restocking_fee_pct: 0
+    warranty_years: 3
+    warranty_covers: seam sealing, zippers and insulation migration
+    final_sale: false
+    requires_original_packaging: false
+  climbing_hardware:
+    name: Climbing hardware
+    base_return_days: 30
+    restocking_fee_pct: 15
+    warranty_years: 3
+    warranty_covers: manufacturing defects only, never wear from use
+    final_sale: false
+    requires_original_packaging: true
+  climbing_rope:
+    name: Climbing rope
+    base_return_days: 14
+    restocking_fee_pct: 20
+    warranty_years: 1
+    warranty_covers: manufacturing defects in the sheath or core
+    final_sale: false
+    requires_original_packaging: true
+  electronics:
+    name: Navigation electronics
+    base_return_days: 30
+    restocking_fee_pct: 15
+    warranty_years: 2
+    warranty_covers: battery failure and screen defects
+    final_sale: false
+    requires_original_packaging: true
+  stoves:
+    name: Camp stoves and cookware
+    base_return_days: 45
+    restocking_fee_pct: 10
+    warranty_years: 2
+    warranty_covers: valve and regulator defects
+    final_sale: false
+    requires_original_packaging: true
+  water_filters:
+    name: Water filters
+    base_return_days: 30
+    restocking_fee_pct: 10
+    warranty_years: 2
+    warranty_covers: cartridge housing cracks and pump seal failure
+    final_sale: false
+    requires_original_packaging: true
+  avalanche_safety:
+    name: Avalanche safety gear
+    base_return_days: 30
+    restocking_fee_pct: 0
+    warranty_years: 5
+    warranty_covers: transceiver electronics and probe segment failure
+    final_sale: false
+    requires_original_packaging: true
+  nutrition:
+    name: Trail nutrition
+    base_return_days: 14
+    restocking_fee_pct: 0
+    warranty_years: 0
+    warranty_covers: nothing; consumable goods carry no warranty
+    final_sale: true
+    requires_original_packaging: true
+  clearance_apparel:
+    name: Clearance apparel
+    base_return_days: 0
+    restocking_fee_pct: 0
+    warranty_years: 0
+    warranty_covers: nothing; clearance apparel is sold as is
+    final_sale: true
+    requires_original_packaging: false
+
+# ---------------------------------------------------------------- shipping
+# Zones by destination, fees by weight band. Bands are inclusive of max_lb.
+shipping:
+  currency: USD
+  zones:
+    zone_1:
+      name: Zone 1 (in-state)
+      transit_days: 2
+    zone_2:
+      name: Zone 2 (adjacent states)
+      transit_days: 3
+    zone_3:
+      name: Zone 3 (continental)
+      transit_days: 5
+    zone_4:
+      name: Zone 4 (Alaska and Hawaii)
+      transit_days: 8
+    zone_5:
+      name: Zone 5 (international)
+      transit_days: 14
+  weight_bands:
+    - {id: band_a, label: "up to 2 lb", max_lb: 2}
+    - {id: band_b, label: "over 2 lb up to 5 lb", max_lb: 5}
+    - {id: band_c, label: "over 5 lb up to 12 lb", max_lb: 12}
+    - {id: band_d, label: "over 12 lb up to 25 lb", max_lb: 25}
+    - {id: band_e, label: "over 25 lb up to 50 lb", max_lb: 50}
+    - {id: band_f, label: "over 50 lb", max_lb: null}
+  # fees[zone][band] in USD
+  fees:
+    zone_1: {band_a: 5.95, band_b: 7.95, band_c: 11.95, band_d: 17.95, band_e: 26.95, band_f: 42.95}
+    zone_2: {band_a: 7.95, band_b: 9.95, band_c: 14.95, band_d: 22.95, band_e: 33.95, band_f: 54.95}
+    zone_3: {band_a: 9.95, band_b: 13.95, band_c: 19.95, band_d: 29.95, band_e: 44.95, band_f: 71.95}
+    zone_4: {band_a: 18.95, band_b: 26.95, band_c: 38.95, band_d: 57.95, band_e: 86.95, band_f: 139.95}
+    zone_5: {band_a: 32.95, band_b: 46.95, band_c: 68.95, band_d: 102.95, band_e: 154.95, band_f: 249.95}
+  oversize_surcharge_usd: 24.00
+  oversize_applies_to: [tents, backpacks]
+  oversize_threshold_lb: 25
+  return_shipping_paid_by_customer: true
+  defect_return_shipping_paid_by_customer: false
+
+# ---------------------------------------------------------------- exceptions
+exceptions:
+  final_sale:
+    id: final-sale
+    rule: Final-sale items cannot be returned or exchanged for any reason other than a
+      manufacturing defect reported within 7 days of delivery.
+    defect_report_days: 7
+    applies_to_categories: [nutrition, clearance_apparel]
+  opened_electronics:
+    id: opened-electronics
+    rule: Navigation electronics whose factory seal has been broken carry a return window of
+      14 days rather than the category's 30, and the restocking fee rises to 25 percent.
+    return_days: 14
+    restocking_fee_pct: 25
+    applies_to_categories: [electronics]
+  used_climbing_safety:
+    id: used-climbing-safety
+    rule: Climbing rope and avalanche safety gear that have been used in the field cannot be
+      returned at all, because their condition cannot be verified.
+    applies_to_categories: [climbing_rope, avalanche_safety]
+  worn_footwear:
+    id: worn-footwear
+    rule: Hiking footwear worn outdoors may still be returned within the window, but only for
+      store credit, never to the original payment method.
+    applies_to_categories: [footwear]
+    refund_method: store credit
+
+# ---------------------------------------------------------------- seasonal extension
+seasonal_extension:
+  id: holiday-extension
+  name: Holiday return extension
+  purchase_window_start: "2026-11-01"
+  purchase_window_end: "2026-12-24"
+  extra_days: 30
+  excluded_categories: [nutrition, clearance_apparel, climbing_rope]
+
+# ---------------------------------------------------------------- escalation
+escalation:
+  levels:
+    - id: tier_1
+      name: Front-line support
+      handles: standard returns, shipping questions, order status
+      resolution_target_hours: 24
+    - id: tier_2
+      name: Returns specialist
+      handles: disputed restocking fees, warranty assessments, exception requests
+      resolution_target_hours: 48
+    - id: tier_3
+      name: Customer relations manager
+      handles: refunds above the manager threshold, safety-related complaints, legal notices
+      resolution_target_hours: 72
+  manager_threshold_usd: 500
+  safety_complaint_escalates_to: tier_3
+  auto_escalate_after_hours: 96

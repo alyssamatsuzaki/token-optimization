@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "b17c1e4c42e55e07d0924ae213fcba50f2449b13cc8e3a8d59399fa8083a1f0c",
+  "latency_ms": 534.48,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"7\", \"evidence\": \"Hiking footwear worn outdoors may still be returned within the window, but only for store credit, never to the original payment method.\", \"section\": \"sec-exceptions\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_b17c1e4c42e55e07",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 5646,
+      "input_tokens": 29,
+      "output_tokens": 59
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 5646,
+    "input_tokens": 29,
+    "output_tokens": 59
+  },
+  "recorded_at": "2026-09-11T16:21:13.298788+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Defect reporting window for final-sale goods, in days?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "005a702e8c81d5a74c60149acd4e2dea281fe73d212380955392920bdf8f8f70"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "3f17fc1ce4b83e9d92aebcb3f9be13cb0f624b9b8795da99a6831275a9c38dc7"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"7\", \"evidence\": \"Hiking footwear worn outdoors may still be returned within the window, but only for store credit, never to the original payment method.\", \"section\": \"sec-exceptions\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 327.98,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 5646,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 29,
+    "output_reasoning": 0,
+    "output_visible": 59,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 5646,
+      "input_tokens": 29,
+      "output_tokens": 59
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "d1a87c4326e39e7311c0f06b5dd32c2b56f6edc08945dc15bc334e4538089a4c",
+  "latency_ms": 1646.64,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"14\", \"evidence\": \"**used-climbing-safety** \\u2014 applies to Climbing rope, Avalanche safety gear.\", \"section\": \"sec-exceptions\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_d1a87c4326e39e73",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 7340,
+      "input_tokens": 46,
+      "output_tokens": 72
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 7340,
+    "input_tokens": 46,
+    "output_tokens": 72
+  },
+  "recorded_at": "2026-09-11T16:21:18.020645+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Seal broken on a Standard member's navigation electronics. Return window in days?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "005a702e8c81d5a74c60149acd4e2dea281fe73d212380955392920bdf8f8f70"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "3f17fc1ce4b83e9d92aebcb3f9be13cb0f624b9b8795da99a6831275a9c38dc7"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"14\", \"evidence\": \"**used-climbing-safety** \\u2014 applies to Climbing rope, Avalanche safety gear.\", \"section\": \"sec-exceptions\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 854.64,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 7340,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 46,
+    "output_reasoning": 0,
+    "output_visible": 72,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 7340,
+      "input_tokens": 46,
+      "output_tokens": 72
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

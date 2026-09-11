@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "95cc32406ad285bac7a50e7cf7ca33fbf24fb9fe76ee9ff55ed280cdd1c8906b",
+  "latency_ms": 955.78,
+  "model": "claude-sonnet-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"56.00\", \"evidence\": \"It is never charged on a defect return, and never charged to an Alpine member.\", \"section\": \"sec-restocking\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_95cc32406ad285ba",
+    "model": "claude-sonnet-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 7340,
+      "input_tokens": 60,
+      "output_tokens": 65
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 7340,
+    "input_tokens": 60,
+    "output_tokens": 65
+  },
+  "recorded_at": "2026-09-11T16:21:15.449075+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "A Standard member returns camp stoves and cookware that cost $560.00. What restocking fee is charged, in dollars?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-sonnet-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "005a702e8c81d5a74c60149acd4e2dea281fe73d212380955392920bdf8f8f70"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "3f17fc1ce4b83e9d92aebcb3f9be13cb0f624b9b8795da99a6831275a9c38dc7"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"56.00\", \"evidence\": \"It is never charged on a defect return, and never charged to an Alpine member.\", \"section\": \"sec-restocking\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 533.28,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 7340,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 60,
+    "output_reasoning": 0,
+    "output_visible": 65,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 7340,
+      "input_tokens": 60,
+      "output_tokens": 65
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

@@ -19,3 +19,4 @@ web/test-results/
 
 # Secrets
 .env
+fixtures/*/ledger.db

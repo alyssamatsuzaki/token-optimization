@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "0d42e2b0e887e33899b250252aa2a78b4ea33a8fc63ce1ac06c025edecd43045",
+  "latency_ms": 485.32,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"14\", \"evidence\": \"It is additive, not a multiplier, and it never applies to a final-sale category, whose window is zero days regardless of tier.\", \"section\": \"sec-loyalty\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_0d42e2b0e887e338",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 5646,
+      "input_tokens": 27,
+      "output_tokens": 62
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 5646,
+    "input_tokens": 27,
+    "output_tokens": 62
+  },
+  "recorded_at": "2026-09-11T16:21:09.653001+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "How many extra return days does the Summit tier add?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "005a702e8c81d5a74c60149acd4e2dea281fe73d212380955392920bdf8f8f70"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "3f17fc1ce4b83e9d92aebcb3f9be13cb0f624b9b8795da99a6831275a9c38dc7"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"14\", \"evidence\": \"It is additive, not a multiplier, and it never applies to a final-sale category, whose window is zero days regardless of tier.\", \"section\": \"sec-loyalty\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 268.32,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 5646,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 27,
+    "output_reasoning": 0,
+    "output_visible": 62,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 5646,
+      "input_tokens": 27,
+      "output_tokens": 62
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

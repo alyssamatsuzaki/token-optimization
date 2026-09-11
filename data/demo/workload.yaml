@@ -1,0 +1,250 @@
+# The demo workload and its four pipelines (SPEC.md section 6).
+#
+# B0 is deliberately the way many first-version support bots ship. Every anti-pattern in it is
+# recognisable from real production prompts — none is exaggerated to make the demo look better,
+# because a straw-man baseline would make every number downstream meaningless. Each one is
+# listed under `known_antipatterns` with the lint rule that catches it.
+
+workload:
+  id: returns-support
+  name: Returns-policy support bot
+  description: >-
+    A support assistant answering questions about a retailer's returns, shipping and warranty
+    policy from a handbook. Every answer is in the handbook, so a wrong answer is a reasoning or
+    retrieval failure rather than missing knowledge — which is what makes this workload a fair
+    test of whether a cheaper model can be trusted.
+  dataset:
+    generator: demo
+    seed: 20260911
+    size: 300
+    calibration_size: 100
+  margin: 0.03
+  latency_sensitive: false
+  allowed_providers: [anthropic, simulated]
+  scorer_features:
+    - output_parses
+    - answer_type_matches
+    - output_length
+    - question_length
+    - question_numerals
+    - evidence_quote_found        # demo-specific; see optimize/scorers.py
+
+pipelines:
+  # ------------------------------------------------------------------ B0
+  B0:
+    name: Current pipeline
+    description: >-
+      The frontier model with the prompt this bot shipped with. The handbook is pasted after the
+      question in the user message, so nothing can be cached; the system prompt opens with a
+      timestamp; one rule is stated twice; and two instructions contradict each other.
+    model_role: frontier
+    max_tokens: 2000
+    output_contract: final_answer_line
+    known_antipatterns:
+      PL01: >-
+        The system prompt opens with a live timestamp. Every request therefore has a different
+        prefix, so even if a breakpoint were added, no cache entry could ever be read.
+      PL02: >-
+        The question comes before the handbook in the user message. The only large static block
+        sits behind volatile content, so there is no cacheable prefix at all.
+      PL06: >-
+        There is no output contract beyond "end with a line". max_tokens is 2,000 for answers
+        that are usually a number, so the model writes an essay and the workload pays for it.
+      PL07: >-
+        "Always cite the section" and "make sure you mention which part of the handbook you
+        used" are the same rule stated twice.
+      PL10: >-
+        No role, no task statement and no success criteria. The prompt says what to avoid far
+        more clearly than what to do.
+      PL11: >-
+        "Be concise." and "Explain your reasoning in full detail." cannot both be followed.
+    notes:
+      - The handbook is identical across every call but cannot be cached where it sits.
+      - max_tokens 2,000 for answers a grader reads as one number.
+    system:
+      - label: timestamp
+        text: "{{timestamp}}"
+      - label: instructions
+        text: |
+          You are a helpful assistant for Northwind Ridge Outfitters. Thank you for your hard
+          work supporting our customers today! We really appreciate the care you put into every
+          single response, and our customers do too.
+
+          Please try to help with whatever the customer is asking about. Look at the handbook
+          material provided and handle the question as best you can. It's important that you do
+          a good job here because customers rely on these answers when they're making decisions
+          about returns and shipping, and getting it wrong can cause real frustration for
+          everyone involved.
+
+          Some guidance:
+
+          - Always cite the section of the handbook that your answer comes from.
+          - Be concise.
+          - Explain your reasoning in full detail so the customer understands how you got there.
+          - Don't make things up. If the handbook doesn't cover something, say so.
+          - Make sure you mention which part of the handbook you used.
+          - Try to be friendly and professional at all times.
+          - Remember that the customer may be frustrated, so be patient with them.
+          - Double-check any arithmetic before you give a number.
+          - Don't quote policy from memory; only use what's in the material below.
+          - If there's an exception that applies, make sure you take it into account.
+          - Watch out for the loyalty tier, it changes things.
+          - Consider whether the item is final sale before answering.
+          - It's generally a good idea to reference the relevant handbook section in your reply.
+          - Please be careful with weight bands, they can be a little confusing sometimes.
+          - Keep in mind that shipping and returns are handled somewhat differently.
+          - Perhaps consider whether anything about the situation seems unusual or out of scope.
+
+          A few things worth knowing about how we work. Cases that involve larger refunds, or
+          anything where somebody might have been hurt, are not decided by the assistant at all
+          — those go to a person, and the handbook explains who. You should still answer the
+          question that was asked, but flag it if you notice one of those situations.
+
+          Please avoid: giving legal advice, promising anything we can't deliver, speculating
+          about what management might decide, or telling the customer to contact a competitor.
+
+          When you have worked out the answer, end your response with a line in this format:
+
+          End with a line: Final answer: <answer>
+    user:
+      - label: question
+        text: "Customer question: {{question}}"
+      - label: handbook
+        text: |
+          Here is the handbook material you should use:
+
+          {{handbook}}
+
+  # ------------------------------------------------------------------ B1
+  B1:
+    name: Cache-friendly order
+    description: >-
+      B0's exact words, reordered so a cache can work. The handbook moves into the system
+      prompt, the cache breakpoint sits at the end of the static prefix, the timestamp moves
+      after the breakpoint, and the question goes last.
+    model_role: frontier
+    max_tokens: 2000
+    output_contract: final_answer_line
+    notes:
+      - Same words as B0, same model, same token cap. Only the order changed.
+      - The static prefix is now system prompt plus handbook, ending at the breakpoint.
+    system:
+      - label: instructions
+        text: |
+          You are a helpful assistant for Northwind Ridge Outfitters. Thank you for your hard
+          work supporting our customers today! We really appreciate the care you put into every
+          single response, and our customers do too.
+
+          Please try to help with whatever the customer is asking about. Look at the handbook
+          material provided and handle the question as best you can. It's important that you do
+          a good job here because customers rely on these answers when they're making decisions
+          about returns and shipping, and getting it wrong can cause real frustration for
+          everyone involved.
+
+          Some guidance:
+
+          - Always cite the section of the handbook that your answer comes from.
+          - Be concise.
+          - Explain your reasoning in full detail so the customer understands how you got there.
+          - Don't make things up. If the handbook doesn't cover something, say so.
+          - Make sure you mention which part of the handbook you used.
+          - Try to be friendly and professional at all times.
+          - Remember that the customer may be frustrated, so be patient with them.
+          - Double-check any arithmetic before you give a number.
+          - Don't quote policy from memory; only use what's in the material below.
+          - If there's an exception that applies, make sure you take it into account.
+          - Watch out for the loyalty tier, it changes things.
+          - Consider whether the item is final sale before answering.
+          - It's generally a good idea to reference the relevant handbook section in your reply.
+          - Please be careful with weight bands, they can be a little confusing sometimes.
+          - Keep in mind that shipping and returns are handled somewhat differently.
+          - Perhaps consider whether anything about the situation seems unusual or out of scope.
+
+          A few things worth knowing about how we work. Cases that involve larger refunds, or
+          anything where somebody might have been hurt, are not decided by the assistant at all
+          — those go to a person, and the handbook explains who. You should still answer the
+          question that was asked, but flag it if you notice one of those situations.
+
+          Please avoid: giving legal advice, promising anything we can't deliver, speculating
+          about what management might decide, or telling the customer to contact a competitor.
+
+          When you have worked out the answer, end your response with a line in this format:
+
+          End with a line: Final answer: <answer>
+      - label: handbook
+        text: |
+          Here is the handbook material you should use:
+
+          {{handbook}}
+        cache: 5m
+      - label: timestamp
+        text: "{{timestamp}}"
+    user:
+      - label: question
+        text: "Customer question: {{question}}"
+
+  # ------------------------------------------------------------------ B2
+  B2:
+    name: CLEAR rewrite with an output contract
+    description: >-
+      B1's order with the prompt rewritten against the CLEAR rubric: an explicit role, task and
+      success criteria; the duplicated rule and the contradiction removed; and a JSON output
+      contract the parser validates. max_tokens drops from 2,000 to 200.
+    model_role: frontier
+    max_tokens: 200
+    output_contract: json_answer
+    notes:
+      - The contract is requested through instructions, not a provider structured-output
+        feature, so the same request works on every provider and can still be pre-warmed.
+      - The evidence quote and section ID are what the scorer checks at run time.
+    system:
+      - label: instructions
+        text: |
+          You are a returns-policy specialist at Northwind Ridge Outfitters. You answer one
+          customer question at a time using only the handbook below.
+
+          Task: read the question, find the rule that governs it, and return the answer.
+
+          How to get it right:
+          - Work out the category first, then any exception, then the loyalty tier, then the
+            seasonal extension. Exceptions override general rules; the more restrictive wins.
+          - Return windows are counted from the delivery date; warranties run from the purchase
+            date. They are different questions.
+          - Give money to the cent and windows in whole days.
+          - Use only the handbook. If it does not cover the question, answer "not covered".
+
+          Reply with one JSON object and nothing else:
+
+          {"answer": "...", "evidence": "<verbatim quote from the handbook>", "section": "<section id>"}
+
+          - answer: the value only. A number with no units, a dollar amount with no symbol,
+            "yes", "no", or the exact key the question asks for.
+          - evidence: a quote copied exactly from the handbook that contains the rule you used.
+          - section: the id of the section you quoted, such as sec-returns-windows.
+      - label: handbook
+        text: |
+          Handbook:
+
+          {{handbook}}
+        cache: 5m
+      - label: timestamp
+        text: "{{timestamp}}"
+    user:
+      - label: question
+        text: "{{question}}"
+
+cascades:
+  # ------------------------------------------------------------------ B3
+  B3:
+    name: Cascade on the B2 prompt
+    description: >-
+      The B2 prompt run through a cheap-then-mid-then-frontier cascade. Each tier's answer is
+      scored by a logistic regression fitted on the calibration split; an answer that clears the
+      tier's threshold is returned, otherwise the task escalates and pays for both calls.
+    base_pipeline: B2
+    tiers: [cheap, mid, frontier]
+    threshold_step: 0.02
+    accuracy_slack: 0.01
+    notes:
+      - Thresholds are chosen on the calibration split, before any test result is computed.
+      - An escalated task pays for every attempt it made.

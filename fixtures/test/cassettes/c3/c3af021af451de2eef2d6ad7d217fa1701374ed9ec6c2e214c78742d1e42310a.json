@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "c3af021af451de2eef2d6ad7d217fa1701374ed9ec6c2e214c78742d1e42310a",
+  "latency_ms": 502.59,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"15\", \"evidence\": \"It is never charged on a defect return, and never charged to an Alpine member.\", \"section\": \"sec-restocking\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_c3af021af451de2e",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 5646,
+      "input_tokens": 30,
+      "output_tokens": 48
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 5646,
+    "input_tokens": 30,
+    "output_tokens": 48
+  },
+  "recorded_at": "2026-09-11T16:21:14.115983+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "What restocking fee percentage applies to climbing hardware?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "005a702e8c81d5a74c60149acd4e2dea281fe73d212380955392920bdf8f8f70"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "3f17fc1ce4b83e9d92aebcb3f9be13cb0f624b9b8795da99a6831275a9c38dc7"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"15\", \"evidence\": \"It is never charged on a defect return, and never charged to an Alpine member.\", \"section\": \"sec-restocking\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 334.59,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 5646,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 30,
+    "output_reasoning": 0,
+    "output_visible": 48,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 5646,
+      "input_tokens": 30,
+      "output_tokens": 48
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

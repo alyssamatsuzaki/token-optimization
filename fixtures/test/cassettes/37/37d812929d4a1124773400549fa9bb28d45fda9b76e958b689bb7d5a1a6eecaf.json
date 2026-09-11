@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "37d812929d4a1124773400549fa9bb28d45fda9b76e958b689bb7d5a1a6eecaf",
+  "latency_ms": 532.29,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"129.00\", \"evidence\": \"The tier changes three things: how long they have to return something, how much they must spend before shipping is free, and whether a restocking fee is charged at all.\", \"section\": \"sec-loyalty\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_37d812929d4a1124",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 5646,
+      "input_tokens": 25,
+      "output_tokens": 71
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 5646,
+    "input_tokens": 25,
+    "output_tokens": 71
+  },
+  "recorded_at": "2026-09-11T16:21:09.305704+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Annual fee for Alpine, in dollars?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "005a702e8c81d5a74c60149acd4e2dea281fe73d212380955392920bdf8f8f70"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "3f17fc1ce4b83e9d92aebcb3f9be13cb0f624b9b8795da99a6831275a9c38dc7"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"129.00\", \"evidence\": \"The tier changes three things: how long they have to return something, how much they must spend before shipping is free, and whether a restocking fee is charged at all.\", \"section\": \"sec-loyalty\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 283.79,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 5646,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 25,
+    "output_reasoning": 0,
+    "output_visible": 71,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 5646,
+      "input_tokens": 25,
+      "output_tokens": 71
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "b118ddd60d85bc746bad972437e2219434348b6bde4603723f49e450bdfc32c1",
+  "latency_ms": 1539.88,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"72\", \"evidence\": \"A case with no customer response for 96 hours escalates automatically to the next level.\", \"section\": \"sec-escalation\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_b118ddd60d85bc74",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 7340,
+      "input_tokens": 47,
+      "output_tokens": 65
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 7340,
+    "input_tokens": 47,
+    "output_tokens": 65
+  },
+  "recorded_at": "2026-09-11T16:21:11.957716+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "A case sits with customer relations manager. What resolution target in hours applies?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "005a702e8c81d5a74c60149acd4e2dea281fe73d212380955392920bdf8f8f70"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "3f17fc1ce4b83e9d92aebcb3f9be13cb0f624b9b8795da99a6831275a9c38dc7"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"72\", \"evidence\": \"A case with no customer response for 96 hours escalates automatically to the next level.\", \"section\": \"sec-escalation\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 824.88,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 7340,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 47,
+    "output_reasoning": 0,
+    "output_visible": 65,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 7340,
+      "input_tokens": 47,
+      "output_tokens": 65
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

@@ -76,10 +76,10 @@ if have engine/.venv/bin/tokop; then
   else
     skip "tokop fixtures-check" "demo workload not generated yet"
   fi
-  if have fixtures/test/manifest.json || have fixtures/demo/manifest.json; then
+  if have engine/tokop/optimize/report.py; then
     run "tokop report --check" bash -c "cd '$ROOT' && engine/.venv/bin/tokop report --check"
   else
-    skip "tokop report --check" "no recorded fixtures yet"
+    skip "tokop report --check" "the report engine arrives in M4"
   fi
 else
   skip "tokop fixtures-check" "tokop CLI not installed"

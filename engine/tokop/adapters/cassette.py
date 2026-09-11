@@ -17,6 +17,7 @@ back to a live call: a demo that quietly spends money is worse than one that fai
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import tempfile
@@ -28,6 +29,17 @@ from pydantic import BaseModel, Field
 
 from tokop.adapters.base import CassetteMiss, LLMRequest, LLMResponse
 from tokop.core.usage import TokenUsage
+
+#: Block texts longer than this are stored once in ``blobs/`` and referenced by hash. The demo
+#: handbook is ~18 kB and appears in every one of ~1,300 requests; storing it inline would make
+#: the committed fixture set 34 MB of the same paragraph. The blob sits next to the cassettes,
+#: so a request is still fully auditable — it is deduplicated, not elided.
+BLOB_THRESHOLD_CHARS = 512
+BLOB_KEY = "$blob"
+
+
+def _blob_digest(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 class Cassette(BaseModel):
@@ -86,6 +98,44 @@ class CassetteStore:
         self.root = root
         self._index: dict[str, Path] | None = None
 
+    @property
+    def blob_dir(self) -> Path:
+        return self.root / "blobs"
+
+    def _dehydrate(self, value: Any) -> Any:
+        """Replace long block texts with a blob reference, writing the blob once."""
+        if isinstance(value, dict):
+            if (
+                "text" in value
+                and isinstance(value["text"], str)
+                and len(value["text"]) > BLOB_THRESHOLD_CHARS
+            ):
+                digest = _blob_digest(value["text"])
+                blob = self.blob_dir / f"{digest}.txt"
+                if not blob.exists():
+                    blob.parent.mkdir(parents=True, exist_ok=True)
+                    blob.write_text(value["text"])
+                return {**value, "text": {BLOB_KEY: digest}}
+            return {k: self._dehydrate(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [self._dehydrate(v) for v in value]
+        return value
+
+    def _hydrate(self, value: Any) -> Any:
+        if isinstance(value, dict):
+            if set(value) == {BLOB_KEY}:
+                blob = self.blob_dir / f"{value[BLOB_KEY]}.txt"
+                if not blob.exists():
+                    raise FileNotFoundError(
+                        f"cassette references blob {value[BLOB_KEY][:12]}… but "
+                        f"{blob} is missing. The fixture set is incomplete."
+                    )
+                return blob.read_text()
+            return {k: self._hydrate(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [self._hydrate(v) for v in value]
+        return value
+
     def path_for(self, key: str) -> Path:
         # Two-character shard so a 1,500-call recording does not make one unlistable directory.
         return self.root / key[:2] / f"{key}.json"
@@ -97,7 +147,12 @@ class CassetteStore:
         path = self.path_for(key)
         if not path.exists():
             return None
-        return Cassette.model_validate_json(path.read_text())
+        return self._read(path)
+
+    def _read(self, path: Path) -> Cassette:
+        payload = json.loads(path.read_text())
+        payload["request"] = self._hydrate(payload.get("request"))
+        return Cassette.model_validate(payload)
 
     def require(self, key: str, request: LLMRequest) -> Cassette:
         cassette = self.get(key)
@@ -108,7 +163,9 @@ class CassetteStore:
     def put(self, cassette: Cassette) -> Path:
         path = self.path_for(cassette.key)
         path.parent.mkdir(parents=True, exist_ok=True)
-        payload = cassette.model_dump_json(indent=2)
+        stored = cassette.model_dump()
+        stored["request"] = self._dehydrate(stored.get("request"))
+        payload = json.dumps(stored, indent=2, sort_keys=True, default=str)
         fd, tmp_name = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
         try:
             with os.fdopen(fd, "w") as handle:
@@ -159,10 +216,11 @@ class CassetteStore:
             return []
         return sorted(p.stem for p in self.root.glob("*/*.json"))
 
+    def blob_count(self) -> int:
+        return len(list(self.blob_dir.glob("*.txt"))) if self.blob_dir.exists() else 0
+
     def all(self) -> list[Cassette]:
-        return [
-            Cassette.model_validate_json(p.read_text()) for p in sorted(self.root.glob("*/*.json"))
-        ]
+        return [self._read(p) for p in sorted(self.root.glob("*/*.json"))]
 
     def __len__(self) -> int:
         return len(self.keys())

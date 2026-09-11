@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "bc7ae0d47a990b823fe9405b9974d68f7d3315a0917807af6f7071e732fa9ed2",
+  "latency_ms": 3684.28,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "Let me walk you through how this works so the number makes sense.\n\nLooking at the handbook material provided, the relevant rule is in the section that governs this situation, and it is worth reading carefully because there are a few interacting pieces here.\n\nThe handbook says: \"Offer the customer the return at the category's restocking fee plus a flat repackaging charge, and if they dispute it, escalate to the returns specialist rather than arguing the point.\"\n\nApplying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. Should you disagree with how this has been applied, I can pass it to a specialist who can take another look.\n\nI hope that's clear, and thank you again for your patience.\n\nFinal answer: no",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_bc7ae0d47a990b82",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 7704,
+      "input_tokens": 48,
+      "output_tokens": 259
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 7704,
+    "input_tokens": 48,
+    "output_tokens": 259
+  },
+  "recorded_at": "2026-09-11T16:21:23.084261+00:00",
+  "request": {
+    "max_tokens": 2000,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Customer question: Original packaging required for insulated outerwear: yes or no?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "a0a96517cb9a269be5e9889bb60101fa7097840d1bde0a3060fc8f2e5bddebee"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "d81b1ef345a937556b9d09b0385434edc68e33ab4d766e2d18b89a4534a3a586"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "Let me walk you through how this works so the number makes sense.\n\nLooking at the handbook material provided, the relevant rule is in the section that governs this situation, and it is worth reading carefully because there are a few interacting pieces here.\n\nThe handbook says: \"Offer the customer the return at the category's restocking fee plus a flat repackaging charge, and if they dispute it, escalate to the returns specialist rather than arguing the point.\"\n\nApplying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. Should you disagree with how this has been applied, I can pass it to a specialist who can take another look.\n\nI hope that's clear, and thank you again for your patience.\n\nFinal answer: no",
+  "stop_reason": "end_turn",
+  "ttft_ms": 835.28,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 7704,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 48,
+    "output_reasoning": 0,
+    "output_visible": 259,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 7704,
+      "input_tokens": 48,
+      "output_tokens": 259
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}
