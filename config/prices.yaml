@@ -1,0 +1,89 @@
+# Official direct-provider prices. These override anything pulled by `tokop sync-models`.
+#
+# Every entry carries the URL it was read from, the date it was read, and whether it was
+# checked against that page (SPEC.md non-negotiable 4). `verified: false` is not a failure
+# state — it is the honest label for a number nobody has confirmed, and the UI marks it.
+#
+# Cache rates are written out rather than derived, even where they follow Anthropic's
+# multipliers exactly, so that a future price that breaks the pattern needs no code change.
+# Units are US dollars per million tokens.
+
+prices:
+  claude-opus-5:
+    provider: anthropic
+    display_name: Claude Opus 5
+    input: 5
+    output: 25
+    cache_write_5m: 6.25      # 1.25x base input
+    cache_write_1h: 10        # 2x base input
+    cache_read: 0.50          # 0.1x base input
+    batch_discount: 0.5
+    min_cacheable_tokens: 512
+    context_tokens: 1000000
+    max_output_tokens: 128000
+    tool_use_system_prompt_tokens: 286   # tool_choice auto/none; 406 for any/tool
+    tokenizer_generation: newer          # Claude 4.7 onward, ~30% more tokens for the same text
+    provenance:
+      source_url: https://platform.claude.com/docs/en/about-claude/pricing
+      retrieved: 2026-09-11
+      verified: true
+
+  claude-sonnet-5:
+    provider: anthropic
+    display_name: Claude Sonnet 5
+    input: 2
+    output: 10
+    cache_write_5m: 2.50
+    cache_write_1h: 4
+    cache_read: 0.20
+    batch_discount: 0.5
+    min_cacheable_tokens: 1024
+    context_tokens: 1000000
+    max_output_tokens: 128000
+    tool_use_system_prompt_tokens: 354   # 474 for any/tool
+    tokenizer_generation: newer
+    provenance:
+      source_url: https://platform.claude.com/docs/en/about-claude/pricing
+      retrieved: 2026-09-11
+      verified: true
+      note: >-
+        The $2/$10 introductory price became the standard price; the increase scheduled for
+        2026-09-01 did not occur.
+
+  claude-haiku-4-5-20251001:
+    provider: anthropic
+    display_name: Claude Haiku 4.5
+    input: 1
+    output: 5
+    cache_write_5m: 1.25
+    cache_write_1h: 2
+    cache_read: 0.10
+    batch_discount: 0.5
+    min_cacheable_tokens: 4096
+    context_tokens: 200000
+    max_output_tokens: 64000
+    tool_use_system_prompt_tokens: 496   # 588 for any/tool
+    tokenizer_generation: previous       # Sonnet 4.6 and earlier; counts lower than Opus 5
+    provenance:
+      source_url: https://platform.claude.com/docs/en/about-claude/pricing
+      retrieved: 2026-09-11
+      verified: true
+
+  claude-fable-5-1:
+    provider: anthropic
+    display_name: Claude Fable 5.1
+    input: 10
+    output: 50
+    cache_write_5m: 12.50
+    cache_write_1h: 20
+    cache_read: 0.25          # 0.025x base input, not the usual 0.1x
+    batch_discount: 0.5
+    min_cacheable_tokens: 512
+    context_tokens: 1000000
+    max_output_tokens: 128000
+    tokenizer_generation: newer
+    provenance:
+      source_url: https://platform.claude.com/docs/en/about-claude/pricing
+      retrieved: 2026-09-11
+      verified: true
+      note: Cache reads are 0.025x base input on Fable 5.1 and Mythos 5.1, not 0.1x.

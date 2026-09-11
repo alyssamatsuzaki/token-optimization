@@ -7,6 +7,8 @@ import sys
 import typer
 
 from tokop import recording_state
+from tokop.core.registry import OPENROUTER_MODELS_URL, load_registry
+from tokop.paths import repo_root
 
 app = typer.Typer(
     add_completion=False,
@@ -77,9 +79,43 @@ def fixtures_check() -> None:
 
 
 @app.command("sync-models")
-def sync_models() -> None:
+def sync_models(
+    url: str = typer.Option(OPENROUTER_MODELS_URL, "--url", help="Model listing endpoint."),
+    out: str = typer.Option(
+        "fixtures/test/openrouter-models.json", "--out", help="Where to write the snapshot."
+    ),
+) -> None:
     """Pull model metadata from OpenRouter's public model listing into the registry."""
-    _not_yet("sync-models", "M2")
+    from tokop.core.sync import SyncError, fetch_listing, write_snapshot
+
+    destination = repo_root() / out
+    try:
+        payload = fetch_listing(url)
+    except SyncError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+    count = write_snapshot(payload, destination)
+    typer.echo(f"wrote {count} priced models to {out} (retrieved {payload['_tokop_retrieved']})")
+    typer.echo("Everything from the listing loads as verified: false; config/prices.yaml wins.")
+
+
+@app.command()
+def models() -> None:
+    """List the model registry with its price provenance."""
+    registry = load_registry()
+    typer.echo(f"{'model':38} {'in $/Mtok':>10} {'out $/Mtok':>11}  verified  source")
+    for model_id in sorted(registry.models):
+        entry = registry.models[model_id]
+        mark = "yes" if entry.price.provenance.verified else "NO "
+        typer.echo(
+            f"{model_id:38} {entry.price.input:>10} {entry.price.output:>11}  {mark:8}  "
+            f"{entry.price.provenance.source_url}"
+        )
+    roles = ", ".join(f"{k}={v}" for k, v in sorted(registry.roles.items()))
+    typer.echo(f"\nroles: {roles}")
+    typer.echo(f"scarce: {', '.join(registry.scarce)}")
+    if registry.listing_taken:
+        typer.echo(f"listing snapshot: {registry.listing_source} taken {registry.listing_taken}")
 
 
 def main() -> int:

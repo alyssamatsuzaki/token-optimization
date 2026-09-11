@@ -54,3 +54,21 @@ so every run of `make verify` reproduces the same numbers.
 
 **D10 — Self-hosted fonts from npm (`@fontsource`) rather than a font CDN.** The demo container
 must not depend on a third-party request at load time, and the egress policy would block it.
+
+**D11 — Appendix B re-verified at M2 against Anthropic's own documentation, and it is correct.**
+Read from `platform.claude.com` on 2026-09-11: Opus 5 `claude-opus-5` $5/$25 with cache writes
+$6.25/$10 and reads $0.50; Sonnet 5 `claude-sonnet-5` $2/$10; Haiku 4.5
+`claude-haiku-4-5-20251001` $1/$5; cache minimums 512/1,024/4,096 tokens; 4 breakpoints with a
+20-block lookback; Batch 50% off both directions; `max_tokens: 0` pre-warming valid and rejected
+alongside streaming, thinking, structured outputs and forced tool choice; the newer tokenizer
+from Claude 4.7 onward producing ~30% more tokens. No conflict to resolve. Also captured:
+Fable 5.1 reads at 0.025x rather than 0.1x, and the per-model tool-use system prompt token
+counts the Inspect screen needs (Opus 5 286, Sonnet 5 354, Haiku 4.5 496 for `auto`/`none`).
+
+**D12 — Price verification was done in the main session rather than by a subagent.** SPEC.md
+section 1 suggests delegating; one documentation page is cheaper to read directly than to brief
+an agent about, and the conclusion needed to land in the file being written at that moment.
+
+**D13 — The cascade tier order uses blended input+output price, not input alone.** A model with
+cheap input and expensive output is not a cheap tier for a workload that generates. One line in
+`Registry.tiers_by_cost`.

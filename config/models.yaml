@@ -1,0 +1,25 @@
+# Model roles and scarcity. The defaults for the demo pipelines live here and nowhere else
+# (SPEC.md section 6), so changing a tier is a config edit, not a code edit.
+
+roles:
+  frontier: claude-opus-5
+  mid: claude-sonnet-5
+  cheap: claude-haiku-4-5-20251001
+
+# Models whose capacity is the constraint rather than the dollars. Spend on these is tracked
+# separately and the cascade can be told to minimise it ("Protect scarce models").
+scarce:
+  - claude-opus-5
+
+# Per-provider concurrency. Each provider gets its own semaphore in the runner.
+concurrency:
+  anthropic: 4
+  openai: 4
+  openrouter: 4
+  gemini: 4
+  deepseek: 4
+  simulated: 16
+
+# The OpenRouter listing snapshot used when `tokop sync-models` cannot reach the network.
+# Its own provenance travels with it so nothing claims it was fetched today.
+model_listing_snapshot: fixtures/test/openrouter-models.json
