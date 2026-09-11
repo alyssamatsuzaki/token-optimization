@@ -1,0 +1,87 @@
+# Base URLs for every provider Tokop can call. Official public APIs only (SPEC.md section 9.6).
+# `enabled: false` means "documented but unconfirmed": no call is made until a base URL and the
+# usage field names have been confirmed against that provider's own documentation.
+providers:
+  anthropic:
+    adapter: anthropic
+    base_url: https://api.anthropic.com
+    api_key_env: ANTHROPIC_API_KEY
+    enabled: true
+    usage_mapping: anthropic
+    docs: https://platform.claude.com/docs/en/api/messages
+
+  openai:
+    adapter: openai_compatible
+    base_url: https://api.openai.com/v1
+    api_key_env: OPENAI_API_KEY
+    enabled: true
+    usage_mapping: openai
+    docs: https://platform.openai.com/docs/api-reference/chat
+
+  openrouter:
+    adapter: openai_compatible
+    base_url: https://openrouter.ai/api/v1
+    api_key_env: OPENROUTER_API_KEY
+    enabled: true
+    usage_mapping: openrouter
+    docs: https://openrouter.ai/docs/api-reference/overview
+
+  gemini:
+    adapter: openai_compatible
+    base_url: https://generativelanguage.googleapis.com/v1beta/openai/
+    api_key_env: GEMINI_API_KEY
+    enabled: true
+    usage_mapping: openai
+    docs: https://ai.google.dev/gemini-api/docs/openai
+
+  deepseek:
+    adapter: openai_compatible
+    base_url: https://api.deepseek.com
+    api_key_env: DEEPSEEK_API_KEY
+    enabled: true
+    usage_mapping: deepseek
+    docs: https://api-docs.deepseek.com/guides/kv_cache
+
+  # Unconfirmed. Base URLs and usage field names have not been read from these vendors' own
+  # docs in this build (the egress policy blocked them), so they stay off. See DECISIONS.md.
+  qwen:
+    adapter: openai_compatible
+    base_url: null
+    api_key_env: QWEN_API_KEY
+    enabled: false
+    usage_mapping: openai
+    unconfirmed_reason: base URL and usage fields not confirmed against vendor documentation
+
+  kimi:
+    adapter: openai_compatible
+    base_url: null
+    api_key_env: MOONSHOT_API_KEY
+    enabled: false
+    usage_mapping: openai
+    unconfirmed_reason: base URL and usage fields not confirmed against vendor documentation
+
+  zai:
+    adapter: openai_compatible
+    base_url: null
+    api_key_env: ZAI_API_KEY
+    enabled: false
+    usage_mapping: openai
+    unconfirmed_reason: base URL and usage fields not confirmed against vendor documentation
+
+  perplexity:
+    adapter: openai_compatible
+    base_url: null
+    api_key_env: PERPLEXITY_API_KEY
+    enabled: false
+    usage_mapping: openai
+    unconfirmed_reason: base URL and usage fields not confirmed against vendor documentation
+
+  # Deterministic in-process provider used to build fixtures/test/ and to run the resume test.
+  # It never opens a socket. It is not selectable in live mode.
+  simulated:
+    adapter: simulated
+    base_url: null
+    api_key_env: null
+    enabled: true
+    usage_mapping: anthropic
+    test_only: true

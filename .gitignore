@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+web/dist/
+web/playwright-report/
+web/test-results/
+
+# Local state (the ledger; regenerated from fixtures)
+.tokop/
+
+# Secrets
+.env

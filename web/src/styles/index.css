@@ -1,0 +1,57 @@
+@import "@fontsource-variable/ibm-plex-sans/index.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  html {
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    @apply bg-paper text-ink font-sans text-base;
+    margin: 0;
+  }
+  /* One visible focus ring, everywhere. See DESIGN.md section 8. */
+  :focus-visible {
+    outline: 2px solid #12456b;
+    outline-offset: 2px;
+  }
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  /* Scarcity is a mark, not a hue: see DESIGN.md section 1. */
+  .hatch-scarce {
+    background-image: repeating-linear-gradient(
+      45deg,
+      #c0452a 0,
+      #c0452a 1px,
+      transparent 1px,
+      transparent 5px
+    );
+  }
+  .rule-t {
+    border-top: 1px solid #15181a1f;
+  }
+  .rule-b {
+    border-bottom: 1px solid #15181a1f;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
