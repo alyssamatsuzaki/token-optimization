@@ -328,9 +328,21 @@ class TestWorkloadSpec:
 
     def test_b0_declares_its_antipatterns(self, workload) -> None:
         b0 = workload.pipeline("B0")
-        assert set(b0.known_antipatterns) >= {"PL01", "PL02", "PL06", "PL07", "PL10", "PL11"}
+        assert set(b0.known_antipatterns) >= {"PL01", "PL02", "PL06", "PL10", "PL11"}
         for rule, explanation in b0.known_antipatterns.items():
             assert len(explanation) > 40, rule
+
+    def test_b0_documents_the_duplicate_rule_the_lint_cannot_catch(self, workload) -> None:
+        """The citation rule is stated twice in different words, as SPEC.md section 6 asks.
+        PL07 is a lexical rule and cannot see a paraphrase, so B0 records that in its notes
+        rather than claiming a catch it does not make (DECISIONS.md D18)."""
+        b0 = workload.pipeline("B0")
+        assert "PL07" not in b0.known_antipatterns
+        notes = " ".join(b0.notes)
+        assert "PL07" in notes and "paraphrase" in notes
+        instructions = next(b for b in b0.system if b.label == "instructions").text
+        assert "Always cite the section" in instructions
+        assert "mention which part of the handbook you used" in instructions
 
     def test_b0_and_b1_have_identical_instructions(self, workload) -> None:
         """B1 is B0 reordered, not B0 rewritten. The comparison is only fair if that holds."""

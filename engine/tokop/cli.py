@@ -70,35 +70,187 @@ def build_test_fixtures_cmd() -> None:
 
 
 @app.command()
-def record(workload: str = typer.Option(..., "--workload")) -> None:
-    """Record a workload against live providers. Capped by RECORD_BUDGET_USD."""
-    _not_yet("record", "M4")
+def record(
+    workload: str = typer.Option("data/demo/workload.yaml", "--workload"),
+    yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt."),
+) -> None:
+    """Record a workload against live providers. Capped by RECORD_BUDGET_USD.
+
+    Refuses to start without a key and an explicit budget, prints its projection before
+    spending anything, and aborts if the projection exceeds the remaining budget. An
+    interrupted recording resumes: identical requests reuse their cassette, so nothing is
+    paid for twice.
+    """
+    from tokop.recorder import RecordingStopped, require_live_consent
+    from tokop.settings import Mode, get_settings
+
+    settings = get_settings()
+    if settings.mode != Mode.LIVE:
+        typer.echo(
+            f"TOKOP_MODE is {settings.mode!r}. Recording makes live API calls, so it only runs "
+            "with TOKOP_MODE=live.",
+            err=True,
+        )
+        raise typer.Exit(2)
+
+    try:
+        budget = require_live_consent(settings)
+    except RecordingStopped as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+
+    typer.echo(f"workload: {workload}")
+    typer.echo(f"budget:   ${budget} (RECORD_BUDGET_USD)")
+    typer.echo(
+        "\nThe live recording path is wired to the recorder and the spend guard, but it has "
+        "not been exercised against a real provider in this build: no credentials were "
+        "available (DECISIONS.md D1). Rather than claim a path that has never run, `tokop "
+        "record` stops here and points you at the simulated fixture builder."
+    )
+    typer.echo("\n  tokop build-test-fixtures    # deterministic, spends nothing")
+    raise typer.Exit(3)
 
 
 @app.command()
 def prove(
-    workload: str = typer.Option(..., "--workload"),
-    baseline: str = typer.Option(..., "--baseline"),
-    candidate: str = typer.Option(..., "--candidate"),
+    workload: str = typer.Option("data/demo/workload.yaml", "--workload"),
+    baseline: str = typer.Option("B0", "--baseline"),
+    candidate: str = typer.Option("B3", "--candidate"),
     margin: float = typer.Option(0.03, "--margin"),
 ) -> None:
-    """Run the proof for a candidate pipeline against a baseline."""
-    _not_yet("prove", "M4")
+    """Run the proof for a candidate pipeline against a baseline.
+
+    Exits 0 when the verdict is non-inferior and 1 otherwise, so it can gate CI.
+    """
+    from tokop.optimize.report import build_report
+
+    payload = build_report()
+    proof = payload["proof"]
+    if proof["baseline"]["pipeline"] != baseline or proof["candidate"]["pipeline"] != candidate:
+        typer.echo(
+            f"this build's report compares {proof['baseline']['pipeline']} with "
+            f"{proof['candidate']['pipeline']}; --baseline/--candidate are not yet wired to "
+            "arbitrary pairs.",
+            err=True,
+        )
+        raise typer.Exit(2)
+
+    typer.echo(f"workload:  {payload['workload']['name']} ({workload})")
+    typer.echo(
+        f"splits:    {proof['split_sizes']['calibration']} calibration, "
+        f"{proof['split_sizes']['test']} test"
+    )
+    typer.echo(f"margin:    {margin:.0%}")
+    typer.echo("")
+    typer.echo(f"VERDICT:   {proof['verdict']['display']}")
+    typer.echo(f"           {proof['verdict']['sentence']}")
+    typer.echo("")
+    typer.echo(f"proof cost ${float(proof['proof_cost']['total_usd']):.4f}", nl=False)
+    if proof["repayment_tasks"]:
+        typer.echo(f", repaid after {proof['repayment_tasks']:,} tasks")
+    else:
+        typer.echo("")
+    if payload["provenance"]["is_test_data"]:
+        typer.echo("")
+        typer.echo("NOTE: computed over simulated test data, not a recording.", err=True)
+    if proof["verdict"]["label"] != "non_inferior":
+        raise typer.Exit(1)
 
 
 @app.command()
 def report(
-    check: bool = typer.Option(False, "--check"),
-    write_readme: bool = typer.Option(False, "--write-readme"),
+    check: bool = typer.Option(False, "--check", help="Recompute and assert everything agrees."),
+    write_readme: bool = typer.Option(False, "--write-readme", help="Rewrite the README block."),
+    out: str = typer.Option("", "--out", help="Write the full report JSON here."),
 ) -> None:
     """Recompute every headline metric from fixtures."""
-    _not_yet("report", "M4")
+    import json as _json
+
+    from tokop.optimize.report import (
+        build_report,
+        cached_report,
+        clear_cache,
+        readme_metrics_current,
+        write_readme_metrics,
+    )
+
+    payload = build_report()
+
+    if write_readme:
+        path = write_readme_metrics(payload)
+        typer.echo(f"wrote the metrics block to {path.relative_to(repo_root())}")
+
+    if out:
+        destination = repo_root() / out
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(_json.dumps(payload.data, indent=2, sort_keys=True, default=str))
+        typer.echo(f"wrote {destination.relative_to(repo_root())}")
+
+    if not check:
+        headline = payload.headline()
+        for key, value in headline.items():
+            typer.echo(f"  {key:38} {value}")
+        return
+
+    failures = 0
+
+    # 1. The computation is deterministic: a second run produces identical headline numbers.
+    again = build_report()
+    if again.headline() != payload.headline():
+        typer.echo("  FAIL  the report is not deterministic across two builds", err=True)
+        failures += 1
+    else:
+        typer.echo("  ok    the report recomputes identically")
+
+    # 2. The API serves the same computation, not a parallel one.
+    clear_cache()
+    served = cached_report(False)
+    if served.headline() != payload.headline():
+        typer.echo("  FAIL  /api/report does not match a fresh computation", err=True)
+        failures += 1
+    else:
+        typer.echo("  ok    /api/report serves the same numbers")
+
+    # 3. The README's metrics block is current.
+    current, message = readme_metrics_current(payload)
+    typer.echo(f"  {'ok  ' if current else 'FAIL'}  {message}")
+    failures += 0 if current else 1
+
+    if failures:
+        typer.echo(f"\nreport --check FAILED ({failures})", err=True)
+        raise typer.Exit(1)
+    typer.echo("\nreport --check passed")
 
 
 @app.command()
-def lint(path: str = typer.Argument(...)) -> None:
+def lint(
+    pipeline: str = typer.Argument("B0", help="Pipeline ID from the demo workload."),
+) -> None:
     """Run the prompt lint over a pipeline template."""
-    _not_yet("lint", "M4")
+    from tokop.optimize.report import build_report
+
+    payload = build_report()
+    entry = payload["lint"].get(pipeline)
+    if entry is None:
+        typer.echo(
+            f"no pipeline {pipeline!r}; this workload defines {', '.join(sorted(payload['lint']))}",
+            err=True,
+        )
+        raise typer.Exit(2)
+    clear = entry["clear"]
+    typer.echo(
+        f"{pipeline}: CLEAR {entry['clear_total']}/25  "
+        + "  ".join(f"{letter} {score}" for letter, score in clear.items())
+    )
+    if not entry["findings"]:
+        typer.echo("  no findings")
+        return
+    for finding in entry["findings"]:
+        typer.echo(
+            f"  {finding['id']} [{finding['group']:5}] {finding['confidence']:9} "
+            f"${float(finding['projected_usd_per_1k']):>8.2f}/1k  {finding['title']}"
+        )
+        typer.echo(f"        {finding['evidence'][:100]}")
 
 
 @app.command("dataset")

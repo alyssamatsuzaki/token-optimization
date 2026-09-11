@@ -8,27 +8,26 @@
 | M1 Core math | **done** | usage, pricing, stats, tokenize, budget; 138 tests, 98% cover |
 | M2 Registry and adapters | **done** | prices verified vs. Anthropic docs; both adapters; cassettes; resume test |
 | M3 Workloads | **done** | generator, handbook, grading, runner, ledger, fixtures/test/ |
-| M4 Optimization | not started | |
+| M4 Optimization | **done** | lint, findings, scorers, cascade, proof, report; 406 tests, 95% cover |
 | M5 Optimize screen | not started | |
 | M6 Remaining screens | not started | |
 | M7 Finish | not started | |
 
 ## Next
 
-M4 Optimization: lint (PL01-PL14), workload findings (W01-W06), transforms, scorers, the
-cascade and its simulator, proof, report JSON, and the live `make record` path.
+M5 Optimize screen: the baseline graph, ranked findings, Build candidate, Run proof, the
+headline row and verdict, the cost-quality frontier, and the trace drawer — all on the
+committed fixtures, with the Playwright Optimize flow passing.
 
-## Demo numbers so far (simulated test fixtures, 200-task test split)
+## Demo result (simulated test fixtures, 200-task test split)
 
-| Pipeline | Accuracy | Cost | Cost per successful task |
-|---|---:|---:|---:|
-| B0 frontier | 95.5% | $8.92 | $0.0467 |
-| B1 frontier | 95.5% | $2.03 | $0.0106 |
-| B2 frontier | 97.0% | $1.21 | $0.0062 |
-| B2 mid | 97.0% | $0.48 | $0.0025 |
-| B2 cheap | 78.5% | $0.18 | $0.0012 |
+Generated into README.md by `tokop report --write-readme`. Headline: B0 $0.04670 per successful
+task, B3 $0.00393 — a 91.6% reduction, accuracy +0.5 points with 95% CI [-3.0, +4.0], verdict
+**inconclusive** because the lower bound sits exactly on the 3-point margin; about 4 more tasks
+would settle it. The cascade routes 34.5% cheap / 42.5% mid / 23.0% frontier. The proof itself
+cost $13.80 and repays after 339 tasks.
 
-B3's cascade result arrives with M4. These are simulated, not recorded (DECISIONS.md D1).
+These are simulated, not recorded (DECISIONS.md D1).
 
 ## Known issues
 

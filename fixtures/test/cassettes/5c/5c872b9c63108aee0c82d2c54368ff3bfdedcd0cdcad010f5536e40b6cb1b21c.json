@@ -34,7 +34,7 @@
     "input_tokens": 7757,
     "output_tokens": 244
   },
-  "recorded_at": "2026-09-11T16:21:20.510053+00:00",
+  "recorded_at": "2026-09-11T16:47:49.591999+00:00",
   "request": {
     "max_tokens": 2000,
     "messages": [

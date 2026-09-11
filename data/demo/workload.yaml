@@ -50,9 +50,7 @@ pipelines:
       PL06: >-
         There is no output contract beyond "end with a line". max_tokens is 2,000 for answers
         that are usually a number, so the model writes an essay and the workload pays for it.
-      PL07: >-
-        "Always cite the section" and "make sure you mention which part of the handbook you
-        used" are the same rule stated twice.
+
       PL10: >-
         No role, no task statement and no success criteria. The prompt says what to avoid far
         more clearly than what to do.
@@ -61,6 +59,11 @@ pipelines:
     notes:
       - The handbook is identical across every call but cannot be cached where it sits.
       - max_tokens 2,000 for answers a grader reads as one number.
+      - >-
+        The citation rule is also stated twice, as "always cite the section" and "make sure you
+        mention which part of the handbook you used". PL07 does not catch it: a word-3-gram
+        Jaccard rule cannot see a paraphrase, and semantic duplicate detection needs embeddings,
+        which v1 excludes. See DECISIONS.md D18.
     system:
       - label: timestamp
         text: "{{timestamp}}"

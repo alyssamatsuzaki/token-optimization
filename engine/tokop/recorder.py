@@ -287,6 +287,98 @@ def build_test_fixtures(
     return report
 
 
+PILOT_TASKS = 10
+
+
+@dataclass(frozen=True)
+class Projection:
+    """What a recording is expected to cost, from a pilot."""
+
+    pilot_tasks: int
+    pilot_cost: Decimal
+    p95_output_tokens: int
+    total_tasks: int
+    projected_usd: Decimal
+    budget_usd: Decimal | None
+
+    @property
+    def within_budget(self) -> bool:
+        return self.budget_usd is None or self.projected_usd <= self.budget_usd
+
+    def describe(self) -> str:
+        lines = [
+            f"pilot:      {self.pilot_tasks} tasks per pipeline, ${self.pilot_cost:.4f} spent",
+            f"p95 output: {self.p95_output_tokens:,} tokens",
+            f"projected:  ${self.projected_usd:.2f} for {self.total_tasks:,} task-runs",
+        ]
+        if self.budget_usd is not None:
+            lines.append(
+                f"budget:     ${self.budget_usd} remaining — "
+                + ("within budget" if self.within_budget else "OVER BUDGET, refusing to start")
+            )
+        else:
+            lines.append("budget:     RECORD_BUDGET_USD is not set, so nothing may be spent")
+        return "\n".join(lines)
+
+
+def project_from_pilot(
+    pilot_cost: Decimal,
+    pilot_tasks: int,
+    output_tokens: Sequence[int],
+    total_tasks: int,
+    budget: Decimal | None,
+) -> Projection:
+    """Project a whole recording from a small pilot.
+
+    The projection scales the pilot's cost by task count and then inflates it by the ratio of
+    p95 output to mean output, because the pilot's *mean* under-predicts a run that will contain
+    long answers. Erring high is the right direction for something that refuses to start.
+    """
+    if pilot_tasks <= 0:
+        raise RecordingStopped("a pilot must run at least one task")
+    tokens = sorted(output_tokens) or [0]
+    index = max(0, min(len(tokens) - 1, round(0.95 * (len(tokens) - 1))))
+    p95 = tokens[index]
+    mean = sum(tokens) / len(tokens) if tokens else 0.0
+    inflation = Decimal(str(p95 / mean)) if mean > 0 else Decimal(1)
+    per_task = pilot_cost / Decimal(pilot_tasks)
+    projected = (per_task * Decimal(total_tasks) * max(inflation, Decimal(1))).quantize(
+        Decimal("0.0001")
+    )
+    return Projection(
+        pilot_tasks=pilot_tasks,
+        pilot_cost=pilot_cost,
+        p95_output_tokens=p95,
+        total_tasks=total_tasks,
+        projected_usd=projected,
+        budget_usd=budget,
+    )
+
+
+def require_live_consent(settings: Any) -> Decimal:
+    """Refuse to spend without an explicit budget and a key.
+
+    Setting ``RECORD_BUDGET_USD`` *is* the consent to spend up to that amount (SPEC.md section
+    0). Tokop never sets it, never raises it, and will not run a live recording without it.
+    """
+    if not settings.anthropic_api_key:
+        raise RecordingStopped(
+            "ANTHROPIC_API_KEY is not set, so no live call can be made. Run "
+            "`tokop build-test-fixtures` for a simulated fixture set that costs nothing."
+        )
+    if settings.record_budget_usd is None:
+        raise RecordingStopped(
+            "RECORD_BUDGET_USD is not set. Setting it is your consent to spend up to that "
+            "amount; Tokop will not set it for you. Read docs/DATASET.md first — it shows the "
+            "questions your money would be spent answering."
+        )
+    if settings.record_budget_usd <= 0:
+        raise RecordingStopped(
+            f"RECORD_BUDGET_USD is ${settings.record_budget_usd}; nothing to spend."
+        )
+    return Decimal(settings.record_budget_usd)
+
+
 def check_budget(guard: SpendGuard, projected: Decimal) -> None:
     """Raise before a recording starts if the projection already exceeds the cap."""
     try:

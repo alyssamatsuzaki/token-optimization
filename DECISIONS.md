@@ -91,3 +91,15 @@ inflate n and make the bootstrap treat one observation as two.
 
 **D17 — `fixtures/test/ledger.db` is gitignored.** It is rebuilt from the committed cassettes on
 demand, and a binary blob in git that can be regenerated in seconds is not worth the diff noise.
+
+**D18 — PL07 cannot catch B0's duplicated rule, and the YAML no longer claims it does.**
+SPEC.md section 6 asks B0 to state one rule "twice in different words", and SPEC.md 7.4
+specifies PL07 as a normalized word-3-gram Jaccard at 0.8. Those two requirements cannot both
+be met: a paraphrase shares almost no trigrams with its original (measured: 0.54 for a
+one-word change on an eleven-word bullet, 0.67 for a change at the end). PL07 is implemented
+exactly as specified and catches exact and near-exact duplicates; B0 keeps the paraphrase
+because that is the realistic anti-pattern, and its YAML records that PL07 does not reach it
+rather than pretending otherwise. Catching a paraphrase needs embeddings, which SPEC.md
+section 3 excludes from v1. Adding a second, lexically near-identical bullet to B0 purely to
+make the linter fire was considered and rejected: the spec asks for anti-patterns that are
+realistic, not ones staged for the demo.
