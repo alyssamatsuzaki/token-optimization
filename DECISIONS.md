@@ -103,3 +103,24 @@ rather than pretending otherwise. Catching a paraphrase needs embeddings, which 
 section 3 excludes from v1. Adding a second, lexically near-identical bullet to B0 purely to
 make the linter fire was considered and rejected: the spec asks for anti-patterns that are
 realistic, not ones staged for the demo.
+
+**D19 — Playwright uses the image's pre-installed Chromium rather than downloading one.**
+`playwright.config.ts` sets `executablePath` to `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`
+(overridable with `PLAYWRIGHT_CHROMIUM`), because the download host is blocked by the egress
+policy and the installed build is a different Playwright version from the pinned package.
+
+**D20 — The report body is typed by hand in `web/src/lib/types.ts`, not generated.**
+`api-types.ts` *is* generated from FastAPI's OpenAPI schema with openapi-typescript, as the spec
+asks, and covers the route surface. The report body is assembled as a plain dict by
+`optimize/report.py`, so OpenAPI advertises it as `object` and generation stops at the door.
+Hand-written interfaces describe what is inside it; `tokop report --check` and the e2e suite are
+what keep them honest.
+
+**D21 — Six design fixes came out of the first screenshot critique**, per SPEC.md section 8:
+a graph node's "in / out" row wrapped into a mangled label (split into two rows); the
+test-data banner repeated the manifest note in different words (duplicate removed); findings
+were all styled as projected, so a *measured* finding looked like a guess (now styled by its
+own confidence); quality findings printed "$0.00000", which reads as a measurement of zero
+(now "quality finding"); a node with no spend printed a cost and a share anyway (removed —
+this doubled as the "remove one decorative element" pass for Optimize); and the candidate
+graph was cropped at four nodes (height raised).

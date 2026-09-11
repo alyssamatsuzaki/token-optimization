@@ -1,7 +1,9 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2023"],
+    "lib": [
+      "ES2023"
+    ],
     "module": "ESNext",
     "skipLibCheck": true,
     "moduleResolution": "bundler",
@@ -11,7 +13,15 @@
     "noEmit": true,
     "strict": true,
     "noUnusedLocals": true,
-    "noUnusedParameters": true
+    "noUnusedParameters": true,
+    "types": [
+      "node"
+    ]
   },
-  "include": ["vite.config.ts", "playwright.config.ts", "e2e/**/*.ts", "eslint.config.js"]
+  "include": [
+    "vite.config.ts",
+    "playwright.config.ts",
+    "e2e/**/*.ts",
+    "eslint.config.js"
+  ]
 }

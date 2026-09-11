@@ -88,7 +88,7 @@ fi
 
 # ---------------------------------------------------------------- 6. end to end
 if have web/e2e && [ -n "$(find web/e2e -name '*.spec.ts' 2>/dev/null)" ]; then
-  if [ -d "$HOME/.cache/ms-playwright" ] || [ -d /opt/pw-browsers ]; then
+  if [ -d "$HOME/.cache/ms-playwright" ] || [ -n "$(find /opt/pw-browsers -maxdepth 1 -name 'chromium-*' 2>/dev/null)" ]; then
     run "playwright e2e (replay)" bash -c "cd '$ROOT/web' && pnpm -s e2e"
   else
     skip "playwright e2e (replay)" "no browser installed; run pnpm -C web e2e:install"

@@ -8,22 +8,12 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from tokop import __version__, recording_state
+from tokop import __version__
+from tokop.api.routes import router
 from tokop.paths import web_dist_dir
-from tokop.settings import get_settings
 
 app = FastAPI(title="Tokop", version=__version__)
-
-
-@app.get("/api/health")
-def health() -> dict[str, object]:
-    settings = get_settings()
-    state = recording_state.describe()
-    return {
-        "version": __version__,
-        "mode": settings.mode,
-        "recording": state.to_dict(),
-    }
+app.include_router(router)
 
 
 def mount_spa(application: FastAPI, dist: Path) -> None:

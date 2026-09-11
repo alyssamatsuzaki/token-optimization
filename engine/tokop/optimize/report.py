@@ -54,6 +54,7 @@ from tokop.optimize.findings import (
 from tokop.optimize.lint import Finding, LintContext, clear_score, lint
 from tokop.optimize.proof import ArmResult, ProofCost, build_proof, build_waterfall
 from tokop.optimize.scorers import (
+    FEATURE_REGISTRY,
     ScorerBundle,
     TaskView,
     evaluate_auroc,
@@ -660,6 +661,110 @@ def build_report(
         ],
     }
     return ReportPayload(data)
+
+
+def trace_for(task_id: str) -> dict[str, Any]:
+    """Every call every pipeline made for one task, for the trace drawer (SPEC.md 5.1).
+
+    Replayed from cassettes on demand rather than held in the report: a full trace for 200
+    tasks across 8 runs is far more data than any screen needs at once.
+    """
+    registry = load_registry()
+    workload = load_workload(repo_root() / "data/demo/workload.yaml")
+    bundle = build_dataset(
+        size=workload.dataset.size,
+        calibration_size=workload.dataset.calibration_size,
+        seed=workload.dataset.seed,
+    )
+    item = next((i for i in bundle.items if i.id == task_id), None)
+    if item is None:
+        raise ReportError(f"no task {task_id!r} in this workload")
+
+    root = _fixture_root()
+    manifest = _load_manifest(root)
+    store = CassetteStore(root / "cassettes")
+    snapshot = registry.snapshot(list(registry.roles.values()), date(2026, 9, 11))
+    in_calibration = any(i.id == task_id for i in bundle.calibration)
+    split_name = "calibration" if in_calibration else "test"
+    handbook = bundle.handbook
+
+    calls: list[dict[str, Any]] = []
+    for entry in manifest.get("runs", []):
+        if str(entry["split"]) != split_name:
+            continue
+        pipeline_id = str(entry["pipeline"])
+        tier = str(entry["tier"])
+        model_id = registry.roles[tier]
+        request = workload.pipeline(pipeline_id).render(
+            "simulated",
+            model_id,
+            {"handbook": handbook, "question": item.question, "timestamp": demo_timestamp()},
+        )
+        cassette = store.get(request.cassette_key())
+        if cassette is None:
+            continue
+        outcome = grade(cassette.response_text, item.gold, item.answer_type, item.aliases)
+        breakdown = snapshot.cost(cassette.model, cassette.usage)
+        view = TaskView(
+            task_id=task_id,
+            question=item.question,
+            output=cassette.response_text,
+            context=handbook,
+            tier=tier,
+            output_tokens=cassette.usage.total_output,
+        )
+        features = {
+            name: FEATURE_REGISTRY[name].fn(view)
+            for name in workload.scorer_features
+            if name in FEATURE_REGISTRY
+        }
+        calls.append(
+            {
+                "pipeline": pipeline_id,
+                "tier": tier,
+                "model_id": model_id,
+                "prompt_hash": request.prompt_hash()[:16],
+                "cassette_key": cassette.key[:16],
+                "reused": True,
+                "system_preview": request.system_text[:600],
+                "user_preview": (request.messages[0].text[:600] if request.messages else ""),
+                "static_prefix_chars": len(request.static_prefix_text),
+                "max_tokens": request.max_tokens,
+                "response": cassette.response_text,
+                "usage": {
+                    bucket: {"tokens": value, "source": source}
+                    for bucket, value, source in cassette.usage.bucket_items()
+                },
+                "raw_usage": cassette.raw_usage,
+                "total_input": cassette.usage.total_input,
+                "total_output": cassette.usage.total_output,
+                "cost_usd": str(breakdown.total),
+                "cost_formula": breakdown.formula(),
+                "price_snapshot_id": snapshot.snapshot_id,
+                "latency_ms": cassette.latency_ms,
+                "ttft_ms": cassette.ttft_ms,
+                "scorer_features": features,
+                "grade": outcome.as_dict(),
+                "origin": cassette.origin,
+            }
+        )
+
+    return {
+        "task": {
+            "id": item.id,
+            "question": item.question,
+            "gold": item.gold,
+            "answer_type": item.answer_type,
+            "question_type": item.question_type,
+            "sections": list(item.sections),
+            "split": split_name,
+        },
+        "calls": calls,
+        "note": (
+            "The question type and supporting sections are shown for analysis. The router "
+            "never sees either."
+        ),
+    }
 
 
 @lru_cache(maxsize=4)

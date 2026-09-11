@@ -1,0 +1,218 @@
+import { expect, test, type Page } from "@playwright/test";
+
+/**
+ * The Optimize flow (SPEC.md section 10, check 6).
+ *
+ * These tests do the thing the spec asks for that matters most: they compare what the screen
+ * *displays* against what `/api/report` *returns*. That makes them a check on non-negotiable 1
+ * — every number in the UI comes from engine code — rather than a check that the UI can do
+ * arithmetic consistently with itself.
+ */
+
+/** The report body is a plain object by design; these tests read it the way the UI does. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let report: any;
+
+test.beforeAll(async ({ request }) => {
+  report = await (await request.get("/api/report?protect_scarce=false")).json();
+});
+
+async function openOptimize(page: Page) {
+  await page.goto("/optimize");
+  await expect(page.getByTestId("headline-row")).toBeVisible();
+}
+
+test("the default route is Optimize with the demo workload loaded", async ({ page }) => {
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/optimize$/);
+  await expect(page.getByRole("heading", { name: report.workload.name })).toBeVisible();
+});
+
+test("replay mode labels the fixtures as test data", async ({ page }) => {
+  await openOptimize(page);
+  const banner = page.getByTestId("test-data-banner");
+  if (report.provenance.is_test_data) {
+    await expect(banner).toBeVisible();
+    await expect(banner).toContainText("Simulated test data");
+  } else {
+    await expect(banner).toHaveCount(0);
+  }
+});
+
+test("replay mode names when the fixtures were made and with which models", async ({ page }) => {
+  await openOptimize(page);
+  const line = page.getByTestId("provenance-line");
+  for (const modelId of Object.values(report.provenance.model_ids) as string[]) {
+    await expect(line).toContainText(modelId);
+  }
+  await expect(line).toContainText(String(report.workload.dataset.seed));
+});
+
+test("the headline row shows what the report computed", async ({ page }) => {
+  await openOptimize(page);
+  const headline = page.getByTestId("headline-row");
+  const baseline = report.proof.baseline.cost_per_successful_task.point as number;
+  const candidate = report.proof.candidate.cost_per_successful_task.point as number;
+  await expect(headline).toContainText(`$${baseline.toFixed(5)}`);
+  await expect(headline).toContainText(`$${candidate.toFixed(5)}`);
+  await expect(headline).toContainText(`n = ${report.proof.candidate.n}`);
+  // Every quality claim shows its interval (non-negotiable 5).
+  const delta = report.proof.delta_accuracy;
+  await expect(headline).toContainText("95% CI");
+  await expect(headline).toContainText((delta.low * 100).toFixed(1));
+});
+
+test("the baseline pipeline graph renders with its cost share", async ({ page }) => {
+  await openOptimize(page);
+  await expect(page.getByTestId("graph-stage-baseline")).toBeVisible();
+  await expect(page.getByTestId("graph-node-frontier")).toContainText("100%");
+  await expect(page.getByTestId("graph-node-frontier")).toContainText(
+    report.provenance.model_ids.frontier,
+  );
+});
+
+test("findings are ranked by dollars and every one carries evidence", async ({ page }) => {
+  await openOptimize(page);
+  const rows = page.getByTestId("findings-list").locator("li");
+  await expect(rows).toHaveCount(report.findings.length);
+  for (const finding of report.findings.slice(0, 5)) {
+    const row = rows.filter({ hasText: finding.id }).first();
+    await expect(row).toContainText(finding.title);
+    await expect(row).toContainText(finding.evidence.slice(0, 30));
+  }
+  // The three workload findings the spec names must be present on B0.
+  const text = await page.getByTestId("findings-list").innerText();
+  for (const id of ["W01", "W02", "W03"]) {
+    expect(text).toContain(id);
+  }
+});
+
+test("New experiment is disabled with a reason", async ({ page }) => {
+  await openOptimize(page);
+  const button = page.getByTestId("new-experiment");
+  await expect(button).toBeDisabled();
+  const reason = page.getByTestId("new-experiment-reason");
+  await expect(reason).toBeVisible();
+  await expect(reason).toContainText(report.live_controls.disabled_reasons.new_experiment.slice(0, 40));
+});
+
+test("build candidate, run proof, and read the verdict", async ({ page }) => {
+  await openOptimize(page);
+
+  await page.getByTestId("build-candidate").click();
+  await expect(page.getByTestId("graph-stage-candidate")).toBeVisible();
+  await expect(page.getByTestId("cascade-summary")).toContainText("settings evaluated");
+  for (const tier of report.cascade.tiers) {
+    await expect(page.getByTestId(`graph-node-${tier.tier}`)).toContainText(tier.model_id);
+  }
+
+  await page.getByTestId("run-proof").click();
+
+  // The verdict sentence must be the engine's, word for word.
+  await expect(page.getByTestId("verdict-sentence")).toHaveText(report.proof.verdict.sentence);
+  await expect(page.getByText(report.proof.verdict.display).first()).toBeVisible();
+  await expect(page.getByTestId("interval-plot")).toBeVisible();
+
+  // An inconclusive result is displayed as inconclusive (non-negotiable 5).
+  if (report.proof.verdict.label === "inconclusive") {
+    await expect(page.getByTestId("verdict-sentence").locator("..")).toContainText("Inconclusive");
+  }
+});
+
+test("the savings waterfall lists every pipeline with its interval and verdict", async ({ page }) => {
+  await openOptimize(page);
+  await page.getByTestId("build-candidate").click();
+  await page.getByTestId("run-proof").click();
+
+  const table = page.getByTestId("waterfall");
+  for (const step of report.waterfall) {
+    const row = table.locator("tr").filter({ hasText: step.label }).first();
+    await expect(row).toContainText(`$${step.cost_per_successful_task.point.toFixed(5)}`);
+    await expect(row).toContainText(`${(step.accuracy.point * 100).toFixed(1)}%`);
+    if (step.verdict) await expect(row).toContainText(step.verdict.display);
+  }
+});
+
+test("the cost-quality frontier marks the operating point and says how it was chosen", async ({
+  page,
+}) => {
+  await openOptimize(page);
+  await page.getByTestId("build-candidate").click();
+  await page.getByTestId("run-proof").click();
+
+  const chart = page.getByTestId("frontier-chart");
+  await expect(chart).toBeVisible();
+  await expect(chart.getByTestId("operating-point")).toBeVisible();
+  await expect(chart).toContainText("chosen on the calibration split");
+});
+
+test("the breakdown by type covers the whole split and says the router cannot see it", async ({
+  page,
+}) => {
+  await openOptimize(page);
+  await page.getByTestId("build-candidate").click();
+  await page.getByTestId("run-proof").click();
+
+  const table = page.getByTestId("by-type");
+  for (const row of report.proof.by_type) {
+    await expect(table).toContainText(String(row.n));
+  }
+  await expect(page.getByText("The router never sees the question type")).toBeVisible();
+});
+
+test("a disagreement opens its trace, showing every call behind the task", async ({ page }) => {
+  await openOptimize(page);
+  await page.getByTestId("build-candidate").click();
+  await page.getByTestId("run-proof").click();
+
+  const first = report.proof.disagreements[0];
+  expect(first).toBeTruthy();
+  await page.getByTestId(`open-trace-${first.task_id}`).click();
+
+  const drawer = page.getByTestId("trace-drawer");
+  await expect(drawer).toBeVisible();
+  await expect(drawer).toContainText(first.question);
+  await expect(drawer).toContainText(first.gold);
+  // Tokens by bucket with provenance, the prompt hash, the cost and the scorer features.
+  await expect(drawer).toContainText("Prompt hash");
+  await expect(drawer).toContainText("Tokens by bucket");
+  await expect(drawer).toContainText("The scorer never sees the gold answer");
+  await expect(drawer).toContainText("output_visible");
+
+  await page.getByTestId("trace-close").click();
+  await expect(drawer).toHaveCount(0);
+});
+
+test("protecting scarce models changes the objective the search used", async ({ page, request }) => {
+  await openOptimize(page);
+  await page.getByTestId("protect-scarce").check();
+  await page.getByTestId("build-candidate").click();
+  await expect(page.getByTestId("cascade-summary")).toContainText("minimise scarce-model spend");
+
+  const protectedReport = await (await request.get("/api/report?protect_scarce=true")).json();
+  expect(protectedReport.cascade.objective).toBe("scarce_model_spend");
+  expect(Number(protectedReport.proof.candidate.scarce_share)).toBeLessThanOrEqual(
+    Number(report.proof.candidate.scarce_share) + 1e-9,
+  );
+});
+
+test("the provenance legend is defined once and the prices carry a source", async ({ page }) => {
+  await openOptimize(page);
+  const legend = page.getByTestId("legend");
+  await expect(legend).toContainText("provider-reported");
+  await expect(legend).toContainText("exact count");
+  await expect(legend).toContainText("estimated");
+  await expect(legend).toContainText("projected");
+  await expect(legend).toContainText("simulated");
+  await expect(page.getByText(report.provenance.price_snapshot_id, { exact: false })).toBeVisible();
+});
+
+test("screenshots for the record", async ({ page }) => {
+  await openOptimize(page);
+  await page.screenshot({ path: "../docs/screenshots/optimize-baseline.png", fullPage: true });
+  await page.getByTestId("build-candidate").click();
+  await page.getByTestId("run-proof").click();
+  await expect(page.getByTestId("verdict-sentence")).toBeVisible();
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: "../docs/screenshots/optimize-proof.png", fullPage: true });
+});
