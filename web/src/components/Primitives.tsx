@@ -41,10 +41,20 @@ export function Figure({
   title,
 }: {
   value: ReactNode;
-  kind: Provenance;
+  /** "none" for a structural fact — a count of what is on screen — that no mark describes. */
+  kind: Provenance | "none";
   size?: "base" | "head" | "figure";
   title?: string;
 }) {
+  if (kind === "none") {
+    const sizeClass =
+      size === "figure" ? "text-figure" : size === "head" ? "text-head" : "";
+    return (
+      <span className={`text-ink font-medium ${sizeClass} whitespace-nowrap`} title={title}>
+        {value}
+      </span>
+    );
+  }
   const tone =
     kind === "provider" || kind === "exact"
       ? TONE_CLASS.measured
@@ -73,7 +83,7 @@ export function Metric({
   label: string;
   value: ReactNode;
   interval?: ReactNode;
-  kind: Provenance;
+  kind: Provenance | "none";
   n?: number;
   hint?: string;
   size?: "base" | "head" | "figure";

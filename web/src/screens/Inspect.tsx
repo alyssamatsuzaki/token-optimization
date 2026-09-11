@@ -66,9 +66,24 @@ export default function Inspect() {
     setCacheAfterSystem(template.data.cache_after_system);
   }
 
-  // Load B0 once the template arrives, so the screen opens on something real to look at.
+  // Load B0 and inspect it as soon as the template arrives. Opening on "paste a prompt and
+  // press Inspect" when a prompt is already loaded is a dead end.
   useEffect(() => {
-    if (template.data && !system) loadB0();
+    if (!template.data || system) return;
+    setSystem(template.data.system);
+    setUser(template.data.user);
+    setMaxTokens(template.data.max_tokens);
+    setCacheAfterSystem(template.data.cache_after_system);
+    void inspectPrompt({
+      system: template.data.system,
+      user: template.data.user,
+      tools: "",
+      max_tokens: template.data.max_tokens,
+      cache_after_system: template.data.cache_after_system,
+      apply_fixes: false,
+    })
+      .then(setResult)
+      .catch(setError);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [template.data]);
 
@@ -178,9 +193,7 @@ export default function Inspect() {
           <div>
             {error !== null && <ErrorRow error={error} what="the inspection" />}
             {!result && error === null && (
-              <p className="text-graphite text-base py-8">
-                Paste a prompt and press Inspect. The demo's B0 prompt is loaded by default.
-              </p>
+              <LoadingRow what="the demo's B0 prompt" />
             )}
             {result && (
               <>

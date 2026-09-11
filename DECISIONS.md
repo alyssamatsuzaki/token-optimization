@@ -124,3 +124,18 @@ own confidence); quality findings printed "$0.00000", which reads as a measureme
 (now "quality finding"); a node with no spend printed a cost and a share anyway (removed —
 this doubled as the "remove one decorative element" pass for Optimize); and the candidate
 graph was cropped at four nodes (height raised).
+
+**D22 — The Dockerfile is written but has never been built: Docker is not available in this
+environment.** Every path it copies exists and is tracked in git, both lockfiles are committed,
+and `packageManager` is pinned so `corepack enable` resolves the pnpm the lockfile was written
+by. But an unbuilt Dockerfile is an unverified Dockerfile, and `docs/DEPLOY.md` and the final
+report both say so rather than implying it was tested. The cold-start guidance in DEPLOY.md is
+measured, not guessed: `build_report()` takes about nine seconds in this environment, which is
+why `min-instances=1` is stated as a requirement rather than a suggestion.
+
+**D23 — Three more design fixes from the second screenshot critique.** Inspect opened on "paste a
+prompt and press Inspect" with B0's prompt already loaded — a dead end; it now inspects on load.
+A count of compared models carried an "estimated" mark, and a model *name* carried a "simulated"
+one; `Figure` gained a `kind="none"` for structural facts that no provenance mark describes, and
+the marks moved onto the costs beneath the names, which is what they actually describe. Marking
+things that are not measurements devalues the marks on the things that are.

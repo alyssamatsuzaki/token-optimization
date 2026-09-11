@@ -50,10 +50,10 @@ export default function Spend() {
           kind="estimated"
         />
         <Metric
-          label="Mode"
-          value={data.provenance.is_test_data ? "replay, test data" : "replay, recorded"}
-          interval={data.provenance.recorded_at ?? "—"}
-          kind="estimated"
+          label="Fixtures"
+          value={data.provenance.is_test_data ? "simulated" : "recorded"}
+          interval={data.provenance.recorded_at?.slice(0, 10) ?? "—"}
+          kind="none"
         />
       </div>
 

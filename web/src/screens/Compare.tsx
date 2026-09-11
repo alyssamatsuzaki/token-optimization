@@ -193,7 +193,7 @@ export default function Compare() {
             label="Models compared"
             value={count(example.columns.length)}
             interval="plus one manual column"
-            kind="estimated"
+            kind="none"
           />
           <Metric
             label="Total cost"
@@ -210,12 +210,18 @@ export default function Compare() {
               [...example.columns].sort((a, b) => Number(a.cost_usd) - Number(b.cost_usd))[0]
                 .display_name
             }
-            interval={usd(
-              [...example.columns].sort((a, b) => Number(a.cost_usd) - Number(b.cost_usd))[0]
-                .cost_usd,
-              5,
-            )}
-            kind={mark}
+            interval={
+              <Figure
+                value={usd(
+                  [...example.columns].sort(
+                    (a, b) => Number(a.cost_usd) - Number(b.cost_usd),
+                  )[0].cost_usd,
+                  5,
+                )}
+                kind={mark}
+              />
+            }
+            kind="none"
           />
           <Metric
             label="Fastest first token"
@@ -223,10 +229,17 @@ export default function Compare() {
               [...example.columns].sort((a, b) => (a.ttft_ms ?? 0) - (b.ttft_ms ?? 0))[0]
                 .display_name
             }
-            interval={ms(
-              [...example.columns].sort((a, b) => (a.ttft_ms ?? 0) - (b.ttft_ms ?? 0))[0].ttft_ms,
-            )}
-            kind={mark}
+            interval={
+              <Figure
+                value={ms(
+                  [...example.columns].sort(
+                    (a, b) => (a.ttft_ms ?? 0) - (b.ttft_ms ?? 0),
+                  )[0].ttft_ms,
+                )}
+                kind={mark}
+              />
+            }
+            kind="none"
           />
         </div>
       </Section>

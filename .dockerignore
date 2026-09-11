@@ -1,0 +1,15 @@
+**/node_modules
+**/.venv
+**/dist
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.coverage
+.git
+.tokop
+fixtures/*/ledger.db
+web/playwright-report
+web/test-results
+docs/screenshots/*.png
+.env
