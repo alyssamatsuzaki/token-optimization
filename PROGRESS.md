@@ -11,13 +11,11 @@
 | M4 Optimization | **done** | lint, findings, scorers, cascade, proof, report; 406 tests, 95% cover |
 | M5 Optimize screen | **done** | graph, findings, proof, frontier chart, trace drawer; 15 e2e pass |
 | M6 Remaining screens | **done** | Inspect+Brief, Compare, Spend, Settings, New experiment; 38 e2e pass |
-| M7 Finish | not started | |
+| M7 Finish | **in progress** | README, DEMO, ARCHITECTURE, Dockerfile, critique done; spec review running |
 
 ## Next
 
-M7 Finish: README, DEMO.md (a 90-second script from the real numbers), ARCHITECTURE.md, a
-Dockerfile defaulting to replay mode with a deployment guide, the screenshot critique pass, and
-the spec review.
+Fix whatever the spec review reports, then a final `make verify`.
 
 ## Demo result (simulated test fixtures, 200-task test split)
 
@@ -31,7 +29,11 @@ These are simulated, not recorded (DECISIONS.md D1).
 
 ## Known issues
 
-- `make verify` now runs all 11 checks with none skipped.
+- `make verify` runs all 11 checks with none skipped.
+- The Dockerfile has never been built: Docker is unavailable in this environment (D22).
+- One `make verify` run failed on a Playwright ENOENT after I ran the spec-review subagent
+  concurrently — two runs of the suite wiped each other's `test-results/`. Playwright now gets a
+  per-run output directory so concurrent runs cannot collide.
 - `tiktoken` cannot load `o200k_base` in this environment (D3), so token estimates name
   `bytes-bpe-approx-v1` as their method until the vocabulary is reachable.
 - `tokop sync-models` is implemented and unit-tested but cannot run live here: openrouter.ai is

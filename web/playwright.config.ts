@@ -14,6 +14,10 @@ export default defineConfig({
   timeout: 90_000,
   expect: { timeout: 20_000 },
   reporter: [["list"]],
+  // A unique output directory per run. Playwright wipes `test-results/` when it starts, so two
+  // concurrent runs — CI running the suite while someone runs it locally, say — otherwise
+  // delete each other's trace artifacts mid-test and fail with ENOENT.
+  outputDir: `test-results/run-${process.env.PLAYWRIGHT_RUN_ID ?? process.pid}`,
   use: {
     baseURL: "http://127.0.0.1:8123",
     viewport: { width: 1280, height: 900 },
@@ -39,6 +43,8 @@ export default defineConfig({
       "TOKOP_MODE=replay ../engine/.venv/bin/python -m uvicorn tokop.api.app:app " +
       "--host 127.0.0.1 --port 8123 --app-dir ../engine",
     url: "http://127.0.0.1:8123/api/health",
+    // Another run may already have a server on this port; reuse it rather than failing to bind.
+
     reuseExistingServer: false,
     timeout: 120_000,
     stdout: "ignore",
