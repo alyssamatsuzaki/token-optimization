@@ -1,0 +1,88 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "68fe3ed3754f4608dcc6fd72187f08b150c2c64587c45bd292353301459787a3",
+  "latency_ms": 546.64,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "Cache the handbook. 7,000 tokens x 40,000 = 280,000,000 tokens. At $5 per million that is $1,400 per month, and cache reads at $0.50 per million would be $140, so you save around $1,260. You could also shorten the answers.",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_68fe3ed3754f4608",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 133,
+      "output_tokens": 70
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 133,
+    "output_tokens": 70
+  },
+  "recorded_at": "2026-09-11T17:08:30.889862+00:00",
+  "request": {
+    "max_tokens": 600,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "A team runs 40,000 support answers a month. Each answer sends a 7,000-token handbook that never changes, plus a 60-token question, and gets back about 220 tokens. They are on a model that charges $5 per million input tokens, $25 per million output, and $0.50 per million for a cache read. What is the single largest saving available to them, and roughly what is it worth per month?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "You are answering a single question as directly as you can. Give the answer first, then at most two sentences of justification."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "Cache the handbook. 7,000 tokens x 40,000 = 280,000,000 tokens. At $5 per million that is $1,400 per month, and cache reads at $0.50 per million would be $140, so you save around $1,260. You could also shorten the answers.",
+  "stop_reason": "end_turn",
+  "ttft_ms": 301.64,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 133,
+    "output_reasoning": 0,
+    "output_visible": 70,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 133,
+      "output_tokens": 70
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

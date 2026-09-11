@@ -296,3 +296,202 @@ export interface Health {
   };
   live_controls: LiveControls;
 }
+
+
+// --------------------------------------------------------------------------- Inspect
+
+export interface ModelCostRow {
+  model_id: string;
+  display_name: string;
+  provider: string;
+  scarce: boolean;
+  input_tokens: number;
+  token_source: "exact" | "estimated";
+  token_method: string;
+  tool_definition_tokens: number;
+  tool_use_system_prompt_tokens: number;
+  fixed_overhead_tokens: number;
+  cacheable_prefix_tokens: number;
+  min_cacheable_tokens: number;
+  clears_minimum: boolean;
+  cost_per_call_usd: string;
+  cost_per_1k_usd: string;
+  price_verified: boolean;
+  price_source: string;
+  price_retrieved: string;
+}
+
+export interface FixChange {
+  kind: string;
+  section: string;
+  block: number;
+  before: string;
+  after: string;
+  note: string;
+}
+
+export interface FixesView {
+  applied: { transform: string; title: string; input_delta: number; changes: FixChange[] }[];
+  skipped: { transform: string; title: string; reason: string }[];
+  input_tokens_before: number;
+  input_tokens_after: number;
+  input_delta: number;
+  cacheable_before: number;
+  cacheable_after: number;
+  max_tokens_before: number;
+  max_tokens_after: number;
+  savings_per_1k: Record<string, string>;
+  system_after: string;
+  user_after: string;
+  clear_after: Record<string, number>;
+  clear_total_after: number;
+  findings_after: string[];
+  note: string;
+}
+
+export interface InspectResult {
+  models: ModelCostRow[];
+  findings: FindingView[];
+  clear: Record<string, number>;
+  clear_total: number;
+  cacheability: { static_prefix_chars: number; has_breakpoint: boolean; note: string };
+  token_counter: string;
+  live_controls: LiveControls;
+  fixes?: FixesView;
+}
+
+export interface PipelineTemplate {
+  id: string;
+  name: string;
+  system: string;
+  user: string;
+  max_tokens: number;
+  cache_after_system: boolean;
+  variables: string[];
+}
+
+// --------------------------------------------------------------------------- Compare
+
+export interface CompareColumn {
+  model_id: string;
+  display_name: string;
+  scarce: boolean;
+  text: string;
+  usage: Record<string, { tokens: number; source: string }>;
+  input_tokens: number;
+  output_tokens: number;
+  cost_usd: string;
+  cost_formula: string;
+  ttft_ms: number | null;
+  latency_ms: number;
+  origin: string;
+}
+
+export interface CompareExample {
+  id: string;
+  title: string;
+  prompt: string;
+  system: string;
+  columns: CompareColumn[];
+  synthesis: {
+    agreement: string[];
+    disagreement: string[];
+    unique: string[];
+    likely_errors: string[];
+    final: string;
+  } | null;
+  synthesis_model: string | null;
+  manual_column: { note: string };
+}
+
+export interface CompareExamples {
+  examples: CompareExample[];
+  is_test_data: boolean;
+  live_controls: LiveControls;
+  note: string;
+}
+
+export interface BriefResult {
+  model_id: string;
+  display_name: string;
+  source_sections: string[];
+  source_preview: string;
+  source_chars: number;
+  brief: string;
+  tokens_before: number;
+  tokens_after: number;
+  reduction: number;
+  cost_usd: string;
+  cost_formula: string;
+  token_counter: string;
+  lossy_note: string;
+  purpose_note: string;
+  origin: string;
+  is_test_data: boolean;
+  live_controls: LiveControls;
+}
+
+// --------------------------------------------------------------------------- Spend / Settings
+
+export interface SpendView {
+  total_usd: string;
+  scarce_usd: string;
+  scarce_share: number;
+  by_model: { model_id: string; usd: string; scarce: boolean; share: number }[];
+  by_pipeline: { pipeline: string; usd: string }[];
+  runs: RunView[];
+  budgets: { daily_cap_usd: string | null; daily_spent_usd: string; state: string };
+  cost_per_successful_task: {
+    pipeline: string;
+    label: string;
+    usd: number;
+    low: number;
+    high: number;
+  }[];
+  provenance: ProvenanceView;
+  note: string;
+  live_controls: LiveControls;
+}
+
+export interface SettingsView {
+  mode: string;
+  providers: {
+    name: string;
+    configured: boolean;
+    enabled: boolean;
+    adapter: string;
+    base_url: string | null;
+    usage_mapping: string;
+    unconfirmed_reason: string | null;
+    test_only: boolean;
+    docs: string | null;
+  }[];
+  models: {
+    model_id: string;
+    display_name: string;
+    provider: string;
+    input_per_mtok: string;
+    output_per_mtok: string;
+    cache_read_per_mtok: string;
+    cache_write_5m_per_mtok: string;
+    batch_discount: string;
+    min_cacheable_tokens: number | null;
+    context_tokens: number | null;
+    tokenizer_generation: string | null;
+    scarce: boolean;
+    roles: string[];
+    provenance: {
+      source_url: string;
+      retrieved: string;
+      verified: boolean;
+      note: string | null;
+    };
+  }[];
+  scarce_models: string[];
+  budgets: { record_budget_usd: string | null; daily_budget_usd: string | null };
+  allowed_providers: Record<string, string[]>;
+  model_listing: { source: string | null; taken: string | null; age_days: number | null };
+  token_counter: string;
+  recording: { state: string; reason: string; fixture_source: string; is_test_data: boolean };
+  live_controls: LiveControls;
+}

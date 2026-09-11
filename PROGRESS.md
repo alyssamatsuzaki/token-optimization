@@ -10,13 +10,14 @@
 | M3 Workloads | **done** | generator, handbook, grading, runner, ledger, fixtures/test/ |
 | M4 Optimization | **done** | lint, findings, scorers, cascade, proof, report; 406 tests, 95% cover |
 | M5 Optimize screen | **done** | graph, findings, proof, frontier chart, trace drawer; 15 e2e pass |
-| M6 Remaining screens | not started | |
+| M6 Remaining screens | **done** | Inspect+Brief, Compare, Spend, Settings, New experiment; 38 e2e pass |
 | M7 Finish | not started | |
 
 ## Next
 
-M6 Remaining screens: Inspect (with Brief mode), Compare, Spend, Settings, and the New
-experiment form, each with its Playwright checks.
+M7 Finish: README, DEMO.md (a 90-second script from the real numbers), ARCHITECTURE.md, a
+Dockerfile defaulting to replay mode with a deployment guide, the screenshot critique pass, and
+the spec review.
 
 ## Demo result (simulated test fixtures, 200-task test split)
 

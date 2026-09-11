@@ -35,6 +35,7 @@ import {
   Pill,
   Section,
 } from "../components/Primitives";
+import { NewExperiment } from "../components/NewExperiment";
 import { TraceDrawer } from "../components/TraceDrawer";
 
 type Stage = "baseline" | "candidate" | "proof";
@@ -149,6 +150,7 @@ export default function Optimize() {
   const { data: report, isLoading, error } = useReport(protectScarce);
   const [stage, setStage] = useState<Stage>("baseline");
   const [traceTask, setTraceTask] = useState<string | null>(null);
+  const [showExperiment, setShowExperiment] = useState(false);
 
   const steps = useMemo(
     () => (report ? (stage === "baseline" ? baselineSteps(report) : candidateSteps(report)) : []),
@@ -299,9 +301,19 @@ export default function Optimize() {
                   </Button>
                 </>
               )}
+              {/* The button is disabled with its reason; the form itself opens read-only so a
+                  reader can see what the experiment would cost before enabling live mode. */}
               <Button disabledReason={liveReason} testId="new-experiment">
                 New experiment
               </Button>
+              <button
+                type="button"
+                className="text-small text-prussian hover:text-ink underline underline-offset-2 self-start mt-2"
+                onClick={() => setShowExperiment(true)}
+                data-testid="open-new-experiment"
+              >
+                See the form and its preflight
+              </button>
             </div>
             {stage !== "baseline" && (
               <dl className="mt-4 text-small grid grid-cols-[9rem_1fr] gap-x-4 gap-y-1" data-testid="cascade-summary">
@@ -563,6 +575,9 @@ export default function Optimize() {
       </footer>
 
       <TraceDrawer taskId={traceTask} onClose={() => setTraceTask(null)} mark={mark} />
+      {showExperiment && (
+        <NewExperiment report={report} onClose={() => setShowExperiment(false)} />
+      )}
     </div>
   );
 }

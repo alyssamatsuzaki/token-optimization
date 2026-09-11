@@ -1,0 +1,205 @@
+{
+  "brief": {
+    "brief": "# Returns brief\n\n**Windows.** Base window is by category, counted from delivery. Backpacks 60 days, tents /\nsleeping bags / outerwear / stoves 45, footwear / climbing hardware / electronics / water\nfilters / avalanche 30, climbing rope 14. Nutrition and clearance apparel are final sale, 0.\n[sec-returns-windows]\n\n**Tier bonus, added to the base.** Standard +0, Summit +14, Alpine +30. Never applies to a\nfinal-sale category. [sec-loyalty]\n\n**Seasonal.** Orders placed 2026-11-01 to 2026-12-24 get +30 days. Excludes nutrition,\nclearance apparel and climbing rope. Stacks with the tier bonus. [sec-seasonal]\n\n**Restocking, on non-defective returns only.** Climbing rope 20%, climbing hardware and\nelectronics 15%, tents / sleeping bags / stoves / water filters 10%, everything else 0%.\n**Alpine members pay none, ever.** [sec-restocking]\n\n**Exceptions.** Opened electronics: 14-day window and 25% fee. Used climbing rope and avalanche\ngear: no return at all. Footwear worn outdoors: store credit only. Final sale: defect must be\nreported within 7 days. More restrictive exception wins. [sec-exceptions]\n\n**Escalation.** Refunds over $500, or any mention of injury or safety-equipment failure, go to\nthe customer relations manager. [sec-escalation]\n",
+    "cost_formula": "input_uncached x $0.001229/Mtok + output_visible x $0.001925/Mtok",
+    "cost_usd": "0.003154",
+    "display_name": "Claude Haiku 4.5",
+    "lossy_note": "A brief is lossy by construction. It keeps the rules and the numbers and throws away the prose that explained them, so check the cited section before relying on an edge case.",
+    "model_id": "claude-haiku-4-5-20251001",
+    "origin": "simulated",
+    "purpose_note": "This spends cheap API tokens to save subscription capacity: paste the brief into a chat app instead of the source. Tokop never automates a chat app.",
+    "reduction": 0.6778242677824268,
+    "source_chars": 4128,
+    "source_preview": "## Loyalty tiers \nEvery customer sits in one of three tiers. The tier changes three things: how long they have to\nreturn something, how much they must spend before shipping is free, and whether a restocking fee\nis charged at all.\n\n| Tier | Annual fee | Return window bonus | Free shipping from | Restocking fee | Priority support |\n| --- | --- | --- | --- | --- | --- |\n| Standard | $0.00 | 0 days | $75.00 | charged | no |\n| Summit | $49.00 | 14 days | $40.00 | charged | no |\n| Alpine | $129.00 | 30 days | $0.00 | waived | yes |\n\nThe return window bonus is added to the category's base window. It is additive, not a multiplier,\nand it never applies to a final-sale category, whose window is zero days regardless of tier.\n\nA Alpine member never pays a restocking fee, on any category, in any circumstance covered by this\nhandbook. This is the single most common source of disputed charges, so check the tier before\nquoting a fee.\n\n## Return windows by category \nThe base return window runs from the delivery date, not the order date. A return is counted as\nstarted on the day the customer requests a return authorisation, not the day the parcel arrives\nback at the warehouse.\n\n| Category | Key | Ba",
+    "source_sections": [
+      "sec-loyalty",
+      "sec-returns-windows",
+      "sec-restocking",
+      "sec-exceptions"
+    ],
+    "token_counter": "bytes-bpe-approx-v1",
+    "tokens_after": 385,
+    "tokens_before": 1195
+  },
+  "compares": [
+    {
+      "columns": [
+        {
+          "cost_formula": "input_uncached x $0.000865/Mtok + output_visible x $0.0038/Mtok",
+          "cost_usd": "0.004665",
+          "display_name": "Claude Opus 5",
+          "input_tokens": 173,
+          "latency_ms": 2430.24,
+          "model_id": "claude-opus-5",
+          "origin": "simulated",
+          "output_tokens": 152,
+          "scarce": true,
+          "text": "Move the handbook in front of a cache breakpoint.\n\nThe handbook is 7,000 identical tokens on every one of 40,000 calls. Uncached that is 280M input tokens a month at $5/M, or $1,400. Read from cache at $0.50/M it is $140, so the saving is about $1,260 a month, before the one-off write cost. Everything else on the bill \u2014 the 60-token question, the 220-token answer \u2014 is rounding error next to it.",
+          "ttft_ms": 758.24,
+          "usage": {
+            "input_uncached": {
+              "source": "provider",
+              "tokens": 173
+            },
+            "output_visible": {
+              "source": "provider",
+              "tokens": 152
+            }
+          }
+        },
+        {
+          "cost_formula": "input_uncached x $0.000346/Mtok + output_visible x $0.001/Mtok",
+          "cost_usd": "0.001346",
+          "display_name": "Claude Sonnet 5",
+          "input_tokens": 173,
+          "latency_ms": 1129.99,
+          "model_id": "claude-sonnet-5",
+          "origin": "simulated",
+          "output_tokens": 100,
+          "scarce": false,
+          "text": "Prompt caching on the handbook.\n\n7,000 tokens x 40,000 calls = 280M input tokens/month. At $5/M that is $1,400; cached reads at $0.50/M cost $140. Saving roughly $1,260/month. Capping the output would save a little more but far less than the cache.",
+          "ttft_ms": 479.99,
+          "usage": {
+            "input_uncached": {
+              "source": "provider",
+              "tokens": 173
+            },
+            "output_visible": {
+              "source": "provider",
+              "tokens": 100
+            }
+          }
+        },
+        {
+          "cost_formula": "input_uncached x $0.000133/Mtok + output_visible x $0.00035/Mtok",
+          "cost_usd": "0.000483",
+          "display_name": "Claude Haiku 4.5",
+          "input_tokens": 133,
+          "latency_ms": 546.64,
+          "model_id": "claude-haiku-4-5-20251001",
+          "origin": "simulated",
+          "output_tokens": 70,
+          "scarce": false,
+          "text": "Cache the handbook. 7,000 tokens x 40,000 = 280,000,000 tokens. At $5 per million that is $1,400 per month, and cache reads at $0.50 per million would be $140, so you save around $1,260. You could also shorten the answers.",
+          "ttft_ms": 301.64,
+          "usage": {
+            "input_uncached": {
+              "source": "provider",
+              "tokens": 133
+            },
+            "output_visible": {
+              "source": "provider",
+              "tokens": 70
+            }
+          }
+        }
+      ],
+      "id": "reasoning",
+      "manual_column": {
+        "note": "Subscription apps have no public API, so they appear as a manual column: copy the prompt, paste the answer back. Tokens are estimated and the cost shows as 'subscription' rather than a dollar figure."
+      },
+      "prompt": "A team runs 40,000 support answers a month. Each answer sends a 7,000-token handbook that never changes, plus a 60-token question, and gets back about 220 tokens. They are on a model that charges $5 per million input tokens, $25 per million output, and $0.50 per million for a cache read. What is the single largest saving available to them, and roughly what is it worth per month?",
+      "synthesis": {
+        "agreement": [
+          "All three name prompt caching on the handbook as the largest saving.",
+          "All three compute the uncached cost as $1,400 a month and the cached cost as $140."
+        ],
+        "disagreement": [
+          "Opus 5 and Sonnet 5 note the one-off cache write cost; Haiku 4.5 does not."
+        ],
+        "final": "Move the handbook in front of a cache breakpoint. It is 280M identical input tokens a month; cached reads cut that from about $1,400 to about $140, a saving near $1,260 a month before write costs.",
+        "likely_errors": [
+          "None of the three states that a 5-minute cache write costs 1.25x base input, so the first call of each window is more expensive than the arithmetic implies."
+        ],
+        "unique": [
+          "Opus 5 is the only one to say explicitly that the question and answer tokens are rounding error next to the prefix."
+        ]
+      },
+      "synthesis_model": "claude-opus-5",
+      "system": "You are answering a single question as directly as you can. Give the answer first, then at most two sentences of justification.",
+      "title": "Short reasoning"
+    },
+    {
+      "columns": [
+        {
+          "cost_formula": "input_uncached x $0.0008/Mtok + output_visible x $0.004525/Mtok",
+          "cost_usd": "0.005325",
+          "display_name": "Claude Opus 5",
+          "input_tokens": 160,
+          "latency_ms": 2870.93,
+          "model_id": "claude-opus-5",
+          "origin": "simulated",
+          "output_tokens": 181,
+          "scarce": true,
+          "text": "{\n  \"amounts\": [\n    {\n      \"value\": 29.95,\n      \"refers_to\": \"shipping, Zone 3 at 14 lb\"\n    },\n    {\n      \"value\": 248.75,\n      \"refers_to\": \"tent price\"\n    },\n    {\n      \"value\": 24.0,\n      \"refers_to\": \"oversize surcharge, kept\"\n    },\n    {\n      \"value\": 248.75,\n      \"refers_to\": \"net refund issued\"\n    }\n  ],\n  \"waived\": \"10% restocking fee\"\n}",
+          "ttft_ms": 879.93,
+          "usage": {
+            "input_uncached": {
+              "source": "provider",
+              "tokens": 160
+            },
+            "output_visible": {
+              "source": "provider",
+              "tokens": 181
+            }
+          }
+        },
+        {
+          "cost_formula": "input_uncached x $0.00032/Mtok + output_visible x $0.00151/Mtok",
+          "cost_usd": "0.00183",
+          "display_name": "Claude Sonnet 5",
+          "input_tokens": 160,
+          "latency_ms": 1513.18,
+          "model_id": "claude-sonnet-5",
+          "origin": "simulated",
+          "output_tokens": 151,
+          "scarce": false,
+          "text": "{\n  \"amounts\": [\n    {\n      \"value\": 29.95,\n      \"refers_to\": \"shipping\"\n    },\n    {\n      \"value\": 248.75,\n      \"refers_to\": \"tent\"\n    },\n    {\n      \"value\": 24.0,\n      \"refers_to\": \"oversize surcharge\"\n    },\n    {\n      \"value\": 248.75,\n      \"refers_to\": \"net refund\"\n    }\n  ]\n}",
+          "ttft_ms": 531.68,
+          "usage": {
+            "input_uncached": {
+              "source": "provider",
+              "tokens": 160
+            },
+            "output_visible": {
+              "source": "provider",
+              "tokens": 151
+            }
+          }
+        },
+        {
+          "cost_formula": "input_uncached x $0.000123/Mtok + output_visible x $0.00046/Mtok",
+          "cost_usd": "0.000583",
+          "display_name": "Claude Haiku 4.5",
+          "input_tokens": 123,
+          "latency_ms": 668.37,
+          "model_id": "claude-haiku-4-5-20251001",
+          "origin": "simulated",
+          "output_tokens": 92,
+          "scarce": false,
+          "text": "{\n  \"amounts\": [\n    {\n      \"value\": 29.95,\n      \"refers_to\": \"shipping\"\n    },\n    {\n      \"value\": 248.75,\n      \"refers_to\": \"tent returned\"\n    },\n    {\n      \"value\": 24.0,\n      \"refers_to\": \"oversize surcharge\"\n    }\n  ]\n}",
+          "ttft_ms": 346.37,
+          "usage": {
+            "input_uncached": {
+              "source": "provider",
+              "tokens": 123
+            },
+            "output_visible": {
+              "source": "provider",
+              "tokens": 92
+            }
+          }
+        }
+      ],
+      "id": "extraction",
+      "manual_column": {
+        "note": "Subscription apps have no public API, so they appear as a manual column: copy the prompt, paste the answer back. Tokens are estimated and the cost shows as 'subscription' rather than a dollar figure."
+      },
+      "prompt": "Extract every monetary amount and what it refers to from this note, as JSON:\n\n\"Order 88-1042 shipped to Zone 3 at 14 lb, so shipping was $29.95. The customer returned a $248.75 tent outside the window; we waived the 10% restocking fee as goodwill but kept the $24.00 oversize surcharge. Net refund issued: $248.75.\"",
+      "synthesis": null,
+      "synthesis_model": null,
+      "system": "You are answering a single question as directly as you can. Give the answer first, then at most two sentences of justification.",
+      "title": "Extraction"
+    }
+  ]
+}

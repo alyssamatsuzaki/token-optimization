@@ -1,5 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
-import type { Health, Report, Trace } from "./types";
+import type {
+  BriefResult,
+  CompareExamples,
+  Health,
+  InspectResult,
+  PipelineTemplate,
+  Report,
+  SettingsView,
+  SpendView,
+  Trace,
+} from "./types";
 
 async function get<T>(path: string): Promise<T> {
   const response = await fetch(path);
@@ -30,10 +40,51 @@ export function useTrace(taskId: string | null) {
   });
 }
 
+export interface InspectBody {
+  system: string;
+  user: string;
+  tools: string;
+  max_tokens: number;
+  cache_after_system: boolean;
+  apply_fixes: boolean;
+}
+
+async function post<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`${path} returned ${response.status}: ${detail.slice(0, 300)}`);
+  }
+  return (await response.json()) as T;
+}
+
+export function inspectPrompt(body: InspectBody) {
+  return post<InspectResult>("/api/inspect", body);
+}
+
+export function usePipelineTemplate(pipelineId: string) {
+  return useQuery({
+    queryKey: ["pipeline-template", pipelineId],
+    queryFn: () => get<PipelineTemplate>(`/api/inspect/pipeline/${pipelineId}`),
+  });
+}
+
+export function useCompare() {
+  return useQuery({ queryKey: ["compare"], queryFn: () => get<CompareExamples>("/api/compare") });
+}
+
+export function useBrief() {
+  return useQuery({ queryKey: ["brief"], queryFn: () => get<BriefResult>("/api/brief") });
+}
+
 export function useSettings() {
-  return useQuery({ queryKey: ["settings"], queryFn: () => get<Record<string, unknown>>("/api/settings") });
+  return useQuery({ queryKey: ["settings"], queryFn: () => get<SettingsView>("/api/settings") });
 }
 
 export function useSpend() {
-  return useQuery({ queryKey: ["spend"], queryFn: () => get<Record<string, unknown>>("/api/spend") });
+  return useQuery({ queryKey: ["spend"], queryFn: () => get<SpendView>("/api/spend") });
 }
