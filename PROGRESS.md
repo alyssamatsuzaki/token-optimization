@@ -5,7 +5,7 @@
 | M | State | Notes |
 |---|---|---|
 | M0 Scaffold | **done** | layout, uv + pnpm, Makefile, verify, design |
-| M1 Core math | not started | |
+| M1 Core math | **done** | usage, pricing, stats, tokenize, budget; 138 tests, 98% cover |
 | M2 Registry and adapters | not started | |
 | M3 Workloads | not started | |
 | M4 Optimization | not started | |
@@ -15,8 +15,8 @@
 
 ## Next
 
-M1 Core math, tests first: usage normalization, cost, statistics (including the A2 estimator),
-token estimation, the spend guard.
+M2 Registry and adapters: model sync and price overrides verified against Anthropic's own docs,
+both adapters, cassette record/replay with exact-request reuse, the CLI skeleton, fixtures/test/.
 
 ## Known issues
 
