@@ -23,20 +23,76 @@ test.describe("Inspect", () => {
     }
   });
 
-  test("cost per 1,000 calls is listed cheapest first and marks unverified prices", async ({
+  test("cost per call and per 1,000 calls are cheapest first and mark unverified prices", async ({
     page,
+    request,
   }) => {
     await inspectWithB0(page);
     const rows = page.getByTestId("inspect-models").locator("tbody tr");
     const count = await rows.count();
     expect(count).toBeGreaterThan(3);
-    const costs: number[] = [];
+    const perCall: number[] = [];
+    const perThousand: number[] = [];
     for (let i = 0; i < count; i++) {
-      const text = await rows.nth(i).locator("td").nth(3).innerText();
-      costs.push(Number(text.replace(/[$,]/g, "")));
+      const cells = rows.nth(i).locator("td");
+      perCall.push(Number((await cells.nth(3).innerText()).replace(/[$,]/g, "")));
+      perThousand.push(Number((await cells.nth(4).innerText()).replace(/[$,]/g, "")));
     }
-    expect(costs).toEqual([...costs].sort((a, b) => a - b));
+    expect(perThousand).toEqual([...perThousand].sort((a, b) => a - b));
+    expect(perCall).toEqual([...perCall].sort((a, b) => a - b));
+
+    // The per-call column is the engine's number, not the per-1k column divided in the browser.
+    const template = await (await request.get("/api/inspect/pipeline/B0")).json();
+    const result = await (
+      await request.post("/api/inspect", {
+        data: {
+          system: template.system,
+          user: template.user,
+          tools: "",
+          max_tokens: template.max_tokens,
+          cache_after_system: template.cache_after_system,
+          apply_fixes: false,
+        },
+      })
+    ).json();
+    const cheapest = Number(result.models[0].cost_per_call_usd);
+    expect(perCall[0]).toBeCloseTo(cheapest, 5);
     await expect(page.getByTestId("inspect-models")).toContainText("price unverified");
+  });
+
+  test("lint spans are drawn on the prompt the lint saw", async ({ page, request }) => {
+    const template = await (await request.get("/api/inspect/pipeline/B0")).json();
+    const result = await (
+      await request.post("/api/inspect", {
+        data: {
+          system: template.system,
+          user: template.user,
+          tools: "",
+          max_tokens: template.max_tokens,
+          cache_after_system: template.cache_after_system,
+          apply_fixes: false,
+        },
+      })
+    ).json();
+    const withSpans = result.findings.filter(
+      (f: { spans: unknown[] }) => f.spans.length > 0,
+    );
+    expect(withSpans.length).toBeGreaterThan(0);
+
+    await inspectWithB0(page);
+    const panel = page.getByTestId("prompt-highlights");
+    await expect(panel).toBeVisible();
+    await expect(panel.getByTestId("prompt-span").first()).toBeVisible();
+
+    // Isolating one finding draws that finding's own span text, character for character.
+    const first = withSpans[0];
+    await page.getByTestId(`finding-${first.id}`).click();
+    await expect(panel).toContainText(`from ${first.id}`);
+    const marks = panel.getByTestId("prompt-span");
+    await expect(marks.first()).toBeVisible();
+    const drawn = await marks.allInnerTexts();
+    const expected = first.spans[0].text as string;
+    expect(drawn.join("\n")).toContain(expected.trim().split("\n")[0]);
   });
 
   test("token counts name their method rather than implying an exact count", async ({ page }) => {
@@ -230,10 +286,37 @@ test.describe("Settings", () => {
     await expect(page.getByTestId("sync-models")).toBeDisabled();
   });
 
-  test("deleting stored content explains that metrics survive", async ({ page }) => {
+  test("deleting stored content really deletes it and keeps every metric", async ({
+    page,
+    request,
+  }) => {
+    // SPEC.md non-negotiable 10, and non-negotiable 9: this control is not a label, it calls
+    // the endpoint. The run picked is a calibration run, whose stored text no screen displays,
+    // so the deletion does not blank a trace the other tests read. It is also idempotent: a
+    // second run of this suite finds the content already gone and still passes.
+    const runId = "returns-support-B2-calibration-claude-haiku-4-5-20251001";
+    const before = await (await request.get("/api/runs")).json();
+    const target = before.runs.find((r: { run_id: string }) => r.run_id === runId);
+    expect(target).toBeTruthy();
+
     await page.goto("/settings");
-    await expect(page.getByTestId("delete-content")).toBeDisabled();
-    await expect(page.getByText(/leaves the numbers intact/)).toBeVisible();
+    await page.getByTestId("delete-run-select").selectOption(runId);
+    await expect(page.getByText(/Deleting\s+them keeps every metric/)).toBeVisible();
+    await page.getByTestId("delete-content").click();
+
+    const result = page.getByTestId("delete-result");
+    await expect(result).toBeVisible();
+    await expect(result).toContainText("Prompts remaining");
+    await expect(result).not.toContainText("this is a bug");
+
+    // The ledger agrees, and the cost the run reports has not moved.
+    const after = await (await request.get("/api/runs")).json();
+    const now = after.runs.find((r: { run_id: string }) => r.run_id === runId);
+    expect(now.content_deleted).toBe(true);
+    expect(now.stored_prompts).toBe(0);
+    expect(now.stored_responses).toBe(0);
+    expect(now.total_cost_usd).toBe(target.total_cost_usd);
+    expect(now.calls).toBe(target.calls);
   });
 });
 

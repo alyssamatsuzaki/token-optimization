@@ -30,13 +30,14 @@ from pathlib import Path
 from typing import Any
 
 from tokop.adapters.cassette import CassetteStore
-from tokop.adapters.factory import simulated_profiles
+from tokop.adapters.factory import AnyAdapter, build_live_adapter, simulated_profiles
 from tokop.adapters.recording import RecordingAdapter
 from tokop.adapters.simulated import SimulatedAdapter
 from tokop.core.budget import BudgetExceeded, SpendGuard
 from tokop.core.pricing import PriceSnapshot
 from tokop.core.registry import Registry
 from tokop.db import make_engine
+from tokop.settings import get_settings
 from tokop.workloads.demo.dataset import DatasetBundle
 from tokop.workloads.demo.generator import DemoItem
 from tokop.workloads.demo.responder import DemoResponder, TierProfile
@@ -156,7 +157,17 @@ class Recorder:
             role: TierProfile(registry.roles[role], role) for role in ("cheap", "mid", "frontier")
         }
 
-    def _runner(self, pipeline_id: str) -> Runner:
+    def _adapter(self, pipeline_id: str) -> AnyAdapter:
+        """The adapter this recording runs on.
+
+        ``provider="simulated"`` builds the deterministic in-process responder, which opens no
+        socket. Any other provider builds the real HTTP adapter for it, which raises with a
+        fixable message when the key or the provider config is missing. Either way the call goes
+        through :class:`RecordingAdapter`, so an interrupted run resumes from its cassettes.
+        """
+        if self.provider != "simulated":
+            live = build_live_adapter(self.provider, self.registry, get_settings())
+            return RecordingAdapter(live, self.store, origin=self.origin)
         pipeline = self.workload.pipeline(pipeline_id)
         responder = DemoResponder(
             list(self.bundle.items),
@@ -168,7 +179,10 @@ class Recorder:
         inner = SimulatedAdapter(
             simulated_profiles(self.registry, list(self.registry.models)), responder
         )
-        adapter = RecordingAdapter(inner, self.store, origin=self.origin)
+        return RecordingAdapter(inner, self.store, origin=self.origin)
+
+    def _runner(self, pipeline_id: str) -> Runner:
+        adapter = self._adapter(pipeline_id)
         return Runner(
             self.workload,
             self.registry,

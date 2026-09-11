@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import statistics
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
@@ -105,6 +106,14 @@ class ReplayedRun:
     @property
     def accuracy(self) -> float:
         return sum(self.correct) / self.n if self.n else 0.0
+
+
+def _p50(values: Sequence[float]) -> float | None:
+    """Median, or ``None`` when there is nothing to take a median of."""
+    usable = [v for v in values if v > 0]
+    if not usable:
+        return None
+    return float(statistics.median(usable))
 
 
 def _fixture_root() -> Path:
@@ -287,6 +296,7 @@ def build_report(
     protect_scarce: bool = False,
     seed: int = DEFAULT_SEED,
     resamples: int = 5000,
+    margin: float | None = None,
 ) -> ReportPayload:
     """Recompute every headline metric from the committed fixtures."""
     registry = load_registry()
@@ -452,12 +462,15 @@ def build_report(
     )
 
     items_by_id = {item.id: item for item in bundle.test}
+    # An explicit margin overrides the workload's. `tokop prove --margin` needs this: printing
+    # a margin the verdict was not computed against would be a wrong displayed number.
+    effective_margin = workload.margin if margin is None else margin
     proof = build_proof(
         baseline_arm,
         candidate_arm,
         proof_cost,
         {"calibration": len(bundle.calibration), "test": len(bundle.test)},
-        margin=workload.margin,
+        margin=effective_margin,
         seed=seed,
         resamples=resamples,
         items_by_id=items_by_id,
@@ -475,7 +488,7 @@ def build_report(
     )
     waterfall_arms.append(candidate_arm)
     waterfall = build_waterfall(
-        waterfall_arms, margin=workload.margin, seed=seed, resamples=resamples
+        waterfall_arms, margin=effective_margin, seed=seed, resamples=resamples
     )
 
     # ---------------------------------------------------------------- 7. findings and lint
@@ -562,7 +575,8 @@ def build_report(
             "id": workload.id,
             "name": workload.name,
             "description": workload.description,
-            "margin": workload.margin,
+            "margin": effective_margin,
+            "workload_margin": workload.margin,
             "latency_sensitive": workload.latency_sensitive,
             "dataset": {
                 "size": len(bundle.items),
@@ -596,8 +610,23 @@ def build_report(
                     "model_id": registry.roles[tier],
                     "scarce": registry.is_scarce(registry.roles[tier]),
                     "threshold": search.thresholds[i],
+                    # Three different shares, because conflating them is how a graph node ends
+                    # up sized by the wrong quantity: how many tasks *stopped* here, how many
+                    # *reached* here at all, and what share of the money this tier spent.
                     "share_of_tasks": cascade_outcome.tier_shares(len(tiers))[i],
+                    "share_of_attempts": cascade_outcome.tier_attempt_shares()[i],
+                    "share_of_cost": cascade_outcome.tier_cost_shares()[i],
+                    "cost_usd": str(cascade_outcome.tier_cost[i]),
+                    "attempts": cascade_outcome.tier_attempts[i],
                     "auroc": aurocs.get(tier),
+                    "p50_latency_ms": _p50(
+                        [
+                            c.latency_ms
+                            for c in need(base_pipeline, "test", tier).calls
+                            if not c.prewarm
+                        ]
+                    ),
+                    "latency_is_recorded": True,
                 }
                 for i, tier in enumerate(tiers)
             ],
@@ -655,12 +684,68 @@ def build_report(
                 "output_tokens": sum(c.total_output for c in run.calls),
                 "calls": len([c for c in run.calls if not c.prewarm]),
                 "prewarm_calls": len([c for c in run.calls if c.prewarm]),
+                # Replayed calls are excluded: a replayed latency describes a disk read, not a
+                # provider (SPEC.md 7.1). None when every call in the run was replayed, which
+                # the UI renders as "not measurable in replay" rather than as a missing row.
+                "p50_latency_ms": _p50(
+                    [c.latency_ms for c in run.calls if not c.prewarm and not c.reused]
+                ),
+                "recorded_latency_p50_ms": _p50([c.latency_ms for c in run.calls if not c.prewarm]),
                 "origin": run.origin,
             }
             for key, run in sorted(runs.items())
         ],
     }
     return ReportPayload(data)
+
+
+@lru_cache(maxsize=2)
+def fitted_cascade(
+    protect_scarce: bool = False,
+) -> tuple[ScorerBundle, tuple[float, ...], tuple[str, ...]]:
+    """The fitted scorers, the chosen thresholds and the tier order.
+
+    Built by the same path as the report and cached alongside it, so the trace drawer shows the
+    decision the cascade *actually* made rather than re-deriving one — or, worse, inferring it
+    from the grade, which would put a gold-derived fact under a label that claims to be router
+    output.
+    """
+    payload = cached_report(protect_scarce)
+    registry = load_registry()
+    workload = load_workload(repo_root() / "data/demo/workload.yaml")
+    bundle = build_dataset(
+        size=workload.dataset.size,
+        calibration_size=workload.dataset.calibration_size,
+        seed=workload.dataset.seed,
+    )
+    cascade_spec = workload.cascade(CANDIDATE_CASCADE)
+    tiers = tuple(cascade_spec.tiers)
+    root = _fixture_root()
+    manifest = _load_manifest(root)
+    store = CassetteStore(root / "cassettes")
+    snapshot = registry.snapshot(list(registry.roles.values()), date(2026, 9, 11))
+    origin = str(manifest.get("origin", "simulated"))
+
+    scorers = {}
+    for tier in tiers:
+        cal = replay_run(
+            workload,
+            registry,
+            bundle,
+            snapshot,
+            store,
+            cascade_spec.base_pipeline,
+            "calibration",
+            tier,
+            origin,
+        )
+        views = _views(cal, list(bundle.calibration), bundle.handbook)
+        scorer, _ = fit_tier_scorer(
+            tier, views, list(cal.correct), workload.scorer_features, seed=DEFAULT_SEED
+        )
+        scorers[tier] = scorer
+    thresholds = tuple(float(t) for t in payload["cascade"]["thresholds"])
+    return ScorerBundle(scorers=scorers), thresholds, tiers
 
 
 def trace_for(task_id: str) -> dict[str, Any]:
@@ -687,6 +772,9 @@ def trace_for(task_id: str) -> dict[str, Any]:
     in_calibration = any(i.id == task_id for i in bundle.calibration)
     split_name = "calibration" if in_calibration else "test"
     handbook = bundle.handbook
+
+    scorer_bundle, thresholds, tier_order = fitted_cascade(False)
+    threshold_by_tier = dict(zip(tier_order, thresholds, strict=True))
 
     calls: list[dict[str, Any]] = []
     for entry in manifest.get("runs", []):
@@ -718,6 +806,27 @@ def trace_for(task_id: str) -> dict[str, Any]:
             for name in workload.scorer_features
             if name in FEATURE_REGISTRY
         }
+        # The scorer's own estimate, and the threshold it was compared against. This is the
+        # route decision: it is a function of the scorer alone and knows nothing about gold.
+        score: float | None = None
+        threshold: float | None = None
+        decision = "not routed"
+        is_last_tier = tier == tier_order[-1]
+        if tier in scorer_bundle.scorers:
+            score = float(scorer_bundle.score(tier, [view])[0])
+            threshold = threshold_by_tier.get(tier)
+            if pipeline_id != workload.cascade(CANDIDATE_CASCADE).base_pipeline:
+                decision = "not part of the cascade"
+            elif is_last_tier:
+                decision = "final tier: answers whatever it produced"
+            elif threshold is not None and score >= threshold:
+                decision = f"answered here: score {score:.2f} >= threshold {threshold:.2f}"
+            else:
+                decision = (
+                    f"escalated: score {score:.2f} < threshold {threshold:.2f}"
+                    if threshold is not None
+                    else "escalated"
+                )
         calls.append(
             {
                 "pipeline": pipeline_id,
@@ -744,6 +853,9 @@ def trace_for(task_id: str) -> dict[str, Any]:
                 "latency_ms": cassette.latency_ms,
                 "ttft_ms": cassette.ttft_ms,
                 "scorer_features": features,
+                "scorer_score": score,
+                "scorer_threshold": threshold,
+                "route_decision": decision,
                 "grade": outcome.as_dict(),
                 "origin": cassette.origin,
             }
@@ -762,8 +874,9 @@ def trace_for(task_id: str) -> dict[str, Any]:
         "calls": calls,
         "note": (
             "The question type and supporting sections are shown for analysis. The router "
-            "never sees either."
+            "never sees either, and the route decision below is a function of the scorer alone."
         ),
+        "thresholds": {tier: threshold_by_tier[tier] for tier in tier_order},
     }
 
 

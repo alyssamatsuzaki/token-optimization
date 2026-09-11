@@ -695,7 +695,10 @@ def lint(request: LLMRequest, context: LintContext) -> list[Finding]:
         missing.append("task statement")
     if not _SUCCESS.search(system_text):
         missing.append("success criteria")
-    vague = _spans_for("system", 0, system_text, _VAGUE_VERBS)
+    vague: list[Span] = []
+    for section, index, text, _ in blocks:
+        if section == "system":
+            vague.extend(_spans_for(section, index, text, _VAGUE_VERBS))
     if missing or vague:
         findings.append(
             Finding(

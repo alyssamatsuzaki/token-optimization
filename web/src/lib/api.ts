@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import type {
   BriefResult,
+  DeleteResult,
+  RunsView,
   CompareExamples,
   Health,
   InspectResult,
@@ -79,6 +81,21 @@ export function useCompare() {
 
 export function useBrief() {
   return useQuery({ queryKey: ["brief"], queryFn: () => get<BriefResult>("/api/brief") });
+}
+
+export function useRuns() {
+  return useQuery({ queryKey: ["runs"], queryFn: () => get<RunsView>("/api/runs") });
+}
+
+export function deleteRunContent(runId: string) {
+  return post<DeleteResult>(`/api/runs/${runId}/content`, {});
+}
+
+export function storePreference(compareSessionId: string, model: string) {
+  return post<{ stored: boolean; model: string; note: string }>("/api/preferences", {
+    compare_session_id: compareSessionId,
+    model,
+  });
 }
 
 export function useSettings() {

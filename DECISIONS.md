@@ -139,3 +139,28 @@ A count of compared models carried an "estimated" mark, and a model *name* carri
 one; `Figure` gained a `kind="none"` for structural facts that no provenance mark describes, and
 the marks moved onto the costs beneath the names, which is what they actually describe. Marking
 things that are not measurements devalues the marks on the things that are.
+
+**D24 — `make record` is refused, and user-supplied workloads are not built.** SPEC.md section 6
+describes recording the demo against live providers, and section 3 lists a user's own JSONL/CSV
+dataset as in scope. Neither shipped, and the places that claimed otherwise now say so. Reality
+in detail:
+
+*Recording.* The live path is wired end to end — `Recorder._adapter()` builds the real provider
+adapter for any provider that is not `simulated`, wraps it in `RecordingAdapter` so an
+interrupted run resumes from its cassettes, and `tests/test_recorder_wiring.py` pins that down
+without making a call. What has never happened is a request. This build had no API credentials
+and no `RECORD_BUDGET_USD`, and Tokop never sets a budget for you. So `tokop record` stops with
+exit 3 and points at `tokop build-test-fixtures` instead: the conservative option is to refuse a
+path that has never once been exercised, rather than to spend someone's money finding out.
+Consequences: `fixtures/demo/` cannot be produced in this build, `recording-state` reports
+`unrecorded` and every screen labels its numbers simulated, and `make record` is a stub that
+explains itself. Removing this decision means setting a key and a budget and running the
+recorder against a small split first.
+
+*User workloads.* `optimize/report.py` computes over the demo workload alone: the dataset,
+graders and pipeline definitions are the demo's. `tokop prove --workload` and the
+`/api/report` surface refuse anything else by name rather than quietly reporting the demo's
+numbers under someone else's workload title, which would violate non-negotiable 1 in the worst
+possible way. The loader (`workloads/spec.py`) and the runner are already workload-agnostic; what
+is missing is dataset ingestion and a grader that is not `workloads/grading.py`'s answer-type
+table.

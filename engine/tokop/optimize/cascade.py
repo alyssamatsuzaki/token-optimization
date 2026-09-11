@@ -78,6 +78,12 @@ class CascadeOutcome:
     per_task_cost: tuple[Decimal, ...]
     task_ids: tuple[str, ...]
     scarce_cost: Decimal
+    #: What each tier actually spent, summed over every task that *touched* it. This is not the
+    #: share of tasks resolved at that tier: every task pays the cheap tier, and an escalated
+    #: task pays for both. Sizing a graph node by the resolved share would size it wrong.
+    tier_cost: tuple[Decimal, ...] = ()
+    #: How many tasks reached each tier at all, resolved there or not.
+    tier_attempts: tuple[int, ...] = ()
 
     @property
     def n(self) -> int:
@@ -98,6 +104,18 @@ class CascadeOutcome:
     @property
     def scarce_share(self) -> float:
         return float(self.scarce_cost / self.total_cost) if self.total_cost else 0.0
+
+    def tier_cost_shares(self) -> list[float]:
+        """Each tier's share of the **spend**, which is what a cost-weighted graph node needs."""
+        if not self.tier_cost or not self.total_cost:
+            return [0.0] * len(self.tier_cost)
+        return [float(c / self.total_cost) for c in self.tier_cost]
+
+    def tier_attempt_shares(self) -> list[float]:
+        """Share of tasks that reached each tier at all, resolved there or not."""
+        if not self.tier_attempts or not self.n:
+            return [0.0] * len(self.tier_attempts)
+        return [a / self.n for a in self.tier_attempts]
 
     def tier_shares(self, tier_count: int) -> list[float]:
         """Share of tasks resolved at each tier."""
@@ -142,6 +160,8 @@ def simulate(tiers: Sequence[TierRun], thresholds: Sequence[float]) -> CascadeOu
     per_task: list[Decimal] = []
     scarce_total = Decimal(0)
     total = Decimal(0)
+    tier_cost = [Decimal(0) for _ in tiers]
+    tier_attempts = [0 for _ in tiers]
 
     for i in range(len(task_ids)):
         spent = Decimal(0)
@@ -150,6 +170,8 @@ def simulate(tiers: Sequence[TierRun], thresholds: Sequence[float]) -> CascadeOu
         for index, tier in enumerate(tiers):
             # Every tier touched is paid for, whether or not its answer is returned.
             spent += tier.cost_usd[i]
+            tier_cost[index] += tier.cost_usd[i]
+            tier_attempts[index] += 1
             if tier.scarce:
                 scarce_spent += tier.cost_usd[i]
             is_last = index == len(tiers) - 1
@@ -170,6 +192,8 @@ def simulate(tiers: Sequence[TierRun], thresholds: Sequence[float]) -> CascadeOu
         per_task_cost=tuple(per_task),
         task_ids=task_ids,
         scarce_cost=scarce_total,
+        tier_cost=tuple(tier_cost),
+        tier_attempts=tuple(tier_attempts),
     )
 
 

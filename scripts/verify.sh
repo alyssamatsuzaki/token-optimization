@@ -78,12 +78,16 @@ if have engine/.venv/bin/tokop; then
   fi
   if have engine/tokop/optimize/report.py; then
     run "tokop report --check" bash -c "cd '$ROOT' && engine/.venv/bin/tokop report --check"
+    run "docs/DEMO.md is current" bash -c \
+      "cd '$ROOT' && engine/.venv/bin/python scripts/write_demo.py --check"
   else
     skip "tokop report --check" "the report engine arrives in M4"
+    skip "docs/DEMO.md is current" "the report engine arrives in M4"
   fi
 else
   skip "tokop fixtures-check" "tokop CLI not installed"
   skip "tokop report --check" "tokop CLI not installed"
+  skip "docs/DEMO.md is current" "tokop CLI not installed"
 fi
 
 # ---------------------------------------------------------------- 6. end to end

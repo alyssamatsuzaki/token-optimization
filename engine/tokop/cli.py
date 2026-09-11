@@ -102,10 +102,11 @@ def record(
     typer.echo(f"workload: {workload}")
     typer.echo(f"budget:   ${budget} (RECORD_BUDGET_USD)")
     typer.echo(
-        "\nThe live recording path is wired to the recorder and the spend guard, but it has "
-        "not been exercised against a real provider in this build: no credentials were "
-        "available (DECISIONS.md D1). Rather than claim a path that has never run, `tokop "
-        "record` stops here and points you at the simulated fixture builder."
+        "\nThe live recording path is wired: `Recorder._adapter()` builds this provider's real "
+        "HTTP adapter behind the cassette recorder, and tests/test_recorder_wiring.py pins that "
+        "down. What has never happened is a request — this build had no credentials and no "
+        "budget (DECISIONS.md D1 and D24). Rather than spend your money exercising a path for "
+        "the first time, `tokop record` stops here and points you at the fixture builder."
     )
     typer.echo("\n  tokop build-test-fixtures    # deterministic, spends nothing")
     raise typer.Exit(3)
@@ -124,8 +125,17 @@ def prove(
     """
     from tokop.optimize.report import build_report
 
-    payload = build_report()
+    # The margin is applied, not echoed: the verdict below is computed against this number.
+    payload = build_report(margin=margin)
     proof = payload["proof"]
+    if workload != "data/demo/workload.yaml":
+        typer.echo(
+            f"this build can only prove the demo workload; --workload {workload!r} is not "
+            "supported yet (SPEC.md section 3's user-workload tooling is not built; see "
+            "DECISIONS.md D24).",
+            err=True,
+        )
+        raise typer.Exit(2)
     if proof["baseline"]["pipeline"] != baseline or proof["candidate"]["pipeline"] != candidate:
         typer.echo(
             f"this build's report compares {proof['baseline']['pipeline']} with "
@@ -140,7 +150,7 @@ def prove(
         f"splits:    {proof['split_sizes']['calibration']} calibration, "
         f"{proof['split_sizes']['test']} test"
     )
-    typer.echo(f"margin:    {margin:.0%}")
+    typer.echo(f"margin:    {margin:.0%} (applied)")
     typer.echo("")
     typer.echo(f"VERDICT:   {proof['verdict']['display']}")
     typer.echo(f"           {proof['verdict']['sentence']}")
@@ -202,14 +212,36 @@ def report(
     else:
         typer.echo("  ok    the report recomputes identically")
 
-    # 2. The API serves the same computation, not a parallel one.
+    # 2. The API serves the same computation, not a parallel one. This goes through the route
+    #    over HTTP rather than calling the cache directly: the thing worth checking is what a
+    #    browser receives, and a route that serialized the wrong object would pass either way.
     clear_cache()
-    served = cached_report(False)
-    if served.headline() != payload.headline():
-        typer.echo("  FAIL  /api/report does not match a fresh computation", err=True)
+    cached_report(False)  # warm it, so the request measures the served path and not a build
+    from fastapi.testclient import TestClient
+
+    from tokop.api.app import app as api_app
+
+    with TestClient(api_app) as client:
+        response = client.get("/api/report")
+    if response.status_code != 200:
+        typer.echo(f"  FAIL  GET /api/report returned {response.status_code}", err=True)
         failures += 1
     else:
-        typer.echo("  ok    /api/report serves the same numbers")
+        from tokop.optimize.report import ReportPayload
+
+        over_http = ReportPayload(_json.loads(response.content)).headline()
+        # The fresh headline goes through JSON too, so this compares numbers and not the
+        # Decimal-versus-string difference that serialization introduces.
+        fresh = _json.loads(_json.dumps(payload.headline(), default=str))
+        if over_http != fresh:
+            differing = [k for k in fresh if over_http.get(k) != fresh[k]]
+            typer.echo(
+                f"  FAIL  GET /api/report disagrees on {', '.join(differing)}",
+                err=True,
+            )
+            failures += 1
+        else:
+            typer.echo("  ok    GET /api/report serves the same numbers")
 
     # 3. The README's metrics block is current.
     current, message = readme_metrics_current(payload)

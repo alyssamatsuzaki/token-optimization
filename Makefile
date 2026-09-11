@@ -17,7 +17,8 @@ dev:
 verify:
 	@bash scripts/verify.sh
 
-## Live API calls. Capped by RECORD_BUDGET_USD. Refuses to run without it.
+## Live recording. Stops before spending: the live path has never been exercised
+## against a real provider in this build (DECISIONS.md D24). Use build-test-fixtures.
 record:
 	$(TOKOP) record --workload data/demo/workload.yaml
 

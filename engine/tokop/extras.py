@@ -27,7 +27,7 @@ from tokop.adapters.factory import simulated_profiles
 from tokop.adapters.recording import RecordingAdapter
 from tokop.adapters.simulated import SimulatedAdapter
 from tokop.core.registry import Registry
-from tokop.core.tokenize import get_base_counter
+from tokop.core.tokenize import _ALPHA_CHARS_PER_TOKEN, get_base_counter
 
 COMPARE_SYSTEM = (
     "You are answering a single question as directly as you can. Give the answer first, then "
@@ -247,6 +247,9 @@ def record_extras(
                 "synthesis": SYNTHESIS if key == "reasoning" else None,
                 "synthesis_model": models[0] if key == "reasoning" else None,
                 "manual_column": {
+                    # The UI must not retype a tokenizer constant (SPEC.md non-negotiable 1).
+                    "chars_per_token": _ALPHA_CHARS_PER_TOKEN,
+                    "token_counter": counter.name,
                     "note": (
                         "Subscription apps have no public API, so they appear as a manual "
                         "column: copy the prompt, paste the answer back. Tokens are estimated "

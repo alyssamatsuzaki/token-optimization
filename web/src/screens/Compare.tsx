@@ -6,7 +6,7 @@
  * and never automates a chat app (SPEC.md non-negotiable 6).
  */
 import { useState } from "react";
-import { useCompare } from "../lib/api";
+import { storePreference, useCompare } from "../lib/api";
 import { count, ms, tokens, usd } from "../lib/format";
 import {
   Button,
@@ -25,6 +25,7 @@ export default function Compare() {
   const [manual, setManual] = useState("");
   const [copied, setCopied] = useState(false);
   const [preferred, setPreferred] = useState<string | null>(null);
+  const [preferError, setPreferError] = useState<string | null>(null);
 
   if (isLoading) return <div className="px-8"><LoadingRow what="the recorded comparisons" /></div>;
   if (error || !data) return <div className="px-8"><ErrorRow error={error} what="Compare" /></div>;
@@ -107,7 +108,12 @@ export default function Compare() {
               <div className="px-3 py-2 rule-t">
                 <button
                   type="button"
-                  onClick={() => setPreferred(column.model_id)}
+                  onClick={() => {
+                    setPreferError(null);
+                    storePreference(example.id, column.model_id)
+                      .then(() => setPreferred(column.model_id))
+                      .catch((err) => setPreferError(String(err)));
+                  }}
                   className={`text-small ${preferred === column.model_id ? "text-verdigris font-medium" : "text-prussian hover:text-ink"}`}
                   data-testid={`prefer-${column.model_id}`}
                 >
@@ -115,9 +121,10 @@ export default function Compare() {
                 </button>
                 {preferred === column.model_id && (
                   <p className="text-micro text-graphite mt-1">
-                    Stored for a future learned router. Nothing reads it in v1.
+                    Stored in the ledger for a future learned router. Nothing reads it in v1.
                   </p>
                 )}
+                {preferError && <p className="text-micro text-vermilion mt-1">{preferError}</p>}
               </div>
             </article>
           ))}
@@ -140,9 +147,9 @@ export default function Compare() {
                 <dt className="text-graphite">output</dt>
                 <dd className="text-right tabular-nums">
                   <Figure
-                    value={tokens(Math.round(manual.length / 4.2))}
+                    value={tokens(Math.round(manual.length / example.manual_column.chars_per_token))}
                     kind="estimated"
-                    title="Estimated from character count; a pasted answer has no provider usage."
+                    title={`Estimated from character count with ${example.manual_column.token_counter}; a pasted answer has no provider usage.`}
                   />
                 </dd>
                 <dt className="text-graphite">cost</dt>
@@ -157,6 +164,11 @@ export default function Compare() {
         <Section
           title="Synthesis"
           subtitle={`All responses sent to ${example.synthesis_model}, which returns a fixed structure.`}
+          right={
+            <Button disabledReason={liveReason} testId="synthesize">
+              Synthesize
+            </Button>
+          }
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6" data-testid="synthesis">
             {(

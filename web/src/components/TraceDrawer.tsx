@@ -109,11 +109,21 @@ export function TraceDrawer({
                       </span>
                     )}
                   </dd>
+                  <dt className="text-graphite">Scorer score</dt>
+                  <dd className="tabular-nums">
+                    {call.scorer_score === null ? "—" : call.scorer_score.toFixed(3)}
+                    {call.scorer_threshold !== null && (
+                      <span className="text-graphite text-micro ml-2">
+                        threshold {call.scorer_threshold.toFixed(2)}
+                      </span>
+                    )}
+                  </dd>
                   <dt className="text-graphite">Route decision</dt>
-                  <dd>
-                    {call.grade.correct
-                      ? "answer accepted at this tier"
-                      : "scored below threshold or wrong"}
+                  <dd data-testid={`route-decision-${call.tier}`}>
+                    {call.route_decision}
+                    <div className="text-micro text-graphite">
+                      A function of the scorer alone. It does not know the grade below.
+                    </div>
                   </dd>
                 </dl>
 

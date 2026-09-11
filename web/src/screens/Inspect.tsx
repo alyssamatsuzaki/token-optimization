@@ -9,6 +9,7 @@
 import { useEffect, useState } from "react";
 import { inspectPrompt, useBrief, useHealth, usePipelineTemplate } from "../lib/api";
 import { count, pct, tokens, usd, usdShort } from "../lib/format";
+import PromptHighlights, { type InspectedPrompt } from "../components/PromptHighlights";
 import type { InspectResult } from "../lib/types";
 import {
   Button,
@@ -34,6 +35,10 @@ export default function Inspect() {
   const [maxTokens, setMaxTokens] = useState(2000);
   const [cacheAfterSystem, setCacheAfterSystem] = useState(false);
   const [result, setResult] = useState<InspectResult | null>(null);
+  // The spans a finding carries are offsets into the text that was submitted, so the
+  // highlights are drawn on that text and not on whatever is in the boxes now.
+  const [inspected, setInspected] = useState<InspectedPrompt | null>(null);
+  const [selectedFinding, setSelectedFinding] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
 
@@ -51,6 +56,8 @@ export default function Inspect() {
           apply_fixes: applyFixes,
         }),
       );
+      setInspected({ system, user });
+      setSelectedFinding(null);
     } catch (err) {
       setError(err);
     } finally {
@@ -69,20 +76,24 @@ export default function Inspect() {
   // Load B0 and inspect it as soon as the template arrives. Opening on "paste a prompt and
   // press Inspect" when a prompt is already loaded is a dead end.
   useEffect(() => {
-    if (!template.data || system) return;
-    setSystem(template.data.system);
-    setUser(template.data.user);
-    setMaxTokens(template.data.max_tokens);
-    setCacheAfterSystem(template.data.cache_after_system);
+    const loaded = template.data;
+    if (!loaded || system) return;
+    setSystem(loaded.system);
+    setUser(loaded.user);
+    setMaxTokens(loaded.max_tokens);
+    setCacheAfterSystem(loaded.cache_after_system);
     void inspectPrompt({
-      system: template.data.system,
-      user: template.data.user,
+      system: loaded.system,
+      user: loaded.user,
       tools: "",
-      max_tokens: template.data.max_tokens,
-      cache_after_system: template.data.cache_after_system,
+      max_tokens: loaded.max_tokens,
+      cache_after_system: loaded.cache_after_system,
       apply_fixes: false,
     })
-      .then(setResult)
+      .then((first) => {
+        setResult(first);
+        setInspected({ system: loaded.system, user: loaded.user });
+      })
       .catch(setError);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [template.data]);
@@ -236,10 +247,25 @@ export default function Inspect() {
                   {result.findings.map((f) => (
                     <li key={f.id} className="rule-t py-2">
                       <div className="flex items-baseline justify-between gap-3">
-                        <span>
+                        <button
+                          className={
+                            "text-left " +
+                            (selectedFinding === f.id ? "text-ink font-medium" : "hover:text-prussian")
+                          }
+                          aria-pressed={selectedFinding === f.id}
+                          onClick={() =>
+                            setSelectedFinding(selectedFinding === f.id ? null : f.id)
+                          }
+                          data-testid={`finding-${f.id}`}
+                          title={
+                            f.spans.length > 0
+                              ? `Show the ${f.spans.length} range(s) this fired on`
+                              : "This finding is about the request as a whole; it names no range"
+                          }
+                        >
                           <span className="font-mono text-small text-graphite mr-2">{f.id}</span>
                           {f.title}
-                        </span>
+                        </button>
                         <span className="text-small text-graphite tabular-nums whitespace-nowrap" title={f.formula}>
                           {Number(f.projected_usd_per_1k) > 0
                             ? `${usdShort(f.projected_usd_per_1k)}/1k`
@@ -251,7 +277,18 @@ export default function Inspect() {
                   ))}
                 </ol>
 
-                <h3 className="text-base font-medium mb-1">Cost per 1,000 calls</h3>
+                {inspected && (
+                  <div className="mb-6">
+                    <h3 className="text-base font-medium mb-1">Where the findings fired</h3>
+                    <PromptHighlights
+                      prompt={inspected}
+                      findings={result.findings}
+                      selected={selectedFinding}
+                    />
+                  </div>
+                )}
+
+                <h3 className="text-base font-medium mb-1">Cost per call</h3>
                 <p className="text-small text-graphite mb-2">
                   Input plus the full <code className="font-mono">max_tokens</code>, cheapest
                   first. Token counts are estimated: {result.token_counter}.
@@ -262,6 +299,7 @@ export default function Inspect() {
                       <th className="text-left font-medium py-1">Model</th>
                       <th className="text-right font-medium py-1">Input</th>
                       <th className="text-right font-medium py-1">Overhead</th>
+                      <th className="text-right font-medium py-1">Per call</th>
                       <th className="text-right font-medium py-1">Per 1,000 calls</th>
                       <th className="text-left font-medium py-1 pl-3">Cacheable?</th>
                     </tr>
@@ -283,6 +321,9 @@ export default function Inspect() {
                         </td>
                         <td className="py-1.5 text-right tabular-nums text-graphite">
                           {tokens(m.fixed_overhead_tokens)}
+                        </td>
+                        <td className="py-1.5 text-right tabular-nums text-graphite">
+                          {usdShort(m.cost_per_call_usd)}
                         </td>
                         <td className="py-1.5 text-right tabular-nums">
                           {usd(m.cost_per_1k_usd, 2)}

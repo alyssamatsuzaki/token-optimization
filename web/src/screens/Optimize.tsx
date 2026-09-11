@@ -92,7 +92,7 @@ function baselineSteps(report: Report): StepNode[] {
       inputTokens: run.input_tokens,
       outputTokens: run.output_tokens,
       cacheReadTokens: run.cache_read_tokens,
-      p50LatencyMs: null,
+      p50LatencyMs: run.p50_latency_ms ?? run.recorded_latency_p50_ms,
       scarce: true,
       tierIndex: 1,
       tierCount: 2,
@@ -102,7 +102,6 @@ function baselineSteps(report: Report): StepNode[] {
 
 function candidateSteps(report: Report): StepNode[] {
   const tiers = report.cascade.tiers;
-  const total = Number(report.proof.candidate.total_cost_usd) || 1;
   const steps: StepNode[] = [
     {
       id: "prompt",
@@ -124,18 +123,21 @@ function candidateSteps(report: Report): StepNode[] {
     const run = report.runs.find(
       (r) => r.pipeline === "B2" && r.split === "test" && r.tier === tier.tier,
     );
-    const share = tier.share_of_tasks;
+    // Cost and cost share come from the cascade's own per-tier spend, not from the share of
+    // tasks resolved here. Every task pays the cheap tier and an escalated task pays twice, so
+    // the two quantities differ by a lot — sizing the node by the wrong one would mislead about
+    // exactly the thing the graph exists to show.
     steps.push({
       id: tier.tier,
       label: `${titleCase(tier.tier)} tier`,
       model: tier.model_id,
-      calls: run?.calls ?? 0,
-      costUsd: total * share,
-      costShare: share,
+      calls: tier.attempts,
+      costUsd: Number(tier.cost_usd),
+      costShare: tier.share_of_cost,
       inputTokens: run?.input_tokens ?? 0,
       outputTokens: run?.output_tokens ?? 0,
       cacheReadTokens: run?.cache_read_tokens ?? 0,
-      p50LatencyMs: null,
+      p50LatencyMs: tier.p50_latency_ms,
       scarce: tier.scarce,
       tierIndex: index + 1,
       tierCount: tiers.length + 1,
@@ -179,10 +181,9 @@ export default function Optimize() {
           ...cascade.tiers.slice(0, -1).map((tier, i) => ({
             from: tier.tier,
             to: cascade.tiers[i + 1].tier,
-            label: pct(
-              cascade.tiers.slice(i + 1).reduce((sum, t) => sum + t.share_of_tasks, 0),
-              0,
-            ),
+            // The share of tasks that escalate past this tier, which is the next tier's
+            // attempt share — not the share resolved somewhere further down.
+            label: pct(cascade.tiers[i + 1].share_of_attempts, 0),
           })),
         ];
 
@@ -195,6 +196,8 @@ export default function Optimize() {
           {count(report.workload.dataset.size)} tasks ·{" "}
           {count(report.workload.dataset.calibration)} calibration and{" "}
           {count(report.workload.dataset.test)} test · seed {report.workload.dataset.seed} ·{" "}
+          {report.provenance.is_test_data ? "generated" : "recorded"}{" "}
+          {report.provenance.recorded_at?.slice(0, 10) ?? "date unknown"} ·{" "}
           {Object.values(report.provenance.model_ids).join(", ")}
         </p>
         {report.provenance.is_test_data && (

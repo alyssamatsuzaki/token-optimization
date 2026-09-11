@@ -12,7 +12,7 @@ last commit, and open decisions.**
     make dev       uvicorn :8000 + vite :5173, works with no API keys
     make verify    every check in SPEC.md section 10, in order
     make demo      production build served in replay mode on :8000
-    make record    live API calls; refuses to run without RECORD_BUDGET_USD
+    make record    stops before spending; the live path has never run (DECISIONS.md D24)
     make fmt       ruff format + ruff check --fix
 
 Engine commands run through `engine/.venv/bin/`. Web commands run with `pnpm -C web`.
@@ -51,5 +51,7 @@ Engine commands run through `engine/.venv/bin/`. Web commands run with `pnpm -C 
 ## Money
 
 Live API calls happen only inside `make record` (capped by `RECORD_BUDGET_USD`) and in
-user-initiated live actions (capped by `DAILY_BUDGET_USD`). Tests never call live APIs.
+user-initiated live actions (capped by `DAILY_BUDGET_USD`). Neither has ever made one:
+`make record` stops before spending and the live actions are not built (DECISIONS.md D24).
+Tests never call live APIs.
 **Never change a budget value.**

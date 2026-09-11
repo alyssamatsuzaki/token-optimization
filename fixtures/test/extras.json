@@ -96,7 +96,9 @@
       ],
       "id": "reasoning",
       "manual_column": {
-        "note": "Subscription apps have no public API, so they appear as a manual column: copy the prompt, paste the answer back. Tokens are estimated and the cost shows as 'subscription' rather than a dollar figure."
+        "chars_per_token": 4.2,
+        "note": "Subscription apps have no public API, so they appear as a manual column: copy the prompt, paste the answer back. Tokens are estimated and the cost shows as 'subscription' rather than a dollar figure.",
+        "token_counter": "bytes-bpe-approx-v1"
       },
       "prompt": "A team runs 40,000 support answers a month. Each answer sends a 7,000-token handbook that never changes, plus a 60-token question, and gets back about 220 tokens. They are on a model that charges $5 per million input tokens, $25 per million output, and $0.50 per million for a cache read. What is the single largest saving available to them, and roughly what is it worth per month?",
       "synthesis": {
@@ -193,7 +195,9 @@
       ],
       "id": "extraction",
       "manual_column": {
-        "note": "Subscription apps have no public API, so they appear as a manual column: copy the prompt, paste the answer back. Tokens are estimated and the cost shows as 'subscription' rather than a dollar figure."
+        "chars_per_token": 4.2,
+        "note": "Subscription apps have no public API, so they appear as a manual column: copy the prompt, paste the answer back. Tokens are estimated and the cost shows as 'subscription' rather than a dollar figure.",
+        "token_counter": "bytes-bpe-approx-v1"
       },
       "prompt": "Extract every monetary amount and what it refers to from this note, as JSON:\n\n\"Order 88-1042 shipped to Zone 3 at 14 lb, so shipping was $29.95. The customer returned a $248.75 tent outside the window; we waived the 10% restocking fee as goodwill but kept the $24.00 oversize surcharge. Net refund issued: $248.75.\"",
       "synthesis": null,

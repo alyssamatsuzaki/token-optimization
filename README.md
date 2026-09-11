@@ -79,7 +79,8 @@ make verify    # every check in SPEC.md section 10, in order
 tokop report   # recompute every headline metric from the fixtures
 tokop lint B0  # the prompt lint over a pipeline
 tokop prove    # exits nonzero unless the verdict is non-inferior — a CI gate
-make record    # live API calls; refuses to run without RECORD_BUDGET_USD
+make record    # stops before spending — the live path has never run (DECISIONS.md D24)
+tokop build-test-fixtures   # rebuild fixtures/test/ from the simulator; spends nothing
 ```
 
 ## The four screens
@@ -173,6 +174,13 @@ engine is what would make savings billable — you cannot invoice against "it se
   where that bites.
 - **v1 accounts for text only.** Image, video and audio generation have reserved schema fields
   and are refused rather than mispriced.
+- **This build ships one workload: the demo.** Pointing Tokop at your own JSONL or CSV dataset
+  is not built — the loader and runner are workload-agnostic, but dataset ingestion and a
+  general grader are not. `tokop prove --workload` refuses anything else by name rather than
+  reporting the demo's numbers under your workload's title. `DECISIONS.md` D24.
+- **No live recording has ever run.** The live path is wired and tested up to the request, but
+  this build had no credentials and no budget, so every number here is simulated and labelled
+  simulated. `make record` stops before spending. `DECISIONS.md` D24.
 
 ## Roadmap
 

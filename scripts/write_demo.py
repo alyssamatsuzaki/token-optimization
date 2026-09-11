@@ -6,16 +6,32 @@ stale the next time the fixtures change, and a demo that quotes a number the scr
 is worse than no script at all. So the script is generated, like the README's metrics block.
 
     engine/.venv/bin/python scripts/write_demo.py
+    engine/.venv/bin/python scripts/write_demo.py --check   # fail if it is stale
+
+``--check`` is what `make verify` runs: it rebuilds the text and compares, so a fixture change
+that moves a number cannot leave the demo script quoting the old one.
 """
 
 from __future__ import annotations
 
+import re
+import sys
 from pathlib import Path
 
 from tokop.optimize.report import build_report
 
 
-def main() -> Path:
+# The cascade search time is a wall-clock measurement of the machine that generated the file,
+# so it moves between runs on the same fixtures. It is a real measured number and stays in the
+# document; it just is not evidence that the document is stale.
+_TIMING = re.compile(r"evaluated in \d+\.\d+ seconds")
+
+
+def _comparable(text: str) -> str:
+    return _TIMING.sub("evaluated in <wall clock> seconds", text)
+
+
+def main(*, check: bool = False) -> Path:
     report = build_report()
     proof = report["proof"]
     cascade = report["cascade"]
@@ -56,7 +72,7 @@ Start at `http://localhost:8000` after `make demo`. No API keys, no network.
 
 ## 0:00 — The problem, in one line (10 s)
 
-> "This support bot answers {report['workload']['dataset']['size']} policy questions. It costs
+> "This support bot answers {report["workload"]["dataset"]["size"]} policy questions. It costs
 > **${base:.5f} per successful answer**. I'm going to make it cost **${cand:.5f}** — and prove it
 > didn't get worse."
 
@@ -171,9 +187,20 @@ how cost-cutting decisions go wrong. It tells you the remedy instead: about
 {proof["verdict"]["additional_tasks_needed"]} more tasks.
 """
     path = Path(__file__).resolve().parent.parent / "docs" / "DEMO.md"
+    if check:
+        if not path.exists():
+            raise SystemExit(f"{path} does not exist; run scripts/write_demo.py")
+        if _comparable(path.read_text()) != _comparable(text):
+            raise SystemExit(
+                f"{path.name} is stale: the report has moved since it was generated. "
+                "Run `engine/.venv/bin/python scripts/write_demo.py`."
+            )
+        return path
     path.write_text(text)
     return path
 
 
 if __name__ == "__main__":
-    print(f"wrote {main()}")
+    checking = "--check" in sys.argv[1:]
+    result = main(check=checking)
+    print(f"{'checked' if checking else 'wrote'} {result}")

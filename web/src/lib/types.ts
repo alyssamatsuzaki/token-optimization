@@ -131,8 +131,17 @@ export interface CascadeTierView {
   model_id: string;
   scarce: boolean;
   threshold: number;
+  /** Share of tasks that *stopped* here. */
   share_of_tasks: number;
+  /** Share of tasks that *reached* here at all — every task reaches the first tier. */
+  share_of_attempts: number;
+  /** Share of the candidate's spend. This is what a cost-weighted graph node needs. */
+  share_of_cost: number;
+  cost_usd: string;
+  attempts: number;
   auroc: number | null;
+  p50_latency_ms: number | null;
+  latency_is_recorded: boolean;
 }
 
 export interface FrontierPointView {
@@ -190,6 +199,8 @@ export interface RunView {
   output_tokens: number;
   calls: number;
   prewarm_calls: number;
+  p50_latency_ms: number | null;
+  recorded_latency_p50_ms: number | null;
   origin: string;
 }
 
@@ -222,6 +233,7 @@ export interface ProvenanceView {
 export interface LiveControls {
   enabled: boolean;
   disabled_reasons: Record<string, string>;
+  implemented?: string[];
 }
 
 export interface Report {
@@ -267,6 +279,9 @@ export interface TraceCall {
   latency_ms: number;
   ttft_ms: number | null;
   scorer_features: Record<string, number>;
+  scorer_score: number | null;
+  scorer_threshold: number | null;
+  route_decision: string;
   grade: { correct: boolean; parsed: string | null; reason: string };
   origin: string;
 }
@@ -283,6 +298,7 @@ export interface Trace {
   };
   calls: TraceCall[];
   note: string;
+  thresholds: Record<string, number>;
 }
 
 export interface Health {
@@ -401,7 +417,7 @@ export interface CompareExample {
     final: string;
   } | null;
   synthesis_model: string | null;
-  manual_column: { note: string };
+  manual_column: { note: string; chars_per_token: number; token_counter: string };
 }
 
 export interface CompareExamples {
@@ -438,15 +454,27 @@ export interface SpendView {
   scarce_usd: string;
   scarce_share: number;
   by_model: { model_id: string; usd: string; scarce: boolean; share: number }[];
+  by_provider: { provider: string; usd: string; share: number }[];
   by_pipeline: { pipeline: string; usd: string }[];
+  by_workload: { workload: string; usd: string; runs: number }[];
+  by_day: { day: string; usd: string }[];
   runs: RunView[];
-  budgets: { daily_cap_usd: string | null; daily_spent_usd: string; state: string };
+  budgets: {
+    daily_cap_usd: string | null;
+    daily_spent_usd: string;
+    daily_remaining_usd: string | null;
+    fraction: number | null;
+    state: string;
+    warning_at: number;
+    note: string;
+  };
   cost_per_successful_task: {
     pipeline: string;
     label: string;
     usd: number;
     low: number;
     high: number;
+    day: string;
   }[];
   provenance: ProvenanceView;
   note: string;
@@ -494,4 +522,31 @@ export interface SettingsView {
   token_counter: string;
   recording: { state: string; reason: string; fixture_source: string; is_test_data: boolean };
   live_controls: LiveControls;
+}
+
+export interface LedgerRun {
+  run_id: string;
+  pipeline: string;
+  split: string;
+  model_ids: string[];
+  calls: number;
+  total_cost_usd: string;
+  content_deleted: boolean;
+  stored_prompts: number;
+  stored_responses: number;
+}
+
+export interface RunsView {
+  runs: LedgerRun[];
+  ledger: string | null;
+}
+
+export interface DeleteResult {
+  run_id: string;
+  calls_cleared: number;
+  prompts_remaining: number;
+  responses_remaining: number;
+  cost_usd_unchanged: boolean;
+  tokens_unchanged: boolean;
+  note: string;
 }
