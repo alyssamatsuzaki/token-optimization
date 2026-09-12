@@ -240,6 +240,17 @@ The second CI run took it from four failures to two, both with the same shape:
    for a prompt the user pastes still uses the best counter available, which is the right answer
    for a number that rests on nothing committed.
 
+8. **One e2e assertion was checking a knife-edge, not a screen.** The fifth CI run left one
+   failure: `PL02` did not fire on B0's template there. PL02 needs a static block above 500
+   tokens, and B0's template system prompt measures 460 under `o200k_base` and about 550 under
+   the approximation — so the rule correctly fires under one and correctly does not under the
+   other. Neither is a bug. `/api/inspect` lints a prompt the user pastes, which rests on nothing
+   committed, so it keeps the best counter available rather than being pinned like the report.
+   The test now asserts what the screen is actually for: that the findings it lists are exactly
+   the ones the API returned, in the same order, and that B0 fires the two the demo exists to
+   demonstrate (PL01 and PL06), which hold under any counter. PL02's own behaviour stays pinned
+   in `tests/test_lint.py`, against a document 2,400 tokens clear of the threshold.
+
 What this does not fix: token *estimates* computed here are still ~20% high, because this machine
 still cannot load `o200k_base`. They name `bytes-bpe-approx-v1` everywhere they appear, and now
 the fixtures say so too.

@@ -15,11 +15,42 @@ async function inspectWithB0(page: Page) {
 }
 
 test.describe("Inspect", () => {
-  test("B0's prompt fires PL01, PL02 and PL06", async ({ page }) => {
+  test("the findings list is exactly what the engine returned", async ({ page, request }) => {
+    // SPEC.md non-negotiable 1: the screen's job is to show the engine's findings, so that is
+    // what this asserts — not a hard-coded list of rule IDs. An earlier version named PL02,
+    // which fires on B0's template under one token counter and not under another because the
+    // template's static block lands within a few tokens of the rule's threshold. PL02's own
+    // behaviour is pinned in tests/test_lint.py with a document far clear of that threshold,
+    // which is where a rule's behaviour belongs (DECISIONS.md D26).
+    const template = await (await request.get("/api/inspect/pipeline/B0")).json();
+    const result = await (
+      await request.post("/api/inspect", {
+        data: {
+          system: template.system,
+          user: template.user,
+          tools: "",
+          max_tokens: template.max_tokens,
+          cache_after_system: template.cache_after_system,
+          apply_fixes: false,
+        },
+      })
+    ).json();
+    const expected = result.findings.map((f: { id: string }) => f.id);
+    expect(expected.length).toBeGreaterThan(3);
+
     await inspectWithB0(page);
     const findings = page.getByTestId("inspect-findings");
-    for (const id of ["PL01", "PL02", "PL06"]) {
-      await expect(findings).toContainText(id);
+    // The id and the title are adjacent spans, so innerText runs them together: "PL06No output
+    // contract…". Take the leading rule id.
+    const shown = (await findings.locator("li").allInnerTexts()).map(
+      (text) => /^[A-Z]+\d+/.exec(text.trim())?.[0] ?? text.trim(),
+    );
+    expect(shown).toEqual(expected);
+
+    // B0 exists to demonstrate these two, and they fire under any token counter: a volatile
+    // block inside the cacheable prefix, and no cap on the output.
+    for (const id of ["PL01", "PL06"]) {
+      expect(expected).toContain(id);
     }
   });
 
