@@ -1,4 +1,19 @@
+import { existsSync } from "node:fs";
+
 import { defineConfig, devices } from "@playwright/test";
+
+/**
+ * Which Chromium to launch.
+ *
+ * This image ships one at a pinned path and blocks the download host, so the browser is pointed
+ * at rather than fetched. Anywhere else — a contributor's laptop, GitHub Actions after
+ * `playwright install chromium` — that path does not exist and Playwright's own resolution is
+ * correct. `PLAYWRIGHT_CHROMIUM` overrides both and is used verbatim, so a wrong value fails
+ * loudly instead of being silently ignored.
+ */
+const PINNED = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+const executablePath =
+  process.env.PLAYWRIGHT_CHROMIUM ?? (existsSync(PINNED) ? PINNED : undefined);
 
 /**
  * End-to-end tests run in replay mode against the **production build**, served by the same
@@ -28,13 +43,7 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
-        // This image ships Chromium at a pinned path and blocks the download host, so the
-        // browser is pointed at rather than fetched. PLAYWRIGHT_CHROMIUM overrides it.
-        launchOptions: {
-          executablePath:
-            process.env.PLAYWRIGHT_CHROMIUM ??
-            "/opt/pw-browsers/chromium-1194/chrome-linux/chrome",
-        },
+        launchOptions: { executablePath },
       },
     },
   ],

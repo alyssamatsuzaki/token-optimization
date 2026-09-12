@@ -126,6 +126,26 @@ the test split would make the test number meaningless.
 the paired form and the optimal fixed sampling rate. Nothing in v1 uses a judge, but the maths is
 there, tested, and ready for S1.
 
+## The gate
+
+`tokop prove` exits 0 only when the verdict is non-inferior, so it works as a merge gate
+unchanged. It exits 1 on inferior **and on inconclusive**: "we could not tell" is not evidence
+that a change is safe, and a gate that passed on it would be read as though it were.
+
+```yaml
+# .github/workflows/proof-gate.yml — copy it, point it at your workload
+- run: engine/.venv/bin/tokop prove --workload data/mine/workload.yaml --margin 0.03
+```
+
+The margin is the largest quality drop you will accept in exchange for the saving. Choose it
+before you see the result, and do not widen it to make the build green — that is the single
+change that turns this gate into decoration.
+
+Tokop's own gate reports rather than blocks, because the demo verdict is *inconclusive* by
+design. What blocks is `engine/tests/test_cli_gate.py`, which runs the real CLI in a subprocess
+and asserts the exit codes the gate depends on. `.github/workflows/verify.yml` runs every check
+in `make verify` on each push, with no credentials set and none needed.
+
 ## Method and citations
 
 **FrugalGPT** (Chen, Zaharia, Zou; [arXiv:2305.05176](https://arxiv.org/abs/2305.05176)) — the
@@ -188,11 +208,9 @@ In rough order, from the exclusions this version made on purpose:
 
 1. **Judges and human rating for unlabelled workloads** — wire the estimator already in
    `core/stats.py` to a cheap judge on every task and a strong rater on a sample.
-2. **A CI gate** — `tokop prove` already exits nonzero unless the verdict is non-inferior; the
-   GitHub Action around it is the missing half.
-3. **An upload wizard** for YAML, JSONL or CSV workloads.
-4. **LangGraph trace import** — the pipeline spec already uses nodes, edges and shared state.
-5. **Experiments**: semantic caching with its own false-hit evaluation, and TRIM-style output
+2. **An upload wizard** for YAML, JSONL or CSV workloads.
+3. **LangGraph trace import** — the pipeline spec already uses nodes, edges and shared state.
+4. **Experiments**: semantic caching with its own false-hit evaluation, and TRIM-style output
    compression.
 
 Deliberately out of scope, and staying that way: browser automation of consumer AI apps, reuse of

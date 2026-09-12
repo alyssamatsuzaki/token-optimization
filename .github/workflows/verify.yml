@@ -1,0 +1,68 @@
+# Every check in SPEC.md section 10, on every push and pull request.
+#
+# This runs `make verify`, which is the same command a contributor runs locally — CI that
+# checks something different from the local command is a second source of truth, and one of
+# them is always wrong.
+#
+# No credentials are set and none are needed. The proof, the report and the end-to-end suite
+# all compute over the committed fixtures in replay mode, and `make record` is the only thing
+# in the build that can spend money (DECISIONS.md D24).
+
+name: verify
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install
+        run: make setup
+
+      # `playwright.config.ts` uses Playwright's own browser when the image-pinned path is
+      # absent, which it is here.
+      - name: Install Chromium
+        run: pnpm -C web exec playwright install --with-deps chromium
+
+      # fixtures/test/ledger.db is generated, not committed: it is a SQLite file that would
+      # churn on every run. The cassettes it replays are committed, so this opens no socket and
+      # spends nothing.
+      - name: Build the fixture ledger
+        run: engine/.venv/bin/tokop build-test-fixtures
+
+      - name: Verify
+        run: make verify
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: web/test-results/
+          retention-days: 7

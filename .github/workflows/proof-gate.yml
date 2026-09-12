@@ -1,0 +1,89 @@
+# The proof gate: block a merge that makes the workload worse.
+#
+# `tokop prove` exits 0 only when the verdict is **non-inferior** — the cheaper pipeline is not
+# worse than the baseline by more than the margin you set. It exits 1 on inferior *and on
+# inconclusive*, because "we could not tell" is not evidence that a change is safe, and a gate
+# that passed on it would read as though it were.
+#
+# ## Using this on your own workload
+#
+# Copy this file, set `workload` to your own, and choose `margin` deliberately: it is the
+# largest quality drop you are willing to accept in exchange for the saving. Three points is
+# the default because it is small enough to be a real constraint. Do not widen the margin to
+# make the build green — that is the one change that turns this gate into decoration.
+#
+# ## Why this repository's own gate is `continue-on-error`
+#
+# Tokop's demo verdict is *inconclusive* at the 3-point margin: the interval's lower bound sits
+# exactly on the margin, and about four more tasks would settle it. So this job reports a
+# verdict and does not block, while `engine/tests/test_cli_gate.py` — which runs in the
+# `verify` workflow and does block — asserts the exit codes this gate depends on: 1 on the
+# inconclusive verdict, 0 when the margin is one the result clears. Making this job green by
+# choosing a margin that passes is exactly the dishonesty the project exists to prevent.
+
+name: proof gate
+
+on:
+  push:
+  pull_request:
+  workflow_call:
+    inputs:
+      workload:
+        type: string
+        default: data/demo/workload.yaml
+      margin:
+        type: string
+        default: "0.03"
+
+permissions:
+  contents: read
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install the engine
+        run: cd engine && uv venv --python 3.12 && uv sync --all-groups
+
+      - name: Build the fixture ledger
+        run: engine/.venv/bin/tokop build-test-fixtures
+
+      # Reports the verdict without blocking; see the note at the top of this file.
+      - name: Prove
+        id: prove
+        continue-on-error: true
+        shell: bash
+        run: |
+          # `tee` would otherwise swallow the exit code this whole gate is built on, and the
+          # step would report success on every verdict. Verified: `bash -e -c 'false | tee'`
+          # exits 0; with pipefail it exits 1.
+          set -o pipefail
+          engine/.venv/bin/tokop prove \
+            --workload "${{ inputs.workload || 'data/demo/workload.yaml' }}" \
+            --margin "${{ inputs.margin || '0.03' }}" \
+            | tee proof.txt
+
+      - name: Summarise
+        shell: bash
+        run: |
+          {
+            echo '## Proof gate'
+            echo
+            echo '```'
+            cat proof.txt
+            echo '```'
+            echo
+            if [ "${{ steps.prove.outcome }}" = "success" ]; then
+              echo 'Non-inferior: this change is safe to merge on cost-for-quality grounds.'
+            else
+              echo 'Not non-inferior. On your own workload this step blocks the merge;'
+              echo 'here it reports, because the demo verdict is inconclusive by design.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

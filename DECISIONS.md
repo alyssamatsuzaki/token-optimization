@@ -164,3 +164,20 @@ numbers under someone else's workload title, which would violate non-negotiable 
 possible way. The loader (`workloads/spec.py`) and the runner are already workload-agnostic; what
 is missing is dataset ingestion and a grader that is not `workloads/grading.py`'s answer-type
 table.
+
+**D25 — The GitHub workflows have never run on GitHub Actions.** Like the Dockerfile (D22), they
+are written against an environment this build cannot reach. What *was* verified, locally and
+shown in the conversation: the YAML parses; `tokop prove` exits 1 on the demo's inconclusive
+verdict and 0 at a margin the result clears, pinned by `tests/test_cli_gate.py` running the real
+CLI in a subprocess; both branches of the gate job's shell logic, with the `${{ }}` expressions
+substituted; and that `tee` swallows the exit code the gate is built on unless pipefail is set —
+`bash -e -c 'false | tee'` exits 0 — which is why that step sets it explicitly rather than
+relying on the runner's default shell. Unverified: that the pinned actions resolve, that
+`playwright install --with-deps chromium` succeeds on the runner, and the wall-clock cost of a
+run. `playwright.config.ts` no longer hard-codes this image's Chromium path; it falls back to
+Playwright's own resolution when that path is absent, which is the case everywhere but here.
+
+Tokop's own proof gate is `continue-on-error`, and the comment at the top of the workflow says
+why: the demo verdict is inconclusive at the 3-point margin. The alternative was to pick a margin
+the result clears and call the build green, which is the exact failure the project exists to
+prevent. The blocking check is the exit-code test, which runs inside `make verify`.

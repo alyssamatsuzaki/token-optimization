@@ -177,9 +177,12 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
 
 ## Testing
 
-- **429 engine tests**, 91% line coverage on `core/` and `optimize/`
+- **438 engine tests**, 91% line coverage on `core/` and `optimize/`
   (`pytest --cov=tokop/core --cov=tokop/optimize`).
-- **38 Playwright tests** against the production build in replay mode.
+- **39 Playwright tests** against the production build in replay mode.
+- **Exit-code tests for `tokop prove`** run through a subprocess, because an exit code asserted
+  in-process is not the thing CI observes. They pin the case that matters: an *inconclusive*
+  verdict fails the build.
 - Two **simulations** rather than assertions: Wilson coverage over 4,000 trials, and estimator
   unbiasedness over 2,000 trials against known ground truth with a deliberately biased cheap
   rater, to prove the correction is doing the work.

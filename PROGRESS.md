@@ -33,6 +33,9 @@ These are simulated, not recorded (DECISIONS.md D1).
 
 - `make verify` runs all 12 checks with none skipped.
 - The Dockerfile has never been built: Docker is unavailable in this environment (D22).
+- The GitHub workflows have never run on GitHub Actions (D25). What was verified locally:
+  the YAML parses, both branches of the gate job's shell logic, and that `tee` swallows the
+  gate's exit code unless pipefail is set explicitly.
 - One `make verify` run failed on a Playwright ENOENT after I ran the spec-review subagent
   concurrently — two runs of the suite wiped each other's `test-results/`. Playwright now gets a
   per-run output directory so concurrent runs cannot collide.
@@ -72,3 +75,23 @@ gaps. What changed as a result:
 - **Two checks that were weaker than they looked.** `tokop report --check` now makes a real HTTP
   request through the route instead of calling the in-process cache, and `make verify` now fails
   when `docs/DEMO.md` quotes a figure the report has moved past.
+
+## The CI gate (roadmap item 4)
+
+`tokop prove` already exited nonzero unless the verdict was non-inferior; what shipped now is
+everything around it.
+
+- `.github/workflows/verify.yml` runs `make verify` — the same command a contributor runs, so CI
+  is not a second source of truth — on every push and pull request, with no credentials set.
+- `.github/workflows/proof-gate.yml` is the gate, written to be copied: set your workload and
+  your margin, and a merge that makes the workload worse fails the build. It is `continue-on-error`
+  here alone, because Tokop's own demo verdict is inconclusive at the 3-point margin; making it
+  green by choosing a looser margin is the exact dishonesty the project exists to prevent (D25).
+- `engine/tests/test_cli_gate.py` is what actually blocks: six tests that run the real CLI in a
+  subprocess and pin the exit codes — 1 on inconclusive, 0 at a margin the result clears, 2 on an
+  unsupported workload — because an exit code asserted in-process is not what CI observes.
+- `playwright.config.ts` no longer hard-codes this image's Chromium path. It falls back to
+  Playwright's own resolution when that path is absent, which is everywhere but here.
+
+438 engine tests, 39 Playwright tests, 91% line coverage on `core/` and `optimize/`.
+`make verify`: 12 checks, none skipped, green.
