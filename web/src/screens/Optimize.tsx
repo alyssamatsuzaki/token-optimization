@@ -572,7 +572,10 @@ export default function Optimize() {
           {report.provenance.prices_verified
             ? "all verified against the provider's own page"
             : `unverified for ${report.provenance.unverified_models.join(", ")}`}
-          . Token estimates: {report.provenance.base_token_counter}.
+          . Token estimates: {report.provenance.base_token_counter}
+          {!report.provenance.token_counter_matches_fixtures &&
+            ` (recorded as ${report.provenance.recorded_token_counter}, which this server cannot load)`}
+          .
           {health.data?.mode === "replay" && " Replay mode: no API calls are made."}
         </p>
       </footer>

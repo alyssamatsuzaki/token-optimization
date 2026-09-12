@@ -33,7 +33,7 @@ from tokop.adapters.cassette import CassetteStore, ReplayAdapter
 from tokop.core.pricing import PriceSnapshot
 from tokop.core.registry import Registry, load_registry
 from tokop.core.stats import DEFAULT_SEED
-from tokop.core.tokenize import base_counter_name
+from tokop.core.tokenize import base_counter_name, counter_named
 from tokop.optimize.cascade import (
     OBJECTIVE_COST,
     OBJECTIVE_SCARCE,
@@ -493,7 +493,15 @@ def build_report(
 
     # ---------------------------------------------------------------- 7. findings and lint
     frontier_model = registry.model(registry.roles[tiers[-1]])
+    # Count with the counter the fixtures were built with, not with whichever one this machine
+    # happens to have. The lint's dollar projections end up in docs/DEMO.md, so an ambient
+    # counter made the same repository generate a different document on a machine with egress to
+    # the tokenizer vocabulary than on one without (DECISIONS.md D26). When the recorded counter
+    # cannot be loaded here, `counter_named` falls back and `token_counter_matches_fixtures`
+    # below reports that the numbers are not the recorded ones.
+    report_counter = counter_named(manifest.get("base_token_counter", base_counter_name()))
     lint_context = LintContext(
+        counter=report_counter,
         price=frontier_model.price,
         min_cacheable_tokens=frontier_model.min_cacheable_tokens or 512,
         observed_output_tokens=(
@@ -602,10 +610,12 @@ def build_report(
             # use, so the same repository reports different token counts on a machine with
             # egress to the vocabulary host than on one without (DECISIONS.md D26). Naming the
             # ambient counter here made the README's generated block differ by environment.
-            "base_token_counter": manifest.get("base_token_counter", base_counter_name()),
+            # The counter these numbers were actually computed with.
+            "base_token_counter": report_counter.name,
+            "recorded_token_counter": manifest.get("base_token_counter", report_counter.name),
             "live_token_counter": base_counter_name(),
             "token_counter_matches_fixtures": (
-                manifest.get("base_token_counter", base_counter_name()) == base_counter_name()
+                manifest.get("base_token_counter", report_counter.name) == report_counter.name
             ),
             "git_sha": manifest.get("runs", [{}])[0].get("git_sha", "unknown"),
         },

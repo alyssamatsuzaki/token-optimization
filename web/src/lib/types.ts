@@ -227,6 +227,9 @@ export interface ProvenanceView {
   prices_verified: boolean;
   unverified_models: string[];
   base_token_counter: string;
+  recorded_token_counter: string;
+  live_token_counter: string;
+  token_counter_matches_fixtures: boolean;
   git_sha: string;
 }
 

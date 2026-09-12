@@ -143,6 +143,32 @@ def base_counter_name() -> str:
     return get_base_counter().name
 
 
+def counter_named(name: str) -> BaseCounter:
+    """The counter with this name, or the best available one when it cannot be loaded.
+
+    Committed fixtures record which counter built them, and everything computed over them is
+    reproduced with that counter rather than with whichever one this machine happens to have —
+    otherwise the same repository produces different generated documents on different machines
+    (DECISIONS.md D26).
+
+    ``ApproxCounter`` needs no vocabulary and is therefore always honourable. ``o200k_base`` is
+    downloaded on first use, so a machine without egress to the vocabulary host cannot honour it;
+    it falls back, and the report's ``token_counter_matches_fixtures`` says so rather than
+    pretending the numbers are the recorded ones.
+    """
+    if name == ApproxCounter.name:
+        return ApproxCounter()
+    if name == O200kCounter.name:
+        try:
+            return O200kCounter()
+        except TokenizerUnavailable:
+            return ApproxCounter()
+    raise TokenizerUnavailable(
+        f"unknown token counter {name!r}. Known counters: "
+        f"{O200kCounter.name!r}, {ApproxCounter.name!r}."
+    )
+
+
 @dataclass(frozen=True)
 class ModelRatio:
     """A per-model correction from base-counter tokens to that model's real tokens."""

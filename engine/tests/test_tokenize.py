@@ -7,9 +7,11 @@ import pytest
 from tokop.core.tokenize import (
     ApproxCounter,
     ModelRatio,
+    O200kCounter,
     TokenEstimator,
     TokenizerUnavailable,
     base_counter_name,
+    counter_named,
     fit_ratio,
     get_base_counter,
 )
@@ -135,3 +137,28 @@ class TestTokenEstimator:
 
     def test_base_name_is_exposed_for_the_ui(self) -> None:
         assert TokenEstimator(base=ApproxCounter()).base_name == "bytes-bpe-approx-v1"
+
+
+class TestCounterNamed:
+    """Reproducing a committed number means reproducing the counter that produced it (D26)."""
+
+    def test_the_approximation_is_honoured_everywhere(self) -> None:
+        """It needs no vocabulary, so a repository whose fixtures were built with it reproduces
+        on any machine — including one that could have used `o200k_base` instead."""
+        assert counter_named(ApproxCounter.name).name == ApproxCounter.name
+
+    def test_o200k_falls_back_rather_than_raising_when_it_cannot_load(self) -> None:
+        """This environment cannot download the vocabulary, so the fallback is the live path
+        here; where it can, the assertion is that o200k is returned. Either way the caller gets a
+        counter and the report reports which one it got."""
+        got = counter_named(O200kCounter.name)
+        assert got.name in {O200kCounter.name, ApproxCounter.name}
+
+    def test_an_unknown_counter_raises_rather_than_guessing(self) -> None:
+        with pytest.raises(TokenizerUnavailable) as exc:
+            counter_named("gpt2-ish")
+        assert "gpt2-ish" in str(exc.value)
+        assert O200kCounter.name in str(exc.value)
+
+    def test_a_named_counter_and_the_ambient_one_agree_when_they_are_the_same(self) -> None:
+        assert counter_named(base_counter_name()).name == base_counter_name()

@@ -228,6 +228,18 @@ The second CI run took it from four failures to two, both with the same shape:
    record their counter at all still fail, because those cannot be checked anywhere but the
    machine that built them.
 
+7. **The report counts with the counter its fixtures were built with.** The fourth CI run left
+   one failure: `docs/DEMO.md` was stale there, because it quotes the lint's dollar projections
+   and the lint was counting with the ambient counter. `LintContext` already took an injectable
+   counter, so `build_report` now passes `counter_named(manifest["base_token_counter"])`. The
+   approximation needs no vocabulary and is therefore honourable on any machine, so a repository
+   whose fixtures were built with it now reproduces every generated document everywhere — the
+   better tokenizer is deliberately not used for numbers that rest on fixtures built without it.
+   `recorded_token_counter` and `live_token_counter` sit beside it in the payload, and the
+   Optimize footer names the recorded counter when the server cannot load it. A *live* estimate
+   for a prompt the user pastes still uses the best counter available, which is the right answer
+   for a number that rests on nothing committed.
+
 What this does not fix: token *estimates* computed here are still ~20% high, because this machine
 still cannot load `o200k_base`. They name `bytes-bpe-approx-v1` everywhere they appear, and now
 the fixtures say so too.
