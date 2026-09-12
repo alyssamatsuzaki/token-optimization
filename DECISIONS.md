@@ -219,6 +219,15 @@ The second CI run took it from four failures to two, both with the same shape:
    `COMPOSE_TOKENS` and `DOCUMENT_TOKENS` under whatever counter is loaded, and asserts that it
    did. The rule's thresholds were not touched.
 
+6. **The counter mismatch is a note, not a failure.** The third CI run passed every test and
+   failed only on the check added in (2), which was correctly reporting a property of the
+   *machine* as though it were a defect in the repository. Failing there would make the
+   repository red on every machine with a better tokenizer than the one that built the fixtures,
+   which is backwards. `fixtures-check` now reports three states — pass, fail, and a note that is
+   true, worth printing and not a defect — and the mismatch is a note. Fixtures that do not
+   record their counter at all still fail, because those cannot be checked anywhere but the
+   machine that built them.
+
 What this does not fix: token *estimates* computed here are still ~20% high, because this machine
 still cannot load `o200k_base`. They name `bytes-bpe-approx-v1` everywhere they appear, and now
 the fixtures say so too.

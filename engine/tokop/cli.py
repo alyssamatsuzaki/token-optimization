@@ -339,9 +339,13 @@ def fixtures_check() -> None:
         typer.echo(f"  {'ok  ' if ok else 'FAIL'}  {name}: {detail}")
         failures += 0 if ok else 1
 
-    for name, ok, detail in _check_fixture_dirs():
-        typer.echo(f"  {'ok  ' if ok else 'FAIL'}  {name}: {detail}")
-        failures += 0 if ok else 1
+    for fixture_name, state, fixture_detail in _check_fixture_dirs():
+        # `state is None` is a note: something worth printing that is not a defect in the
+        # repository. The token-counter line is the only one, and it reports a property of the
+        # machine running the check, not of the fixtures (DECISIONS.md D26).
+        label = "note" if state is None else ("ok  " if state else "FAIL")
+        typer.echo(f"  {label}  {fixture_name}: {fixture_detail}")
+        failures += 1 if state is False else 0
 
     if failures:
         typer.echo(f"\nfixtures-check FAILED ({failures} check(s))", err=True)
@@ -349,14 +353,18 @@ def fixtures_check() -> None:
     typer.echo("\nfixtures-check passed")
 
 
-def _check_fixture_dirs() -> list[tuple[str, bool, str]]:
-    """Cassette and manifest checks over whichever fixture set this build has."""
+def _check_fixture_dirs() -> list[tuple[str, bool | None, str]]:
+    """Cassette and manifest checks over whichever fixture set this build has.
+
+    A check reports ``True`` (passed), ``False`` (failed) or ``None`` (a note: true, worth
+    saying, and not a defect).
+    """
     import json
 
     from tokop.adapters.cassette import CassetteStore
     from tokop.paths import fixtures_dir
 
-    checks: list[tuple[str, bool, str]] = []
+    checks: list[tuple[str, bool | None, str]] = []
     for kind in ("demo", "test"):
         root = fixtures_dir() / kind
         cassettes = root / "cassettes"
@@ -407,19 +415,38 @@ def _check_fixture_dirs() -> list[tuple[str, bool, str]]:
 
         built_with = manifest.get("base_token_counter")
         live = base_counter_name()
-        checks.append(
-            (
-                f"fixtures/{kind}: the token counter matches the one that built them",
-                built_with == live,
-                f"built with {built_with or 'an unrecorded counter'}, this machine has {live}"
-                + (
-                    ""
-                    if built_with == live
-                    else ". Token estimates here will not match the committed ones; rebuild with "
-                    "`tokop build-test-fixtures` or run where the recorded counter is available."
-                ),
+        if not built_with:
+            # Fixtures that do not say which counter built them cannot be checked anywhere but
+            # the machine that built them. That is a defect in the fixtures.
+            checks.append(
+                (
+                    f"fixtures/{kind}: the manifest records its token counter",
+                    False,
+                    "it does not; rebuild with `tokop build-test-fixtures`",
+                )
             )
-        )
+        elif built_with == live:
+            checks.append(
+                (
+                    f"fixtures/{kind}: the token counter matches the one that built them",
+                    True,
+                    f"both are {live}",
+                )
+            )
+        else:
+            # Not a failure. The committed numbers rest on the recorded counter and are checked
+            # against it; what differs is what *this* machine would estimate for a new prompt.
+            # Failing here would make the repository red on every machine with a better
+            # tokenizer than the one that built the fixtures, which is backwards.
+            checks.append(
+                (
+                    f"fixtures/{kind}: token counter",
+                    None,
+                    f"built with {built_with}, this machine has {live}. The committed numbers "
+                    f"rest on {built_with} and are checked against it; token estimates computed "
+                    "here for a new prompt will differ and will name their own counter.",
+                )
+            )
     if not checks:
         checks.append(
             (
