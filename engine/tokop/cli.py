@@ -41,8 +41,20 @@ def _not_yet(name: str, milestone: str) -> None:
 
 
 @app.command("build-test-fixtures")
-def build_test_fixtures_cmd() -> None:
-    """Build fixtures/test/ from the deterministic simulated provider. Spends nothing."""
+def build_test_fixtures_cmd(
+    ledger_only: bool = typer.Option(
+        False,
+        "--ledger-only",
+        help="Rebuild ledger.db from the committed cassettes; leave manifest and extras alone.",
+    ),
+) -> None:
+    """Build fixtures/test/ from the deterministic simulated provider. Spends nothing.
+
+    `--ledger-only` is what a fresh checkout needs: ledger.db is generated rather than committed,
+    and materialising it is replay, not recording. Without the flag the manifest is rewritten,
+    which stamps the rebuilding machine's tokenizer over the one the fixtures were built with
+    (DECISIONS.md D26).
+    """
     from tokop.paths import fixtures_dir
     from tokop.recorder import build_test_fixtures
     from tokop.workloads.demo.dataset import build as build_dataset
@@ -57,7 +69,7 @@ def build_test_fixtures_cmd() -> None:
     )
     root = fixtures_dir() / "test"
     root.mkdir(parents=True, exist_ok=True)
-    report = build_test_fixtures(workload, registry, bundle, root)
+    report = build_test_fixtures(workload, registry, bundle, root, ledger_only=ledger_only)
     for step in report.steps:
         typer.echo("  " + step.summary())
     if report.stopped:

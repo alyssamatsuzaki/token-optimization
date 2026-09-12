@@ -206,6 +206,19 @@ Three changes, none of them to the tests:
    the ambient counter is what made the README's generated block differ by environment — the
    numbers rest on the counter that produced them, so that is the one to name.
 
+The second CI run took it from four failures to two, both with the same shape:
+
+4. **`tokop build-test-fixtures --ledger-only`.** A fresh checkout has to materialise `ledger.db`
+   (generated, not committed — a SQLite file would churn on every run), and the full command
+   rewrote `manifest.json` while doing it, stamping the rebuilding machine's tokenizer over the
+   recorded one. Rebuilding the ledger from committed cassettes is replay, not recording, and now
+   says so. Both workflows use the flag.
+5. **PL14's test fixture grows to fit the rule's band.** It sat 11 tokens above a 500-token
+   threshold under the approximation and below it under `o200k_base`, which made it a measurement
+   of the tokenizer rather than of the rule. It is now grown until it lands between
+   `COMPOSE_TOKENS` and `DOCUMENT_TOKENS` under whatever counter is loaded, and asserts that it
+   did. The rule's thresholds were not touched.
+
 What this does not fix: token *estimates* computed here are still ~20% high, because this machine
 still cannot load `o200k_base`. They name `bytes-bpe-approx-v1` everywhere they appear, and now
 the fixtures say so too.

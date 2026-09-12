@@ -52,9 +52,11 @@ jobs:
 
       # fixtures/test/ledger.db is generated, not committed: it is a SQLite file that would
       # churn on every run. The cassettes it replays are committed, so this opens no socket and
-      # spends nothing.
+      # spends nothing. `--ledger-only` leaves manifest.json alone — rebuilding it here would
+      # stamp this runner's tokenizer over the one the fixtures were built with, and every
+      # token-derived number would then disagree with the committed ones (DECISIONS.md D26).
       - name: Build the fixture ledger
-        run: engine/.venv/bin/tokop build-test-fixtures
+        run: engine/.venv/bin/tokop build-test-fixtures --ledger-only
 
       - name: Verify
         run: make verify

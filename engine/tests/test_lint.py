@@ -12,8 +12,11 @@ from decimal import Decimal
 
 from tokop.adapters.base import Block, LLMRequest, Message, blocks_of, user_message
 from tokop.core.pricing import ModelPrice, PriceProvenance
+from tokop.core.tokenize import base_counter_name
 from tokop.optimize.lint import (
+    COMPOSE_TOKENS,
     CONFIDENCE_WEIGHT,
+    DOCUMENT_TOKENS,
     LintContext,
     clear_score,
     jaccard,
@@ -293,13 +296,29 @@ class TestClearRules:
         assert "PL13" not in ids(lint(request, context()))
 
     def test_pl14_fires_on_a_long_multi_job_prompt(self) -> None:
-        jobs = (
+        """The block is grown to fit the rule's band under whatever counter is loaded.
+
+        PL14 fires above COMPOSE_TOKENS, and a system block above DOCUMENT_TOKENS is treated as
+        a grounding document rather than an instruction, so the fixture has to sit between the
+        two. A fixed multiplier put it 11 tokens over the lower bound under this machine's
+        approximation and *under* it on a machine with `o200k_base`, which made the test a
+        measurement of the tokenizer rather than of the rule (DECISIONS.md D26).
+        """
+        unit = (
             "Analyse the request in detail and work out what is being asked of you here. "
             "Summarize the policy that applies to the situation described by the customer. "
             "Compute the refund that results once fees have been deducted from the price. "
             "Verify the arithmetic before you commit to a figure in your reply. "
             "Explain your reasoning so that a reader can follow how you reached the number. "
-        ) * 6
+        )
+        tokens = context().tokens
+        jobs = unit
+        while tokens(jobs) < (COMPOSE_TOKENS + DOCUMENT_TOKENS) // 2:
+            jobs += unit
+        assert COMPOSE_TOKENS < tokens(jobs) <= DOCUMENT_TOKENS, (
+            f"the fixture must sit inside the rule's band; it is {tokens(jobs)} tokens "
+            f"under {base_counter_name()}"
+        )
         request = request_of([Block(text=jobs)], [Block(text="q")])
         findings = lint(request, context())
         pl14 = next(f for f in findings if f.id == "PL14")

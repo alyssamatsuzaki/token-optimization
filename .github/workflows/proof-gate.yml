@@ -53,7 +53,7 @@ jobs:
         run: cd engine && uv venv --python 3.12 && uv sync --all-groups
 
       - name: Build the fixture ledger
-        run: engine/.venv/bin/tokop build-test-fixtures
+        run: engine/.venv/bin/tokop build-test-fixtures --ledger-only
 
       # Reports the verdict without blocking; see the note at the top of this file.
       - name: Prove

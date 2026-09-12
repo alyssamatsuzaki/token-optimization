@@ -278,11 +278,19 @@ def build_test_fixtures(
     fixtures_root: Path,
     *,
     taken: date | None = None,
+    ledger_only: bool = False,
 ) -> RecordingReport:
     """Build ``fixtures/test/`` from the deterministic simulated provider.
 
     Spends nothing and opens no socket. Every run is marked ``origin: simulated`` and the
     manifest says so, so the UI can label it as test data rather than a recording.
+
+    ``ledger_only`` rebuilds ``ledger.db`` from the committed cassettes and leaves
+    ``manifest.json`` and ``extras.json`` alone. The ledger is generated rather than committed —
+    it is a SQLite file that would churn on every run — so a fresh checkout has to materialise it
+    before anything can read the report. Doing that is *replay*, not recording: it must not
+    re-author the fixture record, and in particular must not stamp the rebuilding machine's
+    tokenizer over the one the fixtures were actually built with (DECISIONS.md D26).
     """
     snapshot = registry.snapshot(list(registry.roles.values()), taken or date(2026, 9, 11))
     recorder = Recorder(
@@ -297,6 +305,9 @@ def build_test_fixtures(
     engine = make_engine(fixtures_root / "ledger.db")
     report = asyncio.run(recorder.run(engine=engine))
     report.cassette_count = len(recorder.store)
+
+    if ledger_only:
+        return report
 
     # The Compare and Brief examples the screens display (SPEC.md section 6 step 6).
     from tokop.extras import record_extras, write_extras
