@@ -10,7 +10,7 @@ Start at `http://localhost:8000` after `make demo`. No API keys, no network.
 ## 0:00 — The problem, in one line (10 s)
 
 > "This support bot answers 300 policy questions. It costs
-> **$0.04670 per successful answer**. I'm going to make it cost **$0.00393** — and prove it
+> **$0.05172 per successful answer**. I'm going to make it cost **$0.00425** — and prove it
 > didn't get worse."
 
 Point at the headline row. Both numbers are already on screen.
@@ -19,9 +19,9 @@ Point at the headline row. Both numbers are already on screen.
 
 Scroll to **Findings**. They are ranked by projected dollars per 1,000 tasks, not by severity.
 
-> "The top two findings are the same mistake seen from two angles. 200 calls, 0 cache reads, ~7,757 input tokens per call, a 18,900-character block identical…
-> That's $34.91 per thousand tasks. And the second:
-> 200 calls share only their first ~855 tokens; ~6,902 tokens per call sit after t…"
+> "The top two findings are the same mistake seen from two angles. 200 calls, 0 cache reads, ~8,714 input tokens per call, a 21,818-character block identical…
+> That's $39.21 per thousand tasks. And the second:
+> 200 calls share only their first ~845 tokens; ~7,869 tokens per call sit after t…"
 
 The point to make: **the ranking is in dollars.** Politeness filler is on this list too, at
 $0.20 — three orders of magnitude down, exactly where it
@@ -41,13 +41,13 @@ cascade, each edge labelled with the share of tasks that flows along it.
 > vouch for."
 
 The cascade summary underneath shows the search: **2,601 threshold settings
-evaluated in 0.25 seconds**, on recorded answers, costing nothing.
+evaluated in 0.28 seconds**, on recorded answers, costing nothing.
 
 ## 0:45 — Run the proof (25 s)
 
 Click **Run proof**.
 
-> "Cascade on the B2 prompt cuts cost per successful task by 91.6% (interval 90.6 to 92.5%); accuracy difference +0.5 points, 95% CI [-3.0, +4.0], n = 200, against the 3-point margin."
+> "Cascade on the B2 prompt cuts cost per successful task by 91.8% (interval 90.8 to 92.7%); accuracy difference +0.5 points, 95% CI [-3.0, +4.0], n = 200, against the 3-point margin."
 
 Read the verdict label aloud: **Inconclusive: about 4 more tasks would settle it**.
 
@@ -60,16 +60,16 @@ Then the savings waterfall:
 
 | | Cost per successful task | Accuracy | Verdict |
 |---|---:|---:|---|
-| **B0** Current pipeline | $0.04670 | 95.5% | — it is the baseline |
-| **B1** Cache-friendly order | $0.01039 | 95.5% | Non-inferior at a 3-point margin |
-| **B2** CLEAR rewrite with an output contract | $0.00599 | 97.0% | Non-inferior at a 3-point margin |
-| **B3** Cascade on the B2 prompt | $0.00393 | 96.0% | Inconclusive: about 4 more tasks would settle it |
+| **B0** Current pipeline | $0.05172 | 95.5% | — it is the baseline |
+| **B1** Cache-friendly order | $0.01088 | 95.5% | Non-inferior at a 3-point margin |
+| **B2** CLEAR rewrite with an output contract | $0.00648 | 97.0% | Non-inferior at a 3-point margin |
+| **B3** Cascade on the B2 prompt | $0.00425 | 96.0% | Inconclusive: about 4 more tasks would settle it |
 
-> "Prompt order alone took it from $0.04670 to
-> $0.01039. Same words, same model, same token cap —
+> "Prompt order alone took it from $0.05172 to
+> $0.01088. Same words, same model, same token cap —
 > only the order changed. The output contract took it to
-> $0.00599. The cascade took it to
-> $0.00393."
+> $0.00648. The cascade took it to
+> $0.00425."
 
 ## 1:10 — The one bold chart (10 s)
 
@@ -89,8 +89,8 @@ Click **Open trace** on any disagreement.
 
 Close with the honest part:
 
-> "The proof cost **$13.80** to produce and repays after
-> **339 tasks**. And these fixtures are simulated — this build had no
+> "The proof cost **$15.10** to produce and repays after
+> **334 tasks**. And these fixtures are simulated — this build had no
 > API credentials, so the model answers underneath are generated. The engine, the statistics and
 > every number on screen are real."
 

@@ -19,13 +19,13 @@ Fix whatever the spec review reports, then a final `make verify`.
 
 ## Demo result (simulated test fixtures, 200-task test split)
 
-Generated into README.md by `tokop report --write-readme`. Headline: B0 $0.04670 per successful
-task, B3 $0.00393 — a 91.6% reduction, accuracy +0.5 points with 95% CI [-3.0, +4.0], verdict
+Generated into README.md by `tokop report --write-readme`. Headline: B0 $0.05172 per successful
+task, B3 $0.00425 — a 91.8% reduction, accuracy +0.5 points with 95% CI [-3.0, +4.0], verdict
 **inconclusive** because the lower bound sits exactly on the 3-point margin; about 4 more tasks
 would settle it. The cascade answers 34.5% of tasks at the cheap tier, 42.5% at the mid tier and
 23.0% at the frontier — but those are not its spend: because an escalated task pays for every
 attempt it made, the cheap tier is 23.4% of the money and the frontier 36.1%. The proof itself
-cost $13.80 and repays after 339 tasks.
+cost $15.10 and repays after 334 tasks.
 
 These are simulated, not recorded (DECISIONS.md D1).
 
@@ -95,3 +95,19 @@ everything around it.
 
 438 engine tests, 39 Playwright tests, 91% line coverage on `core/` and `optimize/`.
 `make verify`: 12 checks, none skipped, green.
+
+## The tokenizer divergence (D26)
+
+The CI gate's first run failed four tests that pass here, all with one cause: `o200k_base` is
+downloaded on first use, this environment cannot reach the vocabulary host and GitHub's runners
+can, so the same repository counted the handbook at 5,328 tokens locally and 4,436 on CI. The
+approximation reads 20.1% high on this text.
+
+The one that mattered: Haiku 4.5's cached prefix cleared its 4,096-token minimum by **8%** under
+the real tokenizer, not the 30% measured here. The demo's whole caching argument rests on that
+prefix being comfortably cacheable, and it was not.
+
+Fixed by growing the handbook 2,918 characters (to roughly 25% headroom under `o200k_base`),
+recording the counter in the fixture manifest so `fixtures-check` fails on a mismatch, and having
+the report name the counter its fixtures were built with rather than the ambient one. Fixtures
+were rebuilt from scratch; every downstream number moved. Details in DECISIONS.md D26.

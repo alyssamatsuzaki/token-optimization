@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "f0e85eb8a41746c9a17d56fe12fb8ce6f02f5983447a5daa9e4c00ad77f1c3e8",
+  "latency_ms": 3402.2,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "I appreciate you checking rather than guessing on this one.\n\nThere are really two things going on in your question, and it helps to separate them before putting them back together, because the handbook treats them in different places.\n\nThe handbook says: \"It is never charged on a defect return, and never charged to an Alpine member.\"\n\nApplying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. If anything about your situation differs from what I've assumed, the answer could change, so do let me know and I'll re-check it for you.\n\nI hope that's clear, and thank you again for your patience.\n\nFinal answer: 103.20",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_f0e85eb8a41746c9",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8661,
+      "input_tokens": 59,
+      "output_tokens": 229
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 8661,
+    "input_tokens": 59,
+    "output_tokens": 229
+  },
+  "recorded_at": "2026-09-12T02:41:50.208714+00:00",
+  "request": {
+    "max_tokens": 2000,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Customer question: Work out the refund on a $129.00 climbing rope returned by a Summit member when there is no defect."
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "a0a96517cb9a269be5e9889bb60101fa7097840d1bde0a3060fc8f2e5bddebee"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "debcc3f459b1ff51b4008ae9eb4b7d9128d34bf9622a733e304433540edcdc6a"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "I appreciate you checking rather than guessing on this one.\n\nThere are really two things going on in your question, and it helps to separate them before putting them back together, because the handbook treats them in different places.\n\nThe handbook says: \"It is never charged on a defect return, and never charged to an Alpine member.\"\n\nApplying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. If anything about your situation differs from what I've assumed, the answer could change, so do let me know and I'll re-check it for you.\n\nI hope that's clear, and thank you again for your patience.\n\nFinal answer: 103.20",
+  "stop_reason": "end_turn",
+  "ttft_ms": 883.2,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 8661,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 59,
+    "output_reasoning": 0,
+    "output_visible": 229,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8661,
+      "input_tokens": 59,
+      "output_tokens": 229
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

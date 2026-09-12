@@ -92,10 +92,19 @@ class RecordingReport:
         return None
 
     def manifest(self) -> dict[str, Any]:
+        from tokop.core.tokenize import base_counter_name
+
         return {
             "complete": self.stopped is None,
             "origin": self.origin,
             "stopped": self.stopped,
+            # Which tokenizer was loadable when these fixtures were built. It is recorded because
+            # it is not a property of the code: `o200k_base` is downloaded on first use, so a
+            # machine without egress to the vocabulary host silently falls back to the
+            # approximation (DECISIONS.md D3, D26). Everything token-derived moves with it, and a
+            # committed artifact that does not say which counter produced it cannot be checked
+            # anywhere but the machine that produced it.
+            "base_token_counter": base_counter_name(),
             "recorded_at": datetime.now(UTC).isoformat(),
             "total_cost_usd": str(self.total_cost),
             "cassette_count": self.cassette_count,

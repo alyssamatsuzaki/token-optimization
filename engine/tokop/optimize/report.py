@@ -597,7 +597,16 @@ def build_report(
             "price_snapshot_id": snapshot.snapshot_id,
             "prices_verified": snapshot.all_verified,
             "unverified_models": snapshot.unverified_models(),
-            "base_token_counter": base_counter_name(),
+            # The counter that produced the numbers is the one the fixtures were built with,
+            # not whichever one happens to be loadable now: `o200k_base` is downloaded on first
+            # use, so the same repository reports different token counts on a machine with
+            # egress to the vocabulary host than on one without (DECISIONS.md D26). Naming the
+            # ambient counter here made the README's generated block differ by environment.
+            "base_token_counter": manifest.get("base_token_counter", base_counter_name()),
+            "live_token_counter": base_counter_name(),
+            "token_counter_matches_fixtures": (
+                manifest.get("base_token_counter", base_counter_name()) == base_counter_name()
+            ),
             "git_sha": manifest.get("runs", [{}])[0].get("git_sha", "unknown"),
         },
         "proof": proof.as_dict(),

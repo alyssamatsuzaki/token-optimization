@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "0d30015972db9737bd413537d3d9e365b935fed09795e6e6979486a2e754a2d5",
+  "latency_ms": 3051.05,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "Great question, and I can see why this one is confusing.\n\nThe policy here has changed since earlier versions circulated, so let me quote the current wording rather than working from memory.\n\nThe handbook says: \"An Alpine member's threshold is zero, so their shipping is always free.\"\n\nApplying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. If anything about your situation differs from what I've assumed, the answer could change, so do let me know and I'll re-check it for you.\n\nI hope that's clear, and thank you again for your patience.\n\nFinal answer: 40.00",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_0d30015972db9737",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8661,
+      "input_tokens": 46,
+      "output_tokens": 216
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 8661,
+    "input_tokens": 46,
+    "output_tokens": 216
+  },
+  "recorded_at": "2026-09-12T02:41:50.942322+00:00",
+  "request": {
+    "max_tokens": 2000,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Customer question: What order total does a Summit member need to reach for free shipping?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "a0a96517cb9a269be5e9889bb60101fa7097840d1bde0a3060fc8f2e5bddebee"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "debcc3f459b1ff51b4008ae9eb4b7d9128d34bf9622a733e304433540edcdc6a"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "Great question, and I can see why this one is confusing.\n\nThe policy here has changed since earlier versions circulated, so let me quote the current wording rather than working from memory.\n\nThe handbook says: \"An Alpine member's threshold is zero, so their shipping is always free.\"\n\nApplying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. If anything about your situation differs from what I've assumed, the answer could change, so do let me know and I'll re-check it for you.\n\nI hope that's clear, and thank you again for your patience.\n\nFinal answer: 40.00",
+  "stop_reason": "end_turn",
+  "ttft_ms": 675.05,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 8661,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 46,
+    "output_reasoning": 0,
+    "output_visible": 216,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8661,
+      "input_tokens": 46,
+      "output_tokens": 216
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

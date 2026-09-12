@@ -11,7 +11,7 @@ questions your money will be spent answering.
 ## Shape
 
 - 300 questions, 100 calibration and 200 test, stratified by question type with seed 20260911.
-- Handbook: 18,850 characters, 5,328 tokens on `bytes-bpe-approx-v1`.
+- Handbook: 21,768 characters, 6,064 tokens on `bytes-bpe-approx-v1`.
 - The router never sees the question type or the supporting section IDs. They are recorded for analysis after the fact only.
 
 | Question type | Count | Share |

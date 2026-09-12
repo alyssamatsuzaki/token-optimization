@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "93c58c818f3699e21e0fe6b91f8662cac3658720251b532fff03c2ddd5b9b3eb",
+  "latency_ms": 3053.07,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "I appreciate you checking rather than guessing on this one.\n\nThe policy here has changed since earlier versions circulated, so let me quote the current wording rather than working from memory.\n\nThe handbook says: \"A case with no customer response for 96 hours escalates automatically to the next level.\"\n\nApplying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. Should you disagree with how this has been applied, I can pass it to a specialist who can take another look.\n\nI hope that's clear, and thank you again for your patience.\n\nFinal answer: 24",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_93c58c818f3699e2",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8661,
+      "input_tokens": 43,
+      "output_tokens": 205
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 8661,
+    "input_tokens": 43,
+    "output_tokens": 205
+  },
+  "recorded_at": "2026-09-12T02:41:50.839100+00:00",
+  "request": {
+    "max_tokens": 2000,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Customer question: Resolution target for front-line support, in hours?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "a0a96517cb9a269be5e9889bb60101fa7097840d1bde0a3060fc8f2e5bddebee"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "debcc3f459b1ff51b4008ae9eb4b7d9128d34bf9622a733e304433540edcdc6a"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "I appreciate you checking rather than guessing on this one.\n\nThe policy here has changed since earlier versions circulated, so let me quote the current wording rather than working from memory.\n\nThe handbook says: \"A case with no customer response for 96 hours escalates automatically to the next level.\"\n\nApplying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. Should you disagree with how this has been applied, I can pass it to a specialist who can take another look.\n\nI hope that's clear, and thank you again for your patience.\n\nFinal answer: 24",
+  "stop_reason": "end_turn",
+  "ttft_ms": 798.07,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 8661,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 43,
+    "output_reasoning": 0,
+    "output_visible": 205,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8661,
+      "input_tokens": 43,
+      "output_tokens": 205
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

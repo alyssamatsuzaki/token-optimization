@@ -307,6 +307,23 @@ Work through these steps in order. Skipping to the fee is the most common cause 
 8. **Check the escalation triggers.** A refund above the manager threshold, or any mention of
    injury or a safety failure, leaves the front line regardless of how simple the case appears.
 
+**Record the reasoning, not only the outcome.** A case note that says "return approved" tells the
+next agent nothing when the customer writes back. A note that says which category you established,
+which exception you applied and which date you measured from can be checked in seconds, and it is
+what lets a reversal be traced to the step that went wrong rather than to the agent who happened to
+send the email.
+
+**When two rules appear to conflict, name both before you choose.** This handbook is written so
+that the more restrictive rule wins, and an exception never widens a window. Saying so in the
+answer — "the seasonal extension would normally apply, but the category is excluded from it" —
+turns an apparent contradiction into a decision the customer can follow. Silently applying the
+rule you happened to check first is how the same case gets two different answers from two agents.
+
+**Do not re-open a case to correct a smaller figure than the reversal costs.** If the refund you
+quoted is within a cent of the correct amount, honour what you quoted and note the discrepancy.
+Correcting it costs a second contact, a second review and the customer's confidence, and buys back
+less than any of them.
+
 ## Common mistakes {#sec-common-mistakes}
 
 **Confusing the warranty with the return window.** They start on different dates and run for
@@ -333,6 +350,21 @@ specialist then has to undo.
 
 **Deciding a safety complaint at the front line.** Anything involving injury or a failure of
 safety equipment goes to the customer relations manager, whatever the refund is worth.
+
+**Measuring the window from the order date.** Every window in this handbook runs from delivery.
+An order placed well before it shipped is the case where this goes wrong most often, and it goes
+wrong in the customer's favour, which means nobody notices until the pattern shows up in a review.
+
+**Stacking two exceptions.** Where more than one exception could apply, the more restrictive one
+wins and the others are not applied on top of it. Exceptions narrow; they do not accumulate.
+
+**Assuming a defect claim needs no evidence.** A defect changes who pays return shipping and can
+reopen a window that has closed, so it is the one claim worth a photograph. Ask for one before
+the case is decided rather than after the refund is quoted.
+
+**Promising a refund date.** This handbook sets what is owed, not when the payment processor
+settles it. Quoting a settlement date the processor has not confirmed converts a resolved case
+into a second contact.
 
 ## Answering a customer {#sec-tone}
 
@@ -361,3 +393,13 @@ Assume the customer has read something contradictory. Older versions of this han
 on forums, and the tiers changed in policy version 2026.3. If a
 customer quotes a rule that is not in this document, tell them what the current rule is and
 when it took effect, which was 2026-07-01.
+
+Answer the question that was asked before the one you expect. A customer who asks only whether an
+item can come back does not need the restocking fee, the shipping arithmetic and the packaging
+requirement in the same message. Answer what they asked, then offer the rest: "yes, and I can work
+out the refund if you tell me what you paid" leaves them in control of how much detail arrives.
+
+Write so the answer survives being forwarded. Support emails get pasted into group chats and
+attached to disputes, usually without the question above them. An answer that names the item
+category, the window and the date it runs from still makes sense on its own; one that says "in
+that case it's thirty days" does not, and it is the second that comes back as a complaint.

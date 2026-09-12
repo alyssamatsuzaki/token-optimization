@@ -1,0 +1,112 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "4ec8f94cf10889e12143f715065f5bcd3ec34ddf7967247950a160e07f6a8f40",
+  "latency_ms": 292.12,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_4ec8f94cf10889e1",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "max_tokens",
+    "type": "message",
+    "usage": {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 6382
+      },
+      "cache_creation_input_tokens": 6382,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 48,
+      "output_tokens": 0
+    }
+  },
+  "raw_usage": {
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 6382
+    },
+    "cache_creation_input_tokens": 6382,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 48,
+    "output_tokens": 0
+  },
+  "recorded_at": "2026-09-12T02:41:39.808376+00:00",
+  "request": {
+    "max_tokens": 0,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Work out the shipping charged on a $68 order, 6.5 lb, to Zone 1 (in-state), for an Alpine member."
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": true,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "005a702e8c81d5a74c60149acd4e2dea281fe73d212380955392920bdf8f8f70"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "",
+  "stop_reason": "max_tokens",
+  "ttft_ms": 292.12,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 6382,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 48,
+    "output_reasoning": 0,
+    "output_visible": 0,
+    "raw": {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 6382
+      },
+      "cache_creation_input_tokens": 6382,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 48,
+      "output_tokens": 0
+    },
+    "sources": {
+      "cache_write_5m": "provider",
+      "input_uncached": "provider"
+    }
+  }
+}

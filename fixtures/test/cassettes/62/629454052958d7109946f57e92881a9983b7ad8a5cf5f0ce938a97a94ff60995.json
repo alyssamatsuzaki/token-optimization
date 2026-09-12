@@ -1,0 +1,100 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "629454052958d7109946f57e92881a9983b7ad8a5cf5f0ce938a97a94ff60995",
+  "latency_ms": 3085.11,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "Great question, and I can see why this one is confusing.\n\nThe policy here has changed since earlier versions circulated, so let me quote the current wording rather than working from memory.\n\nThe handbook says: \"## Return windows by category  The base return window runs from the delivery date, not the order date.\"\n\nApplying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. Should you disagree with how this has been applied, I can pass it to a specialist who can take another look.\n\nI hope that's clear, and thank you again for your patience.\n\nFinal answer: 45",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_629454052958d710",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 8714,
+      "output_tokens": 212
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 8714,
+    "output_tokens": 212
+  },
+  "recorded_at": "2026-09-12T02:41:49.638380+00:00",
+  "request": {
+    "max_tokens": 2000,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Customer question: Standard customer, camp stoves and cookware. What is their return window in days?"
+          },
+          {
+            "cache": null,
+            "text": {
+              "$blob": "debcc3f459b1ff51b4008ae9eb4b7d9128d34bf9622a733e304433540edcdc6a"
+            }
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      },
+      {
+        "cache": null,
+        "text": {
+          "$blob": "a0a96517cb9a269be5e9889bb60101fa7097840d1bde0a3060fc8f2e5bddebee"
+        }
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "Great question, and I can see why this one is confusing.\n\nThe policy here has changed since earlier versions circulated, so let me quote the current wording rather than working from memory.\n\nThe handbook says: \"## Return windows by category  The base return window runs from the delivery date, not the order date.\"\n\nApplying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. Should you disagree with how this has been applied, I can pass it to a specialist who can take another look.\n\nI hope that's clear, and thank you again for your patience.\n\nFinal answer: 45",
+  "stop_reason": "end_turn",
+  "ttft_ms": 753.11,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 8714,
+    "output_reasoning": 0,
+    "output_visible": 212,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 8714,
+      "output_tokens": 212
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

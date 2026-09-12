@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "3f15826823c84ea884e32085af8bed8e3be9eb3bb7cde97f6b1bbff55e415024",
+  "latency_ms": 3492.66,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "I appreciate you checking rather than guessing on this one.\n\nLooking at the handbook material provided, the relevant rule is in the section that governs this situation, and it is worth reading carefully because there are a few interacting pieces here.\n\nThe handbook says: \"## Restocking fees  A restocking fee is charged on the item price when a customer returns an item that is not defective.\"\n\nApplying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. If anything about your situation differs from what I've assumed, the answer could change, so do let me know and I'll re-check it for you.\n\nI hope that's clear, and thank you again for your patience.\n\nFinal answer: 15",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_3f15826823c84ea8",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8661,
+      "input_tokens": 58,
+      "output_tokens": 252
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 8661,
+    "input_tokens": 58,
+    "output_tokens": 252
+  },
+  "recorded_at": "2026-09-12T02:41:51.036749+00:00",
+  "request": {
+    "max_tokens": 2000,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Customer question: A customer returning climbing hardware that is not defective \u2014 what restocking percentage do we charge?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "a0a96517cb9a269be5e9889bb60101fa7097840d1bde0a3060fc8f2e5bddebee"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "debcc3f459b1ff51b4008ae9eb4b7d9128d34bf9622a733e304433540edcdc6a"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "I appreciate you checking rather than guessing on this one.\n\nLooking at the handbook material provided, the relevant rule is in the section that governs this situation, and it is worth reading carefully because there are a few interacting pieces here.\n\nThe handbook says: \"## Restocking fees  A restocking fee is charged on the item price when a customer returns an item that is not defective.\"\n\nApplying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. If anything about your situation differs from what I've assumed, the answer could change, so do let me know and I'll re-check it for you.\n\nI hope that's clear, and thank you again for your patience.\n\nFinal answer: 15",
+  "stop_reason": "end_turn",
+  "ttft_ms": 720.66,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 8661,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 58,
+    "output_reasoning": 0,
+    "output_visible": 252,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8661,
+      "input_tokens": 58,
+      "output_tokens": 252
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

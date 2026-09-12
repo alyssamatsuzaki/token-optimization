@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "b3857233c47930c918a4333f7d483f8833546d1c8c637138a647ba6c03ac4dde",
+  "latency_ms": 605.22,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"tier_3\", \"evidence\": \"Any complaint that mentions an injury, a failure of safety equipment, or a near miss goes straight to the customer relations manager and is never handled at the front line, whatever the amount involved.\", \"section\": \"sec-escalation\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_b3857233c47930c9",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 6382,
+      "input_tokens": 49,
+      "output_tokens": 79
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 6382,
+    "input_tokens": 49,
+    "output_tokens": 79
+  },
+  "recorded_at": "2026-09-12T02:41:43.167361+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "A customer reports that a transceiver failed during an avalanche search and asks for a $60 refund. Which escalation level key handles it?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "005a702e8c81d5a74c60149acd4e2dea281fe73d212380955392920bdf8f8f70"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"tier_3\", \"evidence\": \"Any complaint that mentions an injury, a failure of safety equipment, or a near miss goes straight to the customer relations manager and is never handled at the front line, whatever the amount involved.\", \"section\": \"sec-escalation\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 328.72,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 6382,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 49,
+    "output_reasoning": 0,
+    "output_visible": 79,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 6382,
+      "input_tokens": 49,
+      "output_tokens": 79
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

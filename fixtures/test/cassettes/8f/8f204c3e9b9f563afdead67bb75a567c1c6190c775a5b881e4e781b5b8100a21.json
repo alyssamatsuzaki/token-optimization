@@ -1,0 +1,100 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "8f204c3e9b9f563afdead67bb75a567c1c6190c775a5b881e4e781b5b8100a21",
+  "latency_ms": 3510.83,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "Great question, and I can see why this one is confusing.\n\nThere are really two things going on in your question, and it helps to separate them before putting them back together, because the handbook treats them in different places.\n\nThe handbook says: \"A warranty claim outside the return window is still valid; a return request outside the return window is not, even if the item is under warranty.\"\n\nApplying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. If anything about your situation differs from what I've assumed, the answer could change, so do let me know and I'll re-check it for you.\n\nI hope that's clear, and thank you again for your patience.\n\nFinal answer: 2",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_8f204c3e9b9f563a",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 8705,
+      "output_tokens": 247
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 8705,
+    "output_tokens": 247
+  },
+  "recorded_at": "2026-09-12T02:41:49.415479+00:00",
+  "request": {
+    "max_tokens": 2000,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Customer question: How many years is the warranty on water filters?"
+          },
+          {
+            "cache": null,
+            "text": {
+              "$blob": "debcc3f459b1ff51b4008ae9eb4b7d9128d34bf9622a733e304433540edcdc6a"
+            }
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      },
+      {
+        "cache": null,
+        "text": {
+          "$blob": "a0a96517cb9a269be5e9889bb60101fa7097840d1bde0a3060fc8f2e5bddebee"
+        }
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "Great question, and I can see why this one is confusing.\n\nThere are really two things going on in your question, and it helps to separate them before putting them back together, because the handbook treats them in different places.\n\nThe handbook says: \"A warranty claim outside the return window is still valid; a return request outside the return window is not, even if the item is under warranty.\"\n\nApplying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. If anything about your situation differs from what I've assumed, the answer could change, so do let me know and I'll re-check it for you.\n\nI hope that's clear, and thank you again for your patience.\n\nFinal answer: 2",
+  "stop_reason": "end_turn",
+  "ttft_ms": 793.83,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 8705,
+    "output_reasoning": 0,
+    "output_visible": 247,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 8705,
+      "output_tokens": 247
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

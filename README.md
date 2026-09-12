@@ -17,19 +17,19 @@ savings repay it.
 
 | Pipeline | Accuracy (95% CI) | Cost per successful task | Scarce-model share |
 | --- | --- | --- | --- |
-| B0 Current pipeline | 95.5% (91.7–97.6) | $0.04670 ~ ($0.04549–$0.04824) | 100% |
-| B1 Cache-friendly order | 95.5% (91.7–97.6) | $0.01039 ~ ($0.01010–$0.01075) | 100% |
-| B2 CLEAR rewrite with an output contract | 97.0% (93.6–98.6) | $0.00599 ~ ($0.00585–$0.00616) | 100% |
-| B3 Cascade on the B2 prompt | 96.0% (92.3–98.0) | $0.00393 ~ ($0.00348–$0.00441) | 36% |
+| B0 Current pipeline | 95.5% (91.7–97.6) | $0.05172 ~ ($0.05037–$0.05341) | 100% |
+| B1 Cache-friendly order | 95.5% (91.7–97.6) | $0.01088 ~ ($0.01058–$0.01127) | 100% |
+| B2 CLEAR rewrite with an output contract | 97.0% (93.6–98.6) | $0.00648 ~ ($0.00633–$0.00666) | 100% |
+| B3 Cascade on the B2 prompt | 96.0% (92.3–98.0) | $0.00425 ~ ($0.00376–$0.00477) | 36% |
 
 **Verdict: Inconclusive: about 4 more tasks would settle it**
 
-> Cascade on the B2 prompt cuts cost per successful task by 91.6% (interval 90.6 to 92.5%); accuracy difference +0.5 points, 95% CI [-3.0, +4.0], n = 200, against the 3-point margin.
+> Cascade on the B2 prompt cuts cost per successful task by 91.8% (interval 90.8 to 92.7%); accuracy difference +0.5 points, 95% CI [-3.0, +4.0], n = 200, against the 3-point margin.
 
-- Cost per successful task falls from $0.04670 to $0.00393, a 91.6% reduction.
+- Cost per successful task falls from $0.05172 to $0.00425, a 91.8% reduction.
 - 23% of tasks reached the frontier model (claude-opus-5).
 - McNemar exact p = 1.000 on 13 discordant pairs.
-- The proof itself cost $13.8044 and repays after 339 tasks.
+- The proof itself cost $15.1022 and repays after 334 tasks.
 - Prices: 1d339a1b5b0556ab, all verified against the provider's own page.
 
 <sub>~ simulated: these numbers are real engine output computed over simulated traces, because this build has no API credentials. See DECISIONS.md D1. Token estimates use `bytes-bpe-approx-v1`.</sub>

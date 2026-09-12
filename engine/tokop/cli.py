@@ -385,6 +385,29 @@ def _check_fixture_dirs() -> list[tuple[str, bool, str]]:
                 + (f", missing {missing[:4]}" if missing else ", all fields present"),
             )
         )
+
+        # `o200k_base` is downloaded on first use, so the same repository counts tokens
+        # differently on a machine that can reach the vocabulary host than on one that cannot.
+        # Everything token-derived moves with it. This check makes that divergence visible
+        # instead of leaving it to surface as four unrelated-looking test failures
+        # (DECISIONS.md D26).
+        from tokop.core.tokenize import base_counter_name
+
+        built_with = manifest.get("base_token_counter")
+        live = base_counter_name()
+        checks.append(
+            (
+                f"fixtures/{kind}: the token counter matches the one that built them",
+                built_with == live,
+                f"built with {built_with or 'an unrecorded counter'}, this machine has {live}"
+                + (
+                    ""
+                    if built_with == live
+                    else ". Token estimates here will not match the committed ones; rebuild with "
+                    "`tokop build-test-fixtures` or run where the recorded counter is available."
+                ),
+            )
+        )
     if not checks:
         checks.append(
             (

@@ -1,0 +1,100 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "ea5de69a6282c1d2181c149c230f8ac1e61b8df861fcfeeaa55dab12ad989631",
+  "latency_ms": 3198.23,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "Let me walk you through how this works so the number makes sense.\n\nThe policy here has changed since earlier versions circulated, so let me quote the current wording rather than working from memory.\n\nThe handbook says: \"It is never charged on a defect return, and never charged to an Alpine member.\"\n\nApplying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. I've double-checked the arithmetic, but if your order details differ from what I have in front of me the figure may move.\n\nI hope that's clear, and thank you again for your patience.\n\nFinal answer: 12.90",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_ea5de69a6282c1d2",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 8723,
+      "output_tokens": 211
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 8723,
+    "output_tokens": 211
+  },
+  "recorded_at": "2026-09-12T02:41:48.593862+00:00",
+  "request": {
+    "max_tokens": 2000,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Customer question: Summit tier, camp stoves and cookware, $129.00 paid, not defective. Restocking fee in dollars?"
+          },
+          {
+            "cache": null,
+            "text": {
+              "$blob": "debcc3f459b1ff51b4008ae9eb4b7d9128d34bf9622a733e304433540edcdc6a"
+            }
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      },
+      {
+        "cache": null,
+        "text": {
+          "$blob": "a0a96517cb9a269be5e9889bb60101fa7097840d1bde0a3060fc8f2e5bddebee"
+        }
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "Let me walk you through how this works so the number makes sense.\n\nThe policy here has changed since earlier versions circulated, so let me quote the current wording rather than working from memory.\n\nThe handbook says: \"It is never charged on a defect return, and never charged to an Alpine member.\"\n\nApplying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. I've double-checked the arithmetic, but if your order details differ from what I have in front of me the figure may move.\n\nI hope that's clear, and thank you again for your patience.\n\nFinal answer: 12.90",
+  "stop_reason": "end_turn",
+  "ttft_ms": 877.23,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 8723,
+    "output_reasoning": 0,
+    "output_visible": 211,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 8723,
+      "output_tokens": 211
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

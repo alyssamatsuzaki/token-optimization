@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "e16b3201fa2fd2b4a24d302bbeec54f2bcdb42fd7511b1b893f50f11b66f3693",
+  "latency_ms": 3498.05,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "Thanks for reaching out, and I'm happy to help you get to the bottom of this.\n\nLooking at the handbook material provided, the relevant rule is in the section that governs this situation, and it is worth reading carefully because there are a few interacting pieces here.\n\nThe handbook says: \"A Zone 3 order placed on a Monday therefore arrives on the following Monday, not the preceding Friday.\"\n\nApplying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. Should you disagree with how this has been applied, I can pass it to a specialist who can take another look.\n\nI hope that's clear, and thank you again for your patience.\n\nFinal answer: 5",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_e16b3201fa2fd2b4",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8661,
+      "input_tokens": 52,
+      "output_tokens": 239
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 8661,
+    "input_tokens": 52,
+    "output_tokens": 239
+  },
+  "recorded_at": "2026-09-12T02:41:51.277334+00:00",
+  "request": {
+    "max_tokens": 2000,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Customer question: What is the transit time to Zone 3 (continental), in business days?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "a0a96517cb9a269be5e9889bb60101fa7097840d1bde0a3060fc8f2e5bddebee"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "debcc3f459b1ff51b4008ae9eb4b7d9128d34bf9622a733e304433540edcdc6a"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "Thanks for reaching out, and I'm happy to help you get to the bottom of this.\n\nLooking at the handbook material provided, the relevant rule is in the section that governs this situation, and it is worth reading carefully because there are a few interacting pieces here.\n\nThe handbook says: \"A Zone 3 order placed on a Monday therefore arrives on the following Monday, not the preceding Friday.\"\n\nApplying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. Should you disagree with how this has been applied, I can pass it to a specialist who can take another look.\n\nI hope that's clear, and thank you again for your patience.\n\nFinal answer: 5",
+  "stop_reason": "end_turn",
+  "ttft_ms": 869.05,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 8661,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 52,
+    "output_reasoning": 0,
+    "output_visible": 239,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8661,
+      "input_tokens": 52,
+      "output_tokens": 239
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

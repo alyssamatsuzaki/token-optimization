@@ -181,3 +181,31 @@ Tokop's own proof gate is `continue-on-error`, and the comment at the top of the
 why: the demo verdict is inconclusive at the 3-point margin. The alternative was to pick a margin
 the result clears and call the build green, which is the exact failure the project exists to
 prevent. The blocking check is the exit-code test, which runs inside `make verify`.
+
+**D26 — The tokenizer was an ambient property of the machine, and the CI gate's first run caught
+it.** `get_base_counter()` tries `o200k_base` and falls back to `bytes-bpe-approx-v1` when the
+vocabulary cannot be downloaded (D3). This environment cannot reach the vocabulary host; GitHub's
+runners can. So the same repository counted the demo handbook at 5,328 tokens here and 4,436
+there — the approximation reads **20.1% high** on this text — and four tests that pass locally
+failed on the first CI run. The most consequential: Haiku 4.5's cached prefix had **8% headroom**
+over its 4,096-token minimum under the real tokenizer, not the 30% measured here. The
+approximation had been flattering the demo's whole caching argument.
+
+Three changes, none of them to the tests:
+
+1. **The handbook grew by 2,918 characters** of genuine policy prose — case-note discipline,
+   conflicting-rule handling, four more common mistakes, two more answering rules — so it clears
+   Haiku's minimum by roughly 25% under `o200k_base` rather than 8%. Every downstream number
+   moved and every artifact was regenerated; the fixtures were rebuilt from scratch rather than
+   topped up, so no cassette from the old handbook survives.
+2. **The fixture manifest records the counter that built it**, and `fixtures-check` fails when
+   the machine's counter differs. The divergence is now one named check rather than four
+   unrelated-looking failures.
+3. **The report's provenance names the counter the fixtures were built with**, not whichever is
+   loadable now, with `live_token_counter` and `token_counter_matches_fixtures` beside it. Naming
+   the ambient counter is what made the README's generated block differ by environment — the
+   numbers rest on the counter that produced them, so that is the one to name.
+
+What this does not fix: token *estimates* computed here are still ~20% high, because this machine
+still cannot load `o200k_base`. They name `bytes-bpe-approx-v1` everywhere they appear, and now
+the fixtures say so too.
