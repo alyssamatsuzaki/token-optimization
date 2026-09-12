@@ -165,17 +165,23 @@ possible way. The loader (`workloads/spec.py`) and the runner are already worklo
 is missing is dataset ingestion and a grader that is not `workloads/grading.py`'s answer-type
 table.
 
-**D25 — The GitHub workflows have never run on GitHub Actions.** Like the Dockerfile (D22), they
-are written against an environment this build cannot reach. What *was* verified, locally and
-shown in the conversation: the YAML parses; `tokop prove` exits 1 on the demo's inconclusive
-verdict and 0 at a margin the result clears, pinned by `tests/test_cli_gate.py` running the real
+**D25 — The GitHub workflows were written blind, then actually ran.** *Superseded in part: this
+entry originally said they had never run on GitHub Actions, which was true when it was written
+and stopped being true the moment the branch was pushed.* Run 6 of the `verify` workflow is green
+on `ubuntu-latest` — all twelve checks, 3m33s wall clock — and the `proof gate` workflow ran on
+its first push, exiting 1 on the demo's inconclusive verdict exactly as designed. Getting there
+took six runs and surfaced a real defect the local environment could not see (D26).
+
+What had been verified only locally before that, and held up: the YAML parses; `tokop prove`
+exits 1 on the demo's inconclusive verdict and 0 at a margin the result clears, pinned by `tests/test_cli_gate.py` running the real
 CLI in a subprocess; both branches of the gate job's shell logic, with the `${{ }}` expressions
 substituted; and that `tee` swallows the exit code the gate is built on unless pipefail is set —
 `bash -e -c 'false | tee'` exits 0 — which is why that step sets it explicitly rather than
 relying on the runner's default shell. Unverified: that the pinned actions resolve, that
 `playwright install --with-deps chromium` succeeds on the runner, and the wall-clock cost of a
-run. `playwright.config.ts` no longer hard-codes this image's Chromium path; it falls back to
-Playwright's own resolution when that path is absent, which is the case everywhere but here.
+run — all three now confirmed by the runs themselves. `playwright.config.ts` no longer hard-codes
+this image's Chromium path; it falls back to Playwright's own resolution when that path is
+absent, which is the case everywhere but here, and the runner proved it.
 
 Tokop's own proof gate is `continue-on-error`, and the comment at the top of the workflow says
 why: the demo verdict is inconclusive at the 3-point margin. The alternative was to pick a margin

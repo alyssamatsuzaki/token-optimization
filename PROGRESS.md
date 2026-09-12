@@ -33,9 +33,9 @@ These are simulated, not recorded (DECISIONS.md D1).
 
 - `make verify` runs all 12 checks with none skipped.
 - The Dockerfile has never been built: Docker is unavailable in this environment (D22).
-- The GitHub workflows have never run on GitHub Actions (D25). What was verified locally:
-  the YAML parses, both branches of the gate job's shell logic, and that `tee` swallows the
-  gate's exit code unless pipefail is set explicitly.
+- The GitHub workflows run green on GitHub Actions: `verify`'s run 6 passes all twelve checks on
+  `ubuntu-latest` in 3m33s, and `proof gate` exits 1 on the inconclusive verdict as designed
+  (D25). It took six runs to get there, and the failures were real (D26).
 - One `make verify` run failed on a Playwright ENOENT after I ran the spec-review subagent
   concurrently — two runs of the suite wiped each other's `test-results/`. Playwright now gets a
   per-run output directory so concurrent runs cannot collide.
@@ -111,3 +111,22 @@ Fixed by growing the handbook 2,918 characters (to roughly 25% headroom under `o
 recording the counter in the fixture manifest so `fixtures-check` fails on a mismatch, and having
 the report name the counter its fixtures were built with rather than the ambient one. Fixtures
 were rebuilt from scratch; every downstream number moved. Details in DECISIONS.md D26.
+
+## What CI found that this machine could not (D26)
+
+The gate paid for itself on its first run. `o200k_base` is downloaded on first use; this
+environment cannot reach the vocabulary host and silently falls back to an approximation that
+reads 20.1% high on the demo handbook. GitHub's runners get the real tokenizer. Six runs:
+
+| Run | Failures | What was actually wrong |
+| --- | --- | --- |
+| 1 | 4 | Haiku's cached prefix cleared its minimum by 8%, not 30%. The demo's caching argument rested on a number the approximation had flattered. |
+| 2 | 2 | Rebuilding the ledger restamped the fixture manifest with the runner's tokenizer. |
+| 3 | 1 | The mismatch check reported a property of the machine as a defect in the repository. |
+| 4 | 1 | `docs/DEMO.md` quotes lint projections, and the lint counted with the ambient counter. |
+| 5 | 1 | An e2e test asserted a rule that fires on one side of a 500-token threshold. |
+| 6 | 0 | Green. |
+
+The handbook grew 2,918 characters, the fixtures record the counter that built them, and the
+report counts with that counter rather than with whichever one the machine has. Every headline
+number moved as a result, and every generated document now reproduces on any machine.
