@@ -19,12 +19,20 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Any, Protocol
 
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 from sklearn.preprocessing import StandardScaler
+
+from tokop.optimize.entailment import (
+    ClusterResult,
+    EntailmentFn,
+    cluster_by_entailment,
+    semantic_entropy,
+)
 
 
 class ScorerError(ValueError):
@@ -35,6 +43,8 @@ class ScorerError(ValueError):
 #: pipeline can ask for a different one and so a stored result records which one produced it.
 LOGISTIC_V1 = "logistic-v1"
 SELF_CONSISTENCY_V1 = "self-consistency-v1"
+SEMANTIC_ENTROPY_V1 = "semantic-entropy-v1"
+SEP_V1 = "sep-v1"
 
 
 #: Whether two candidate answers mean the same thing. Supplied by the workload, never imported
@@ -272,6 +282,14 @@ class TierScorer:
         probabilities: np.ndarray = self.model.predict_proba(matrix)[:, 1]
         return probabilities
 
+    def extra_cost(self, view: TaskView) -> Decimal:
+        """Nothing beyond the tier's own call: every feature is computed locally."""
+        return Decimal(0)
+
+    def cluster_sizes(self, views: Sequence[TaskView]) -> list[list[int]] | None:
+        """None: this scorer reads one generation, so there is nothing to agree with."""
+        return None
+
     def answer_index(self, view: TaskView) -> int:
         """Sample 0: this scorer reads one call and returns what it said."""
         return 0
@@ -454,6 +472,23 @@ class Scorer(Protocol):
         """
         ...
 
+    def extra_cost(self, view: TaskView) -> Decimal:
+        """Money this scorer spends per scored task **beyond** the tier's own generations.
+
+        On the protocol rather than bolted on at the call site, because a scorer that spends
+        money the cascade is not charged for is exactly how a comparison stops meaning
+        anything (DECISIONS.md D27). Zero for a scorer that reads what is already there.
+        """
+        ...
+
+    def cluster_sizes(self, views: Sequence[TaskView]) -> list[list[int]] | None:
+        """How this scorer's k samples grouped, per task, or ``None`` if it does not sample.
+
+        Read by the effective-k measurement (UPGRADE_V3.md U6): how much k repeated samples
+        agree with each other is what says whether they are worth k draws or one.
+        """
+        ...
+
     def as_dict(self) -> dict[str, Any]: ...
 
 
@@ -471,6 +506,15 @@ class ScorerContext:
     #: a kind that needs one must refuse rather than fall back to string equality.
     equivalence: EquivalenceFn | None = None
     seed: int = 20260911
+    #: Whether two answers mean the same thing, judged by a model (UPGRADE_V3.md U6). Supplied
+    #: by the caller from the workload's `entailment:` block, never imported: the same isolation
+    #: the answer-equivalence relation has, for the same reason.
+    entailment: EntailmentFn | None = None
+    #: The mean recorded price of one entailment call, charged per call a clustering makes.
+    entailment_price: Decimal = Decimal(0)
+    #: Models in this registry that expose hidden states. Empty behind an API, which is what
+    #: makes `sep-v1` refuse rather than approximate.
+    hidden_state_models: tuple[str, ...] = ()
     #: Samples drawn per scored task at serving time. 1 is one call, the ordinary case.
     k: int = 1
     C: float = 1.0
@@ -673,6 +717,13 @@ class SelfConsistencyScorer:
         probabilities: np.ndarray = self.model.predict_proba(scaled)[:, 1]
         return probabilities
 
+    def extra_cost(self, view: TaskView) -> Decimal:
+        """Nothing beyond the k generations, which the cascade already charges for."""
+        return Decimal(0)
+
+    def cluster_sizes(self, views: Sequence[TaskView]) -> list[list[int]] | None:
+        return [group_samples(require_samples(view, self.k), self.equivalence) for view in views]
+
     def answer_index(self, view: TaskView) -> int:
         """The majority answer, which is the point: k samples buy a vote, not just a score."""
         return majority_index(require_samples(view, self.k), self.equivalence)
@@ -820,5 +871,274 @@ register_scorer(
         ),
         fit=fit_self_consistency,
         calls_per_task=lambda k: k,
+    )
+)
+
+
+# ------------------------------------------------------------------- semantic-entropy-v1
+
+
+def answers_of(view: TaskView, k: int) -> tuple[str | None, ...]:
+    """The k generations as *answers*, not as raw outputs.
+
+    Clustering the raw JSON would compare the evidence quote and the section id as well as the
+    answer, and two correct answers citing different sentences would land in different meaning
+    clusters. The extraction is the output *contract*'s parser, which a scorer may use — reading
+    JSON out of a fenced block is not knowledge of the answer key. ``None`` is an output nothing
+    could be read out of, and the clustering keeps those apart rather than merging them.
+    """
+    from tokop.workloads.grading import extract_answer
+
+    return tuple(extract_answer(sample) for sample in require_samples(view, k))
+
+
+@dataclass
+class SemanticEntropyScorer:
+    """Routes on entropy over **meanings** rather than over strings (UPGRADE_V3.md U6).
+
+    The same shape as ``self-consistency-v1`` with the grouping replaced: k samples per task,
+    clustered by bidirectional entailment judged by a cheap model, and the normalized entropy of
+    the cluster proportions mapped to a probability by a one-feature logistic fit on the
+    calibration split.
+
+    The difference is the one D27 named and could not close: an exact-match relation reads a
+    paraphrase as disagreement, and entailment does not. What it costs is calls — two directed
+    ones per candidate pair, charged to this scorer like the samples are — and what it gives up
+    is transitivity, so the clustering is first-fit and order-dependent. Both are stated in
+    ``optimize/entailment.py`` rather than discovered.
+    """
+
+    tier: str
+    k: int
+    entailment: EntailmentFn
+    model: LogisticRegression
+    scaler: StandardScaler
+    fitted_on: int
+    train_positive_rate: float
+    price_per_call: Decimal = Decimal(0)
+    degenerate: bool = False
+    auroc: float | None = None
+    kind: str = SEMANTIC_ENTROPY_V1
+
+    def _clusters(self, view: TaskView) -> ClusterResult:
+        return cluster_by_entailment(view.question, answers_of(view, self.k), self.entailment)
+
+    def entropies(self, views: Sequence[TaskView]) -> np.ndarray:
+        values = [semantic_entropy(self._clusters(view).sizes) for view in views]
+        return np.array(values, dtype=float).reshape(-1, 1)
+
+    def cluster_sizes(self, views: Sequence[TaskView]) -> list[list[int]] | None:
+        """Per-task meaning-cluster sizes, for the effective-k measurement."""
+        return [self._clusters(view).sizes for view in views]
+
+    def score(self, views: Sequence[TaskView]) -> np.ndarray:
+        if not views:
+            return np.array([], dtype=float)
+        if self.degenerate:
+            return np.full(len(views), self.train_positive_rate, dtype=float)
+        scaled = self.scaler.transform(self.entropies(views))
+        probabilities: np.ndarray = self.model.predict_proba(scaled)[:, 1]
+        return probabilities
+
+    def extra_cost(self, view: TaskView) -> Decimal:
+        """The entailment calls this task's clustering made, at the recorded mean price.
+
+        Mean rather than per-call because entailment prompts are near-identical in size — the
+        question and two short answers — so the spread is small and the alternative is carrying
+        a price for every pair through three layers. The method note says which it is.
+        """
+        return Decimal(self._clusters(view).calls) * self.price_per_call
+
+    def answer_index(self, view: TaskView) -> int:
+        """A member of the largest meaning cluster: k samples buy a vote, not just a score."""
+        clusters = self._clusters(view)
+        if not clusters.groups:  # pragma: no cover - a view always has at least one sample
+            return 0
+        largest = max(clusters.groups, key=len)
+        return largest[0]
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "tier": self.tier,
+            "k": self.k,
+            "features": ["semantic_entropy"],
+            "fitted_on": self.fitted_on,
+            "auroc": self.auroc,
+            "degenerate": self.degenerate,
+            "coefficients": {
+                "semantic_entropy": (0.0 if self.degenerate else float(self.model.coef_[0][0]))
+            },
+        }
+
+
+def fit_semantic_entropy(
+    tier: str,
+    views: Sequence[TaskView],
+    labels: Sequence[int],
+    context: ScorerContext,
+) -> tuple[Scorer, list[ScorerWarning]]:
+    if context.entailment is None:
+        raise ScorerError(
+            f"{SEMANTIC_ENTROPY_V1} needs an entailment function and none was supplied. It "
+            "clusters repeated generations by whether they mean the same thing, which is a "
+            "model's judgement and not a string comparison; falling back to exact match would "
+            "silently make this `self-consistency-v1` under a different name, which is the one "
+            "thing D27 was careful to keep apart. Define an `entailment:` block on the workload, "
+            "or name a different scorer."
+        )
+    if context.k < 2:
+        raise ScorerError(
+            f"{SEMANTIC_ENTROPY_V1} needs at least 2 samples per task to measure disagreement; "
+            f"the cascade asks for {context.k}. One sample always agrees with itself."
+        )
+    if len(views) != len(labels):
+        raise ScorerError(f"{len(views)} views but {len(labels)} labels")
+    if not views:
+        raise ScorerError("a scorer needs at least one calibration example")
+
+    entailment = context.entailment
+    warnings: list[ScorerWarning] = []
+    if len(views) < MIN_CALIBRATION_TASKS:
+        warnings.append(
+            ScorerWarning(
+                tier,
+                f"only {len(views)} calibration tasks. A cascade needs labelled examples from "
+                f"the same distribution it will serve; below about {MIN_CALIBRATION_TASKS} the "
+                "thresholds are fitted to noise.",
+            )
+        )
+
+    matrix = np.array(
+        [
+            [
+                semantic_entropy(
+                    cluster_by_entailment(
+                        view.question, answers_of(view, context.k), entailment
+                    ).sizes
+                )
+            ]
+            for view in views
+        ],
+        dtype=float,
+    )
+    y = np.asarray(labels, dtype=int)
+    positive_rate = float(y.mean())
+    scaler = StandardScaler()
+    spread = float(matrix.std())
+
+    if len(set(y.tolist())) < 2 or spread == 0.0:
+        warnings.append(
+            ScorerWarning(
+                tier,
+                (
+                    f"every calibration task produced the same semantic entropy at k="
+                    f"{context.k}, so meaning-level agreement cannot discriminate here and the "
+                    "scorer returns the base rate."
+                    if spread == 0.0
+                    else f"every calibration example at this tier had the same outcome "
+                    f"({'all correct' if positive_rate else 'all wrong'}), so the scorer cannot "
+                    "discriminate and returns the base rate."
+                ),
+            )
+        )
+        scaler.fit(matrix if len(matrix) else np.zeros((1, 1)))
+        return (
+            SemanticEntropyScorer(
+                tier=tier,
+                k=context.k,
+                entailment=entailment,
+                model=LogisticRegression(),
+                scaler=scaler,
+                fitted_on=len(views),
+                train_positive_rate=positive_rate,
+                price_per_call=context.entailment_price,
+                degenerate=True,
+            ),
+            warnings,
+        )
+
+    scaled = scaler.fit_transform(matrix)
+    model = LogisticRegression(C=context.C, max_iter=1000, random_state=context.seed)
+    model.fit(
+        scaled,
+        y,
+        sample_weight=None if context.sample_weights is None else list(context.sample_weights),
+    )
+    return (
+        SemanticEntropyScorer(
+            tier=tier,
+            k=context.k,
+            entailment=entailment,
+            model=model,
+            scaler=scaler,
+            fitted_on=len(views),
+            train_positive_rate=positive_rate,
+            price_per_call=context.entailment_price,
+        ),
+        warnings,
+    )
+
+
+register_scorer(
+    ScorerKind(
+        name=SEMANTIC_ENTROPY_V1,
+        description=(
+            "discrete semantic entropy: k samples per task, clustered by bidirectional "
+            "entailment judged by a cheap model, scored by the normalized entropy of the "
+            "meaning-cluster proportions"
+        ),
+        fit=fit_semantic_entropy,
+        # k generations plus, in the worst case, two directed entailment calls for every pair.
+        # Identical answers are compared for free, so the realised count is far lower and is
+        # charged from the recording rather than from this bound.
+        calls_per_task=lambda k: k + k * (k - 1),
+    )
+)
+
+
+# ----------------------------------------------------------------------------- sep-v1
+
+
+def fit_semantic_entropy_probe(
+    tier: str,
+    views: Sequence[TaskView],
+    labels: Sequence[int],
+    context: ScorerContext,
+) -> tuple[Scorer, list[ScorerWarning]]:
+    """Semantic Entropy Probes: a linear probe on hidden states (UPGRADE_V3.md U6).
+
+    Registered so that asking for it gets an answer, and it always refuses here. Kossen et al.
+    show semantic entropy is recoverable from the hidden states of a *single* generation, which
+    removes the five-to-tenfold sampling cost this file's other sampling scorer pays — and
+    hidden states are exactly what no provider API returns. There is nothing to approximate: a
+    probe without hidden states is not a worse probe, it is a different method wearing the name.
+
+    D27.4 settled this once: Tokop is official-APIs-only (non-negotiable 6), so this is not a
+    "not yet". It becomes runnable the day a model in the registry declares hidden-state access,
+    and refuses with that sentence until then.
+    """
+    available = sorted(context.hidden_state_models)
+    raise ScorerError(
+        f"{SEP_V1} reads a model's hidden states to predict semantic entropy from one "
+        "generation, and no model in this registry exposes them"
+        + (f" (models that do: {', '.join(available)})" if available else "")
+        + ". Tokop uses official APIs only (SPEC.md non-negotiable 6) and no provider API "
+        "returns hidden states, so this refuses rather than approximating: a probe fitted on "
+        "something other than hidden states is a different method under the same name. Use "
+        f"{SEMANTIC_ENTROPY_V1}, which needs only generation counts, or self-host a model and "
+        "declare `hidden_states: true` for it."
+    )
+
+
+register_scorer(
+    ScorerKind(
+        name=SEP_V1,
+        description=(
+            "semantic entropy probe: a linear probe on hidden states predicting semantic "
+            "entropy from a single generation. Self-hosted models only; refuses behind an API"
+        ),
+        fit=fit_semantic_entropy_probe,
+        calls_per_task=lambda k: 1,
     )
 )

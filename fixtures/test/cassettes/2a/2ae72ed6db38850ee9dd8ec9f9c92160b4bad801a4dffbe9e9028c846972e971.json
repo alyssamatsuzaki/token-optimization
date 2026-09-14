@@ -1,0 +1,90 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "2ae72ed6db38850ee9dd8ec9f9c92160b4bad801a4dffbe9e9028c846972e971",
+  "latency_ms": 366.59,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"entails\": true, \"why\": \"same value once units and hedging are removed\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_2ae72ed6db38850e",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 209,
+      "output_tokens": 25
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 209,
+    "output_tokens": 25
+  },
+  "recorded_at": "2026-09-14T16:24:35.021734+00:00",
+  "request": {
+    "max_tokens": 60,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Question: sleeping bags, 58 lb, Zone 2 (adjacent states), paying shipping. Fee in dollars?\n\nAnswer A:\n<<<A\n62.95\nA>>>\n\nAnswer B:\n<<<B\n24.95\nB>>>\n"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "c83b71f47299560d59fbab9ec45cb116d3e39563e5ae76b16d66a1ff852da71e"
+        }
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"entails\": true, \"why\": \"same value once units and hedging are removed\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 279.09,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 209,
+    "output_reasoning": 0,
+    "output_visible": 25,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 209,
+      "output_tokens": 25
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

@@ -25,6 +25,7 @@ import type {
   CalibrationView,
   ContractView,
   DatasetProvenanceView,
+  TiesView,
   FindingView,
   JudgedView,
   Provenance,
@@ -420,6 +421,8 @@ export default function Optimize() {
               </dd>
             </dl>
           </Section>
+
+          <TiesPanel ties={cascade.ties} />
 
           <ProvenancePanel provenance={report.dataset_provenance} />
 
@@ -869,6 +872,71 @@ function ProvenancePanel({ provenance }: { provenance: DatasetProvenanceView }) 
           ))}
         </ul>
       )}
+    </Section>
+  );
+}
+
+/**
+ * Every configuration the data cannot tell apart on cost (UPGRADE_V3.md U7).
+ *
+ * A single winner drawn out of overlapping intervals is a single-vendor recommendation
+ * manufactured from sampling error. The screen shows the whole tie, ordered by dollars, and
+ * names the fallback — or says why there isn't one.
+ */
+function TiesPanel({ ties }: { ties: TiesView | null }) {
+  if (!ties) return null;
+  return (
+    <Section
+      title={ties.is_tie ? "Tied for cheapest" : "One cheapest configuration"}
+      subtitle="Configurations whose cost-per-successful-task intervals overlap cannot be ranked by this data."
+      right={
+        <Pill tone={ties.is_tie ? "neutral" : "better"}>
+          {ties.is_tie ? `${ties.tied.length} tied` : "no tie"}
+        </Pill>
+      }
+      id="ties"
+    >
+      <table className="w-full text-base" data-testid="ties-table">
+        <thead>
+          <tr className="text-small text-graphite">
+            <th className="text-left font-medium py-2">Configuration</th>
+            <th className="text-right font-medium py-2">Cost per successful task</th>
+            <th className="text-right font-medium py-2">Accuracy</th>
+            <th className="text-right font-medium py-2">Scarce share</th>
+            <th className="text-left font-medium py-2 pl-6">Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {ties.tied.map((row) => (
+            <tr key={row.label} className="rule-t">
+              <td className="py-2">{row.label}</td>
+              <td className="text-right tabular-nums">
+                {usd(row.cost_per_successful_task, 6)}
+                <span className="text-graphite text-small ml-2">
+                  ({usd(row.cost_low, 6)}–{usd(row.cost_high, 6)})
+                </span>
+              </td>
+              <td className="text-right tabular-nums">{pct(row.accuracy)}</td>
+              <td className="text-right tabular-nums">{pct(row.scarce_share, 0)}</td>
+              <td className="pl-6 text-small text-graphite">
+                {[
+                  row.is_operating_point ? "operating point" : null,
+                  row.is_fallback ? "fallback" : null,
+                  row.adoptable ? null : "not adoptable here",
+                ]
+                  .filter(Boolean)
+                  .join(", ")}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-3 text-small text-graphite max-w-prose" data-testid="ties-note">
+        {ties.note}
+      </p>
+      <p className="mt-2 text-small text-graphite max-w-prose" data-testid="ties-fallback">
+        {ties.fallback_reason}
+      </p>
     </Section>
   );
 }

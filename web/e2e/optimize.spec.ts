@@ -119,6 +119,23 @@ test("build candidate, run proof, and read the verdict", async ({ page }) => {
   }
 });
 
+test("configurations the data cannot separate are all shown, not ranked", async ({ page }) => {
+  await openOptimize(page);
+  await page.getByTestId("build-candidate").click();
+  await page.getByTestId("run-proof").click();
+
+  const ties = report.cascade.ties;
+  test.skip(!ties, "this report evaluated one configuration");
+  const table = page.getByTestId("ties-table");
+  for (const row of ties.tied as { label: string }[]) {
+    await expect(table).toContainText(row.label);
+  }
+  await expect(page.getByTestId("ties-note")).toContainText(ties.note.slice(0, 60));
+  await expect(page.getByTestId("ties-fallback")).toContainText(
+    ties.fallback_reason.slice(0, 50),
+  );
+});
+
 test("the screen says where the tasks came from and whether that can certify", async ({
   page,
 }) => {

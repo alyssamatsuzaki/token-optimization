@@ -1,0 +1,90 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "047257456ecfaa278aa5195391ad480155f82a9f201210be0311125524adff3f",
+  "latency_ms": 328.12,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"entails\": false, \"why\": \"different values\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_047257456ecfaa27",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 202,
+      "output_tokens": 18
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 202,
+    "output_tokens": 18
+  },
+  "recorded_at": "2026-09-14T16:24:35.160858+00:00",
+  "request": {
+    "max_tokens": 60,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Question: A final-sale item arrived faulty. How many days does the customer have to report it?\n\nAnswer A:\n<<<A\n2\nA>>>\n\nAnswer B:\n<<<B\n7\nB>>>\n"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "c83b71f47299560d59fbab9ec45cb116d3e39563e5ae76b16d66a1ff852da71e"
+        }
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"entails\": false, \"why\": \"different values\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 265.12,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 202,
+    "output_reasoning": 0,
+    "output_visible": 18,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 202,
+      "output_tokens": 18
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

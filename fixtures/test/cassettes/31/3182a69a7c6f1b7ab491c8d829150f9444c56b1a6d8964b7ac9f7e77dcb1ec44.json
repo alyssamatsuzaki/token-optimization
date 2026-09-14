@@ -1,0 +1,90 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "3182a69a7c6f1b7ab491c8d829150f9444c56b1a6d8964b7ac9f7e77dcb1ec44",
+  "latency_ms": 344.49,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"entails\": false, \"why\": \"different values\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_3182a69a7c6f1b7a",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 220,
+      "output_tokens": 18
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 220,
+    "output_tokens": 18
+  },
+  "recorded_at": "2026-09-14T16:24:35.852930+00:00",
+  "request": {
+    "max_tokens": 60,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Question: Standard member, $39 before tax. Is shipping free? Answer yes or no.\n\nAnswer A:\n<<<A\nno\nA>>>\n\nAnswer B:\n<<<B\nBased on the handbook, the answer is no. Section: sec-free-shipping.\nB>>>\n"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "c83b71f47299560d59fbab9ec45cb116d3e39563e5ae76b16d66a1ff852da71e"
+        }
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"entails\": false, \"why\": \"different values\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 281.49,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 220,
+    "output_reasoning": 0,
+    "output_visible": 18,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 220,
+      "output_tokens": 18
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

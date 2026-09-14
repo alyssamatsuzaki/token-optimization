@@ -1,0 +1,90 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "6bbf2c05d97743830da623c95262a32844fc4916207164438852fb8605246c5e",
+  "latency_ms": 390.14,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"entails\": true, \"why\": \"same value once units and hedging are removed\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_6bbf2c05d9774383",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 219,
+      "output_tokens": 25
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 219,
+    "output_tokens": 25
+  },
+  "recorded_at": "2026-09-14T16:24:35.451989+00:00",
+  "request": {
+    "max_tokens": 60,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Question: A 58 lb order containing sleeping bags ships to Zone 2 (adjacent states) with no free shipping. What is the shipping fee in dollars?\n\nAnswer A:\n<<<A\n60.44\nA>>>\n\nAnswer B:\n<<<B\n24.95\nB>>>\n"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "c83b71f47299560d59fbab9ec45cb116d3e39563e5ae76b16d66a1ff852da71e"
+        }
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"entails\": true, \"why\": \"same value once units and hedging are removed\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 302.64,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 219,
+    "output_reasoning": 0,
+    "output_visible": 25,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 219,
+      "output_tokens": 25
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

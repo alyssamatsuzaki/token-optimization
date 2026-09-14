@@ -33,6 +33,20 @@ savings repay it.
 - The proof itself cost $16.6071 and repays after 367 tasks.
 - Prices: 1d339a1b5b0556ab, all verified against the provider's own page.
 
+**What else was measured** — every scorer configuration the calibration search compared, scored on the same test split:
+
+| Configuration | Calls per scored task | Accuracy | Cost per successful task | Effective samples | Notes |
+| --- | --- | --- | --- | --- | --- |
+| logistic-v1 | 1 | 96.0% | $0.004253 ~ ($0.003764–$0.004770) | — | operating point, tied for cheapest |
+| self-consistency-v1 k=3 | 3 | 96.0% | $0.003577 ~ ($0.003286–$0.003901) | 2.94 of 3 (frontier) | tied for cheapest, not adoptable here |
+| self-consistency-v1 k=5 | 5 | 97.0% | $0.004987 ~ ($0.004862–$0.005141) | 4.27 of 5 (cheap) | not adoptable here |
+| semantic-entropy-v1 k=3 | 9 | 96.0% | $0.003800 ~ ($0.003469–$0.004157) | 2.94 of 3 (frontier) | tied for cheapest, not adoptable here |
+| semantic-entropy-v1 k=5 | 25 | 97.0% | $0.005442 ~ ($0.005269–$0.005644) | 4.27 of 5 (cheap) | not adoptable here |
+
+- Effective samples is the cluster-sampling design effect `k / (1 + (k-1) rho)` over the intraclass correlation of within-task agreement. Here rho runs 0.000 to 0.043, so k repeats are worth very nearly k — which is a property of a simulator that draws them independently, not of real sampled generations, and is why the sampling scorers are measured here and not adopted.
+- These configurations are not distinguishable on cost at this split size: their intervals overlap, so the ordering between them is the bootstrap's noise and not a recommendation. One of them has to run; which one is not something this data decides. The cheapest of them, self-consistency-v1 k=3, is one this workload does not let the search adopt, so it is reported and not run — measuring a configuration and shipping it are different decisions.
+- No fallback: nothing else in the tie is both a different configuration and one this workload lets the search adopt, so there is nothing to fall back *to* that this data says is equivalent.
+
 **Where these tasks came from** — 300 items: 0 from real traffic, 0 written by a model, 300 templated by a program. 28 of 28 question templates appear (100% tail coverage).
 
 - **Certifiable: no.**
@@ -115,8 +129,8 @@ tokop build-test-fixtures   # rebuild fixtures/test/ from the simulator; spends 
 
 **Optimize** — what's the cheapest way to run this workload without getting worse? The current
 pipeline as a graph, findings ranked by dollars, the candidate, and the proof: verdict, interval
-plot against the margin, savings waterfall, cost-quality frontier, breakdown by question type,
-and every disagreement openable as a full trace.
+plot against the margin, every configuration tied for cheapest, savings waterfall, cost-quality
+frontier, breakdown by question type, and every disagreement openable as a full trace.
 
 **Inspect** — what will this prompt cost, and what in it is waste? Token counts and cost per
 1,000 calls across the registry, cacheability against each model's minimum, lint findings with
@@ -270,6 +284,70 @@ human-written items is **not built and refuses**: it needs a trained model, and 
 would resample the set towards its own guess. The resampling mathematics is there and tested for
 anyone who has a real detector.
 
+## Entropy over meanings, and how many samples you actually have
+
+A sampling scorer asks a tier the same question k times and routes on how much it agrees with
+itself. "Agrees" needs a definition, and the cheap one — exact match, after the workload's own
+normalization — reads two differently worded answers that mean the same thing as a disagreement,
+and escalates a task to a more expensive model for nothing.
+
+`semantic-entropy-v1` uses the expensive definition. It clusters the k samples by **bidirectional
+entailment** judged by a cheap model, and routes on the entropy of the meaning clusters rather
+than of the strings — two directed calls per candidate pair, because entailment is not symmetric
+and a model asked a symmetric question answers a symmetric one. Those calls are recorded,
+replayed from cassettes, and **charged to the scorer that makes them**: a scorer spending money
+the comparison is not charged for is how a comparison stops meaning anything. Identical answers
+are never sent, because paying a model to confirm that "60" means "60" is most of the bill on a
+workload of numbers.
+
+**On this workload it costs money and buys nothing**, and the comparison table at the top of this
+page is where that shows: same accuracy, same AUROC and the same routing as the exact-match
+scorer at every k, for a higher bill. The demo's answers are numbers, enums and yes/no, and the
+workload's own equivalence
+relation already merges a currency symbol, a trailing percent and a hedge in front of a yes. What
+it misses is a unit word after a number — "60" against "60 days" — and these fixtures contain
+none. That is a property of this question mix rather than of the method, and a test pins it so it
+cannot quietly stop being reported.
+
+**k samples are worth k only if the draws are independent**, and in general they are not: a model
+that misreads a rule misreads it every draw, and repeats that agree because they share a mistake
+are not evidence. So every sampled configuration carries an **effective** sample count — the
+cluster-sampling design effect over the measured intraclass correlation of within-task agreement.
+On these fixtures it comes out at very nearly k, which is a fact about a simulator that draws
+independently, and is exactly why both sampling scorers are measured here and neither is adopted
+(`DECISIONS.md` D27). On a recording that column would say so by itself, without anyone writing
+this paragraph.
+
+**`sep-v1` is registered and refuses.** Semantic Entropy Probes recover the same quantity from
+the hidden states of a single generation, which would remove the sampling cost entirely — and
+hidden states are what no provider API returns. The registry carries a `hidden_states` flag so
+the refusal points at something real, no model sets it, and the message names the two ways
+forward: `semantic-entropy-v1`, or self-hosting. This is not a "not yet". Official APIs only is
+non-negotiable 6, and a feature that needs to break it gets dropped and logged.
+
+## When nothing wins
+
+A search that hands back *the* cheapest configuration is making a claim the data frequently
+cannot support. Several of the configurations in that same table have overlapping cost intervals
+on the 200-task split, which means the ordering between them is the bootstrap's noise — an
+artefact of which tasks landed in the resample. So the report names every
+configuration tied for cheapest, ordered by dollars, and the function that would return a single
+winner **raises** rather than picking one.
+
+- **A fallback is an alternative to what is running**, chosen by scarce-model share among the
+  configurations this workload actually allows the search to adopt. A fallback that shares the
+  constraint it exists to survive is not a fallback, and one nobody is allowed to run is a
+  footnote. On the demo there is no such alternative, and the report says so instead of
+  designating the operating point as its own fallback.
+- **Exploration weights over a tie are uniform.** Nothing in this build explores online, so
+  nothing calls them in anger. The rule is implemented and tested anyway, because greedy
+  selection amplifies whichever option happened to win the last sample — the outcome-level
+  frequency amplification Sinha et al. describe — and inventing the rule later under deadline is
+  how greedy selection creeps back in.
+- **A tie is a statement about this split size**, not a property of the configurations. The same
+  200 tasks that leave the verdict inconclusive are what leave the tied rows indistinguishable,
+  and more tasks can break either.
+
 ## The gate
 
 `tokop prove` exits 0 only when the verdict is non-inferior, so it works as a merge gate
@@ -305,23 +383,30 @@ routes on the normalized discrete entropy of the group proportions: a tier that 
 itself answers, one that does not escalates. Cluster probabilities come from generation counts
 rather than token likelihoods, which is what makes it computable behind a provider API.
 
-This is **self-consistency over an exact-match equivalence relation, a deterministic
-approximation of semantic entropy** — not semantic entropy. The method it approximates groups by
-model-judged meaning and so catches two differently worded answers that say the same thing; an
-exact-match relation reads a paraphrase as disagreement. The idea is taken from work by Farquhar,
-Kossen, Kuhn and Gal in *Nature* (2024), which is deliberately not cited with a figure or a
-finding here: every host serving that paper is blocked by this build's egress policy, so it was
-never opened, and a citation nobody checked is worse than none. See `DECISIONS.md` D27.
+Both definitions of "agrees" are registered, and they are different methods rather than settings.
+`self-consistency-v1` groups by the workload's exact-match relation — **a deterministic
+approximation of semantic entropy**, not semantic entropy, and it reads a paraphrase as
+disagreement. `semantic-entropy-v1` groups by model-judged meaning instead, at the price of the
+calls that judge it, and `sep-v1` — the same quantity read off a single generation's hidden
+states — is registered and refuses, because no provider API returns them.
 
-**On the demo fixtures this scorer measures cheaper than the default, and Tokop does not ship
-it.** That result is an artifact of the simulated provider, which draws repeated samples
+The ideas are taken from work by Farquhar, Kossen, Kuhn and Gal in *Nature* (2024) and from
+Kossen et al. on probes over hidden states. Neither is cited with a figure or a finding here:
+this build's egress policy blocks both hosts — checked again while writing this, and both still
+return 403 through the proxy — so neither paper was ever opened, and a citation nobody checked is
+worse than none. See `DECISIONS.md` D27 and D40.
+
+**On the demo fixtures the sampling scorers measure cheaper than the default, and Tokop ships
+neither.** That result is an artifact of the simulated provider, which draws repeated samples
 independently, so majority voting collects the full benefit of Condorcet's jury theorem — it
 lifts the cheap tier from 0.848 to 0.939 expected accuracy at k=5 on this question mix. Real
 sampled generations are strongly correlated: a model that misreads a rule misreads it every
-draw. The demo therefore measures both scorers, reports them side by side with their sampling
-costs, and lets the calibration search adopt only the one the fixtures can support. The
-mechanism is real and so are the dollar figures; the quality comparison is a statement about the
-noise model. It becomes a real comparison the moment the matrix is a recording.
+draw. That used to be a paragraph; it is now a measurement, in the effective-sample column above,
+which reports very nearly k on these fixtures and would not on a recording. The demo therefore
+measures every configuration, reports them side by side with their sampling costs, and lets the
+calibration search adopt only what the fixtures can support. The mechanism is real and so are the
+dollar figures; the quality comparison is a statement about the noise model. It becomes a real
+comparison the moment the matrix is a recording.
 
 **Cost-Optimal Active AI Model Evaluation** (Angelopoulos, Eisenstein, Berant, Agarwal, Fisch;
 [arXiv:2506.07949](https://arxiv.org/abs/2506.07949)) — a cheap rater scores everything, an
@@ -377,6 +462,18 @@ engine is what would make savings billable — you cannot invoice against "it se
 - **A certificate is only as good as the set it was measured on**, and Tokop's own demo set is
   refused: it is entirely program-generated with no real traffic behind it. That refusal is the
   feature working.
+- **Clustering answers by meaning is itself a model call, and can be wrong.** `semantic-entropy-v1`
+  buys its clusters from a cheap entailment model, and entailment as a model judges it is not
+  transitive, so the grouping depends on the order the samples arrive in — reproducible from the
+  recording, not canonical. On this workload it changed no routing decision and cost money, which
+  is a fact about a question mix of numbers and yes/no rather than about the method.
+- **`sep-v1` cannot be built against an API.** Probes over hidden states would make meaning
+  clustering nearly free, and no provider returns hidden states; the kind is registered and
+  refuses rather than quietly falling back to something else wearing its name.
+- **A tie is about the split, not about the configurations.** Tokop reports every configuration
+  whose cost interval overlaps the cheapest instead of ranking them, and computes uniform
+  exploration weights over the tie — but nothing in this build explores online, so those weights
+  are tested and never spent.
 - **No live recording has ever run.** The live path is wired and tested up to the request, but
   this build had no credentials and no budget, so every number here is simulated and labelled
   simulated. `make record` stops before spending. `DECISIONS.md` D24.
@@ -392,9 +489,10 @@ In rough order, from the exclusions this version made on purpose:
    checkable-output-contract lever; see the two sections above.
 3. ~~**Certificates that expire**~~ and ~~**dataset provenance**~~ — shipped in M11; see the two
    sections above.
-4. **Semantic entropy** over meaning clusters rather than exact-match strings, with effective-k
-   reported, and a report that names every configuration statistically tied for cheapest instead
-   of one winner.
+4. ~~**Semantic entropy** over meaning clusters~~ and ~~a report that names every configuration
+   statistically tied for cheapest~~ — shipped in M12; see the two sections above. What is still
+   missing is a recording to measure them on, which is what would make the effective-sample
+   column interesting.
 5. **An upload wizard** for YAML, JSONL or CSV workloads.
 6. **LangGraph trace import** — the pipeline spec already uses nodes, edges and shared state.
 7. **Experiments**: semantic caching with its own false-hit evaluation, and TRIM-style output

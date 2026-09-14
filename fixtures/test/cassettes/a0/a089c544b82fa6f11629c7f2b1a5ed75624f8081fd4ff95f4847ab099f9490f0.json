@@ -1,0 +1,90 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "a089c544b82fa6f11629c7f2b1a5ed75624f8081fd4ff95f4847ab099f9490f0",
+  "latency_ms": 384.82,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"entails\": false, \"why\": \"different values\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_a089c544b82fa6f1",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 194,
+      "output_tokens": 18
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 194,
+    "output_tokens": 18
+  },
+  "recorded_at": "2026-09-14T16:24:35.640090+00:00",
+  "request": {
+    "max_tokens": 60,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Question: Standard tier, trail nutrition. Return window in days?\n\nAnswer A:\n<<<A\n0\nA>>>\n\nAnswer B:\n<<<B\n30\nB>>>\n"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "c83b71f47299560d59fbab9ec45cb116d3e39563e5ae76b16d66a1ff852da71e"
+        }
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"entails\": false, \"why\": \"different values\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 321.82,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 194,
+    "output_reasoning": 0,
+    "output_visible": 18,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 194,
+      "output_tokens": 18
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

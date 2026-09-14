@@ -38,6 +38,7 @@ from tokop.core.budget import BudgetExceeded, SpendGuard
 from tokop.core.pricing import PriceSnapshot
 from tokop.core.registry import Registry
 from tokop.db import make_engine
+from tokop.optimize.scorers import TaskView
 from tokop.settings import get_settings
 from tokop.workloads.demo.dataset import DatasetBundle
 from tokop.workloads.demo.generator import DemoItem
@@ -85,6 +86,12 @@ class RecordingReport:
     stopped: str | None = None
     origin: str = "simulated"
     cassette_count: int = 0
+    #: What recording the entailment judgements cost. Reported apart from the matrix, because
+    #: it is the price of being *able* to cluster by meaning rather than of any one run.
+    entailment_cost: Decimal = Decimal(0)
+    #: How many entailment judgements were recorded. With the cost above it gives the mean
+    #: price of one, which is what a scorer that clusters by meaning is charged per call.
+    entailment_calls: int = 0
 
     def by_key(self, pipeline: str, split: str, tier: str) -> StepResult | None:
         for step in self.steps:
@@ -108,6 +115,8 @@ class RecordingReport:
             "base_token_counter": base_counter_name(),
             "recorded_at": datetime.now(UTC).isoformat(),
             "total_cost_usd": str(self.total_cost),
+            "entailment_recording_cost_usd": str(self.entailment_cost),
+            "entailment_calls": self.entailment_calls,
             "cassette_count": self.cassette_count,
             "runs": [
                 {
@@ -284,8 +293,99 @@ class Recorder:
             if pipeline_id in self.workload.pipelines:
                 keep(await self._step(pipeline_id, "test", "frontier", test))
 
+        # 5. Entailment for every distinct pair of answers a task's repeats produced, so
+        #    `semantic-entropy-v1` can cluster by meaning at replay (UPGRADE_V3.md U6). Recorded
+        #    over the *distinct extracted answers* rather than the raw generations: two correct
+        #    answers citing different sentences are one meaning, and comparing raw JSON would
+        #    make them two.
+        if self.workload.entailment is not None and matrix_samples >= 2:
+            report.entailment_cost, report.entailment_calls = await self._entailment_step(
+                [("calibration", calibration), ("test", test)], matrix_samples
+            )
+
         report.cassette_count = len(self.store)
         return report
+
+    async def _entailment_step(
+        self, splits: Sequence[tuple[str, Sequence[DemoItem]]], samples: int
+    ) -> tuple[Decimal, int]:
+        """Record an entailment judgement for every distinct answer pair in the matrix.
+
+        Ordered pairs of *distinct* answers, both directions, because entailment is not
+        symmetric. Identical answers are never sent: paying a model to confirm that "60" means
+        what "60" means is money for nothing, and on a workload of numbers and yes/no that
+        removes most of the bill.
+
+        Every pair a clustering *might* ask about is recorded, which is slightly more than any
+        one clustering asks. The excess is a property of recording rather than of running, and
+        `entailment_recording_cost_usd` reports it where it was incurred, the way the deeper
+        sample matrix already does (DECISIONS.md D27).
+        """
+        from tokop.optimize.scorers import answers_of
+        from tokop.workloads.spec import EntailmentSpec
+
+        spec: EntailmentSpec = self.workload.entailment  # type: ignore[assignment]
+        model_id = self.registry.roles[spec.model_role]
+        base = self.workload.cascade("B3").base_pipeline
+        pairs: list[tuple[str, str, str]] = []
+        seen: set[tuple[str, str, str]] = set()
+        for split_name, items in splits:
+            for tier in ("cheap", "mid", "frontier"):
+                runner = self._runner(base)
+                result = await runner.run_pipeline(
+                    base,
+                    items,
+                    model_id=self.registry.roles[tier],
+                    split=split_name,
+                    samples=samples,
+                    prewarm=False,
+                )
+                by_id = {item.id: item for item in items}
+                for task in result.tasks:
+                    outputs = [response.text for _, response, _, _ in task.calls][:samples]
+                    view = TaskView(
+                        task_id=task.task_id,
+                        question=by_id[task.task_id].question,
+                        output=outputs[0] if outputs else "",
+                        samples=tuple(outputs),
+                    )
+                    distinct = sorted({a for a in answers_of(view, samples) if a is not None})
+                    for left in distinct:
+                        for right in distinct:
+                            if left == right:
+                                continue
+                            key = (view.question, left, right)
+                            if key not in seen:
+                                seen.add(key)
+                                pairs.append(key)
+
+        if not pairs:
+            return Decimal(0), 0
+        runner = Runner(
+            self.workload,
+            self.registry,
+            self.snapshot,
+            self._entailment_adapter(),
+            provider=self.provider,
+            handbook=self.bundle.handbook,
+            concurrency=self.concurrency,
+            origin=self.origin,
+        )
+        judged = await runner.run_entailment(spec, pairs, model_id=model_id)
+        self.guard.record(judged.total_cost)
+        return judged.total_cost, len(pairs)
+
+    def _entailment_adapter(self) -> AnyAdapter:
+        if self.provider != "simulated":
+            live = build_live_adapter(self.provider, self.registry, get_settings())
+            return RecordingAdapter(live, self.store, origin=self.origin)
+        from tokop.workloads.demo.entailment_responder import DemoEntailmentResponder
+
+        inner = SimulatedAdapter(
+            simulated_profiles(self.registry, list(self.registry.models)),
+            DemoEntailmentResponder(self.tiers),
+        )
+        return RecordingAdapter(inner, self.store, origin=self.origin)
 
 
 def build_test_fixtures(

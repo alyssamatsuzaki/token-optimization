@@ -131,9 +131,16 @@ circular, so `TaskView` has no field that could carry one and
 **Which scorer runs is named in the pipeline spec.** `optimize/scorers.py` holds a `Scorer`
 protocol and a registry; `CascadeSpec` names a kind and a sample count, and the calibration
 search chooses between the kinds a workload allows alongside the thresholds — all before any
-test result is computed. Two are registered: `logistic-v1`, the per-tier logistic regression over
-deterministic features, and `self-consistency-v1`, which draws k samples and routes on how much
-a tier agrees with itself.
+test result is computed. Three are registered and a fourth refuses: `logistic-v1`, the per-tier
+logistic regression over deterministic features; `self-consistency-v1`, which draws k samples and
+routes on how much a tier agrees with itself under exact match; `semantic-entropy-v1`, which
+groups the same samples by model-judged meaning instead (`optimize/entailment.py`); and `sep-v1`,
+which reads hidden states and therefore raises, because no provider API returns them.
+
+A scorer that spends money declares it. The protocol carries `extra_cost`, so the entailment
+calls `semantic-entropy-v1` makes are billed to the scorer that made them and land in the same
+per-task accounting, waterfall and repayment figure as generation — a scorer whose spending is
+invisible makes the comparison meaningless, which is the lesson `DECISIONS.md` D27 paid for once.
 
 The isolation survives the second one by injection rather than import. A sampling scorer needs
 to know when two answers mean the same thing, and the obvious source for that is the grader —
@@ -214,6 +221,23 @@ label, excludes and counts distributions with no clear winner, and weights confi
 up rather than down. A tier's own repetition is the failure it is built for: a cheap model whose
 mistakes repeat looks, to a majority vote, exactly like a cheap model that is right.
 
+`entailment.py` is the meaning half of the sampling scorers (UPGRADE_V3.md U6). It clusters k
+answers by **bidirectional** entailment — both directions, because entailment is not symmetric,
+and the second direction is only asked when the first says yes — skipping identical strings,
+which on a workload of numbers is most of the matrix, and never comparing an answer it could not
+read. Model-judged entailment is not transitive, so the clustering is first-fit and reproducible
+from the recording's order rather than canonical, and it says so rather than implying a canonical
+grouping exists. The same module measures `effective_k`: the intraclass correlation of within-task
+agreement and the cluster-sampling design effect `k / (1 + (k-1) rho)`, which is what turns "real
+samples are correlated" from a caveat into a column.
+
+`ties.py` refuses to name a winner the data cannot support (UPGRADE_V3.md U7). Configurations
+whose cost-per-successful-task intervals overlap the cheapest are tied; the report lists them all,
+`single_winner` raises instead of picking, the fallback is chosen by scarce-model share among
+*adoptable* alternatives to what is running — a fallback sharing the constraint it exists to
+survive is not one — and the exploration weights over a tie are uniform, because greedy selection
+amplifies whichever option won the last sample.
+
 ## Modes
 
 | | replay | live |
@@ -247,9 +271,9 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
 
 ## Testing
 
-- **653 engine tests**, 91% line coverage on `core/` and `optimize/`
+- **709 engine tests**, 91% line coverage on `core/` and `optimize/`
   (`pytest --cov=tokop/core --cov=tokop/optimize`).
-- **44 Playwright tests** against the production build in replay mode.
+- **45 Playwright tests** against the production build in replay mode.
 - **Exit-code tests for `tokop prove`** run through a subprocess, because an exit code asserted
   in-process is not the thing CI observes. They pin the case that matters: an *inconclusive*
   verdict fails the build.
@@ -270,8 +294,11 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
 - A **variance-reduction test** that compares the allocation policy against uniform sampling at
   the same budget by evaluating the estimator's variance exactly, rather than by drawing once
   and eyeballing the interval.
-- `make verify` runs all nineteen checks in SPEC.md section 10 plus the UPGRADE_V3.md acceptance
-  checks, in order, and prints `VERIFY PASSED (19 checks)`.
+- A **meaning-clustering test** over paraphrase pairs each verified to be a case exact match
+  actually misses, a **refusal test** for `sep-v1`, and a **tie test** that fails if the report
+  ever ranks configurations whose cost intervals overlap.
+- `make verify` runs all twenty-one checks in SPEC.md section 10 plus the UPGRADE_V3.md
+  acceptance checks, in order, and prints `VERIFY PASSED (21 checks)`.
 
 ## What is simulated in this build
 
@@ -283,8 +310,10 @@ them.
 
 What it cannot simulate is whether a model is actually right; answer quality comes from a
 responder with a per-tier, per-difficulty accuracy model, plus a legibility tax when a pipeline
-asks for a checkable answer. A second responder invents how often a *judge* is wrong, with sensitivity and specificity given separately because the characteristic
-LLM-judge failure is leniency rather than error. Everything downstream is real code over those
-traces, and every surface that displays a number derived from them labels it simulated.
+asks for a checkable answer. A second responder invents how often a *judge* is wrong, with
+sensitivity and specificity given separately because the characteristic LLM-judge failure is
+leniency rather than error, and a third invents how often an *entailment* model mistakes one
+meaning for another. Everything downstream is real code over those traces, and every surface
+that displays a number derived from them labels it simulated.
 `DECISIONS.md` D1 records the whole arrangement, and D29 records why the guarantee U1 rests on is
 tested against an *injected* judge rather than against that table.

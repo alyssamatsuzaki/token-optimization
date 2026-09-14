@@ -478,19 +478,26 @@ def _echo_scorer_comparison(payload: ReportPayload) -> None:
     typer.echo("  scorers evaluated on the calibration split")
     header = (
         f"  {'configuration':26}{'calls':>6}{'accuracy':>10}{'$/success':>12}"
-        f"{'scarce':>8}{'sampling $':>12}{'repays':>8}  verdict"
+        f"{'scarce':>8}{'sampling $':>12}{'eff. k':>8}{'repays':>8}  verdict"
     )
     typer.echo(header)
     typer.echo("  " + "-" * (len(header) - 2))
     for row in rows:
         accuracy = row["accuracy"]
         marker = " *" if row["is_chosen"] else "  "
+        correlation = row.get("sample_correlation")
+        # The worst tier's effective k: how many independent draws this configuration's k
+        # repeats were actually worth (UPGRADE_V3.md U6). "—" for a scorer that reads one call.
+        effective = (
+            f"{min(v['effective_k'] for v in correlation.values()):.2f}" if correlation else "—"
+        )
         typer.echo(
             f"  {row['label'][:24]:24}{marker}{row['calls_per_scored_task']:>4}"
             f"{accuracy['point']:>10.1%}"
             f"{row['cost_per_successful_task']['point']:>12.6f}"
             f"{row['scarce_share']:>8.1%}"
             f"{float(row['sampling_cost_usd']):>12.4f}"
+            f"{effective:>8}"
             f"{row['repayment_tasks']!s:>8}  {row['verdict']['label']}"
         )
     typer.echo(f"  * the operating point, chosen on {choice['chosen_on']}")
@@ -505,6 +512,33 @@ def _echo_scorer_comparison(payload: ReportPayload) -> None:
         f"  recording the repeats this table needed cost "
         f"${choice['search_recording_cost_usd']}, which is not part of the proof cost above."
     )
+    if any(row.get("sample_correlation") for row in rows):
+        typer.echo(
+            "  eff. k is how many *independent* draws each configuration's k repeats were worth,"
+            "\n  measured from within-task agreement. Close to k means the samples really are "
+            "independent,\n  which on these fixtures is a fact about the simulator (DECISIONS.md "
+            "D27)."
+        )
+
+    ties = cascade.get("ties")
+    if ties and ties["is_tie"]:
+        typer.echo("")
+        typer.echo("  statistically tied for cheapest, ordered by dollars")
+        for row in ties["tied"]:
+            marks = []
+            if row["is_operating_point"]:
+                marks.append("operating point")
+            if row["is_fallback"]:
+                marks.append("fallback")
+            if not row["adoptable"]:
+                marks.append("not adoptable here")
+            typer.echo(
+                f"  {row['label'][:34]:34}{row['cost_per_successful_task']:>12.6f}"
+                f"  [{row['cost_low']:.6f}, {row['cost_high']:.6f}]"
+                + (f"  ({', '.join(marks)})" if marks else "")
+            )
+        typer.echo(f"  {ties['note']}")
+        typer.echo(f"  {ties['fallback_reason']}")
 
 
 @app.command()

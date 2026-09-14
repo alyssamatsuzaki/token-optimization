@@ -58,6 +58,10 @@ class ModelEntry(BaseModel):
     max_output_tokens: int | None = None
     tool_use_system_prompt_tokens: int | None = None
     tokenizer_generation: str | None = None
+    #: Whether this model exposes the hidden states a probe would read (UPGRADE_V3.md U6). False
+    #: for every model behind an API, which is every model here: no provider returns them, and
+    #: `sep-v1` refuses rather than approximating a method that cannot run without them.
+    hidden_states: bool = False
 
     @property
     def min_cacheable_tokens(self) -> int | None:
@@ -98,6 +102,10 @@ class Registry(BaseModel):
                 f"no role {name!r} in config/models.yaml. Known roles: "
                 f"{', '.join(sorted(self.roles))}"
             ) from None
+
+    def hidden_state_models(self) -> tuple[str, ...]:
+        """Models that expose hidden states, so a probe could read them. Empty behind an API."""
+        return tuple(sorted(m for m, entry in self.models.items() if entry.hidden_states))
 
     def is_scarce(self, model_id: str) -> bool:
         return model_id in self.scarce
@@ -165,6 +173,7 @@ def load_prices(path: Path | None = None) -> dict[str, ModelEntry]:
             price=price_from_mapping(model_id, provider, entry),
             max_output_tokens=entry.get("max_output_tokens"),
             tool_use_system_prompt_tokens=entry.get("tool_use_system_prompt_tokens"),
+            hidden_states=bool(entry.get("hidden_states", False)),
             tokenizer_generation=entry.get("tokenizer_generation"),
         )
     return out

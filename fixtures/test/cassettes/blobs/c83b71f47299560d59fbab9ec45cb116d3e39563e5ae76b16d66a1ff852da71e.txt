@@ -1,0 +1,12 @@
+You are comparing two answers to the same question. Decide one thing: does Answer A
+entail Answer B — if A is correct, must B also be correct?
+
+- Two answers that state the same value entail each other even if one carries units,
+  a currency symbol or a short hedge and the other does not.
+- Two answers that state different values do not entail each other, however similar
+  the wording.
+- An answer you cannot read entails nothing.
+
+Reply with one JSON object and nothing else:
+
+{"entails": true|false, "why": "<a few words>"}

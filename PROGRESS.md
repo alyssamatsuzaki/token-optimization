@@ -16,13 +16,14 @@
 | M9 Proof without gold | **done** | `grading: judged`, `tokop annotate`, cost-optimal allocation, adversarial judge test |
 | M10 Label-free calibration, priced checkability | **done** | `penalized-v1` pseudo-labels, B2c contract lever, negative-delta disclosure |
 | M11 Expiry and provenance | **done** | certificates with a canary and alpha spending, dataset provenance that refuses |
+| M12 Meaning and ties | **done** | `semantic-entropy-v1` with effective-k, `sep-v1` refuses, the report names every tie |
 
 ## Next
 
-**M12: U6 and U7** — semantic entropy over meanings rather than strings, with effective-k
-reported beside AUROC, and a report that names every configuration statistically tied for
-cheapest rather than one winner. `sep-v1` stays refused against an API (D27.4), and D27's refusal
-to call the simulated self-consistency comparison a finding stays in force.
+**M13: U9**, and only if a self-hosted tier is actually in scope — a serving-cost basis that
+prices a hosted tier in GPU-hours over achieved throughput, so a cascade can mix an API tier with
+a hosted one honestly. Nothing in this build has a self-hosted tier, so the milestone is not
+started and would be a fake column if it were.
 
 Still outstanding, and still the blocker for the same two things: **a live recording of a small
 split**. Every number turns from simulated to recorded, and the scorer comparison in D27 becomes
@@ -175,6 +176,55 @@ The machine-generated-text detector is **not built and refuses**: it needs a mod
 none, and one that guessed would importance-resample a set towards its own guess. The resampling
 mathematics is implemented and tested for a caller who has a real detector.
 
+## Meaning, effective k, and the tie (M12, UPGRADE_V3.md U6 and U7)
+
+**U6.** `semantic-entropy-v1` clusters k samples by **bidirectional entailment** judged by a cheap
+model — two directed calls per candidate pair, because entailment is not symmetric — and routes
+on the entropy of the meaning clusters. The calls are recorded, replayed from cassettes, and
+charged to the scorer through a new `extra_cost` on the `Scorer` protocol: a scorer that spends
+money the cascade is not charged for is how a comparison stops meaning anything, and D27 learned
+that once already. Identical answers are never sent, which is why 830 judgements cover the whole
+matrix at depth 5.
+
+**And on this workload it costs money and buys nothing.** Same accuracy, same AUROC, same routing
+as the exact-match scorer at every k, and $0.000223 more per successful task at k=3:
+
+| Configuration | calls/task | accuracy | $/success | effective k |
+| --- | --- | --- | --- | --- |
+| `logistic-v1` (operating point) | 1 | 96.0% | $0.004253 | — |
+| `self-consistency-v1` k=3 | 3 | 96.0% | $0.003577 | 2.94 |
+| `self-consistency-v1` k=5 | 5 | 97.0% | $0.004987 | 4.27 |
+| `semantic-entropy-v1` k=3 | 9 | 96.0% | $0.003800 | 2.94 |
+| `semantic-entropy-v1` k=5 | 25 | 97.0% | $0.005442 | 4.27 |
+
+The demo's answers are numbers, enums and yes/no, and the grader's exact-match relation already
+merges a currency symbol, a trailing percent and a hedge before a yes or no. What it misses is a
+unit word after a number — "60" against "60 days" — and the fixtures contain none of those. That
+is a property of this question mix, not of the method, and a test pins it so it cannot quietly
+stop being reported. The paraphrase merging the method exists for is tested against explicit
+pairs; three of the four I first wrote down turned out to be cases the grader already handled,
+and claiming them would have overstated what entailment adds.
+
+**Effective k turns D27's caveat into a number.** The intraclass correlation of within-task
+agreement and the design effect `k / (1 + (k-1) rho)`: rho runs 0.000 to 0.043 here, so k samples
+really are worth about k. That is a fact about the simulator's independent draws, and it is
+exactly why the scorer comparison is still measured and not adopted. A real recording would show
+a much lower effective k, and the column would say so without anyone writing a paragraph.
+
+**`sep-v1` is registered and refuses.** It reads hidden states, no provider API returns them, and
+the registry now carries a `hidden_states` flag so the refusal points at something real. D27.4
+unchanged: not a "not yet", a consequence of non-negotiable 6.
+
+**U7.** Three configurations' cost intervals overlap, so the report lists all three ordered by
+dollars and `single_winner` **raises** rather than returning one. The cheapest of them is one this
+workload does not let the search adopt, so the tie says that too — and there is consequently no
+fallback, which the report states rather than designating the operating point as its own. A
+fallback that shares the constraint it is meant to survive is not a fallback.
+
+Both land in the README's generated block — the comparison with its effective-sample column, and
+the tie with its note and its missing fallback — so no M12 number in the README is typed by hand
+(non-negotiable 1), and `tokop report --check` fails the build when one moves.
+
 ## Demo result (simulated test fixtures, 200-task test split)
 
 Generated into README.md by `tokop report --write-readme`. Headline: B0 $0.05172 per successful
@@ -183,13 +233,13 @@ task, B3 $0.00425 — a 91.8% reduction, accuracy +0.5 points with 95% CI [-3.0,
 would settle it. The cascade answers 34.5% of tasks at the cheap tier, 42.5% at the mid tier and
 23.0% at the frontier — but those are not its spend: because an escalated task pays for every
 attempt it made, the cheap tier is 23.4% of the money and the frontier 36.1%. The proof itself
-cost $15.10 and repays after 334 tasks.
+cost $16.61 and repays after 367 tasks.
 
 These are simulated, not recorded (DECISIONS.md D1).
 
 ## Known issues
 
-- `make verify` runs all 19 checks with none skipped.
+- `make verify` runs all 21 checks with none skipped.
 - **The demo's own calibration is still gold, by choice.** `--calibration penalized-v1` runs the
   label-free path end to end, and the demo reports what it would have chosen; the shipped
   operating point stays gold because the fixtures cannot show whether the label-free one is any
@@ -262,8 +312,8 @@ everything around it.
   Playwright's own resolution when that path is absent, which is everywhere but here.
 
 438 engine tests, 39 Playwright tests, 91% line coverage on `core/` and `optimize/`.
-`make verify`: 12 checks, none skipped, green. (At M11: 653 engine tests, 44 Playwright tests,
-91% coverage, 19 checks.)
+`make verify`: 12 checks, none skipped, green. (At M12: 709 engine tests, 45 Playwright tests,
+91% coverage, 21 checks.)
 
 ## The tokenizer divergence (D26)
 
@@ -346,5 +396,5 @@ byte-identical. 466 engine tests, 91% line coverage, `make verify` green on all 
 
 ## Where the build stands
 
-653 engine tests, 44 Playwright tests, 91% line coverage on `core/` and `optimize/`.
-`make verify`: 19 checks, none skipped, green.
+709 engine tests, 45 Playwright tests, 91% line coverage on `core/` and `optimize/`.
+`make verify`: 21 checks, none skipped, green.

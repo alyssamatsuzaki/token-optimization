@@ -232,6 +232,37 @@ export interface DatasetProvenanceView {
   warnings: string[];
 }
 
+/**
+ * Every configuration statistically tied for cheapest (UPGRADE_V3.md U7).
+ *
+ * When the cost intervals overlap the ordering between them is the bootstrap's noise, so the
+ * screen shows all of them rather than a winner — which also happens to be what a buyer needs
+ * before signing a single-vendor dependency.
+ */
+export interface TiesView {
+  is_tie: boolean;
+  cheapest: string;
+  tied: {
+    label: string;
+    cost_per_successful_task: number;
+    cost_low: number;
+    cost_high: number;
+    accuracy: number;
+    scarce_share: number;
+    adoptable: boolean;
+    is_cheapest: boolean;
+    is_fallback: boolean;
+    is_operating_point?: boolean;
+    scorer?: string;
+    k?: number;
+    verdict?: string;
+  }[];
+  fallback: string | null;
+  fallback_reason: string;
+  exploration_weights: Record<string, number>;
+  note: string;
+}
+
 export interface ProofView {
   baseline: ArmView;
   candidate: ArmView;
@@ -336,6 +367,7 @@ export interface CascadeView {
     >;
     warnings: { tier: string; message: string }[];
   };
+  ties: TiesView | null;
   frontier_chart: FrontierPointView[];
   pareto: { thresholds: number[]; accuracy: number; cost_per_task_usd: string }[];
 }

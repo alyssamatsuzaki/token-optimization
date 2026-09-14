@@ -132,6 +132,32 @@ class JudgeSpec(BaseModel):
         )
 
 
+class EntailmentSpec(BaseModel):
+    """The model call that decides whether two answers mean the same thing (U6).
+
+    Tiny by design: the question and the two answers, no grounding document. Whether "60" and
+    "sixty days" mean the same thing does not depend on the handbook, and sending it would make
+    every clustering call cost what a judge call costs.
+    """
+
+    model_role: str = "cheap"
+    max_tokens: int = 60
+    system: list[BlockSpec] = Field(default_factory=list)
+    user: list[BlockSpec] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+    model_config = {"frozen": True}
+
+    def render(self, provider: str, model: str, variables: dict[str, str]) -> LLMRequest:
+        return LLMRequest(
+            provider=provider,
+            model=model,
+            system=[b.render(variables) for b in self.system],
+            messages=[Message(role="user", blocks=[b.render(variables) for b in self.user])],
+            max_tokens=self.max_tokens,
+        )
+
+
 class AnnotationSpec(BaseModel):
     """How much strong grading to buy, and where to spend it (UPGRADE_V3.md U2)."""
 
@@ -260,6 +286,7 @@ class WorkloadSpec(BaseModel):
     grading: GradingMode = "gold"
     judge: JudgeSpec | None = None
     annotation: AnnotationSpec | None = None
+    entailment: EntailmentSpec | None = None
     dataset_provenance: DatasetProvenanceSpec | None = None
     margin: float = 0.03
     #: Whether the workload has a latency requirement; drives the Batch API finding (W05).
@@ -350,6 +377,8 @@ def load_workload(path: Path) -> WorkloadSpec:
     dataset_provenance = (
         DatasetProvenanceSpec(**provenance_raw) if isinstance(provenance_raw, dict) else None
     )
+    entailment_raw = raw.get("entailment") or workload.get("entailment")
+    entailment = EntailmentSpec(**entailment_raw) if isinstance(entailment_raw, dict) else None
     judge_raw = raw.get("judge") or workload.get("judge")
     judge = JudgeSpec(**judge_raw) if isinstance(judge_raw, dict) else None
     annotation_raw = raw.get("annotation") or workload.get("annotation")
@@ -362,6 +391,7 @@ def load_workload(path: Path) -> WorkloadSpec:
             "it from a sampled subset of strong labels."
         )
     _validate_judging(path, grading, judge, annotation, dataset_provenance)
+    _validate_entailment(path, entailment)
 
     return WorkloadSpec(
         id=str(workload["id"]),
@@ -375,10 +405,25 @@ def load_workload(path: Path) -> WorkloadSpec:
         grading=grading,  # type: ignore[arg-type]
         judge=judge,
         annotation=annotation,
+        entailment=entailment,
         dataset_provenance=dataset_provenance,
         margin=float(workload.get("margin", 0.03)),
         latency_sensitive=bool(workload.get("latency_sensitive", False)),
     )
+
+
+def _validate_entailment(path: Path, entailment: EntailmentSpec | None) -> None:
+    """An entailment prompt that cannot see both answers is not judging entailment."""
+    if entailment is None:
+        return
+    rendered = "".join(block.text for block in [*entailment.system, *entailment.user])
+    for required in ("{{question}}", "{{answer_a}}", "{{answer_b}}"):
+        if required not in rendered:
+            raise WorkloadError(
+                f"{path}: the entailment prompt never references {required}. Deciding whether "
+                "two answers mean the same thing needs both of them and the question they "
+                "answer."
+            )
 
 
 def _validate_judging(

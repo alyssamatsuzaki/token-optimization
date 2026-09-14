@@ -35,7 +35,13 @@ from tokop.core.usage import TokenUsage
 from tokop.db import Call, GradeRow, Run, Workload, session_scope, store_price_snapshot
 from tokop.workloads.demo.generator import DemoItem
 from tokop.workloads.grading import grade
-from tokop.workloads.spec import JudgeSpec, PipelineSpec, WorkloadSpec, demo_timestamp
+from tokop.workloads.spec import (
+    EntailmentSpec,
+    JudgeSpec,
+    PipelineSpec,
+    WorkloadSpec,
+    demo_timestamp,
+)
 from tokop.workloads.verification import AnswerView
 
 
@@ -292,6 +298,74 @@ class Runner:
             if isinstance(outcome, BaseException):
                 # A judge call that failed verified nothing. It stays visible as a failed call
                 # and the verdict parser records it as unverified (non-negotiable 8).
+                outcome = LLMResponse(
+                    text="",
+                    usage=TokenUsage(),
+                    model=model_id,
+                    provider=self.provider,
+                    latency_ms=0.0,
+                    error=f"{type(outcome).__name__}: {outcome}",
+                )
+            calls.append((view, request, outcome))
+
+        total = sum(
+            (self.snapshot.cost(model_id, response.usage).total for _, _, response in calls),
+            Decimal(0),
+        ) + sum(
+            (self.snapshot.cost(model_id, warm.usage).total for warm in prewarm_responses),
+            Decimal(0),
+        )
+        return JudgeRunResult(
+            model_id=model_id,
+            calls=calls,
+            prewarm=list(zip(prewarm_requests, prewarm_responses, strict=True)),
+            total_cost=total,
+        )
+
+    async def run_entailment(
+        self,
+        entailment: EntailmentSpec,
+        pairs: Sequence[tuple[str, str, str]],
+        *,
+        model_id: str,
+        prewarm: bool = False,
+    ) -> JudgeRunResult:
+        """Ask one model whether each (question, A, B) pair entails (UPGRADE_V3.md U6).
+
+        Reuses ``JudgeRunResult`` because the shape is identical — a list of small calls with
+        their cost — and inventing a second one would mean two places that have to agree about
+        how a call is priced. Pre-warming is off by default: the prompt carries no large static
+        prefix, so there is no cache entry to warm and a warm call would be pure cost.
+        """
+        views = [
+            AnswerView(task_id=f"{question[:24]}|{index}", question=question, answer=f"{a}\n{b}")
+            for index, (question, a, b) in enumerate(pairs)
+        ]
+        requests = [
+            entailment.render(
+                self.provider,
+                model_id,
+                {
+                    "question": question,
+                    "answer_a": a,
+                    "answer_b": b,
+                    "handbook": self.handbook,
+                    "timestamp": self.timestamp,
+                },
+            )
+            for question, a, b in pairs
+        ]
+        prewarm_requests: list[LLMRequest] = []
+        prewarm_responses: list[LLMResponse] = []
+        if prewarm:
+            prewarm_requests, prewarm_responses = await self.prewarm(requests)
+
+        outcomes = await asyncio.gather(
+            *(self._call(request) for request in requests), return_exceptions=True
+        )
+        calls: list[tuple[AnswerView, LLMRequest, LLMResponse]] = []
+        for view, request, outcome in zip(views, requests, outcomes, strict=True):
+            if isinstance(outcome, BaseException):
                 outcome = LLMResponse(
                     text="",
                     usage=TokenUsage(),

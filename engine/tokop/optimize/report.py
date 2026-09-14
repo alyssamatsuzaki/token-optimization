@@ -44,6 +44,11 @@ from tokop.optimize.cascade import (
     simulate,
     tier_run_from_arrays,
 )
+from tokop.optimize.entailment import (
+    EntailmentError,
+    measure_correlation,
+    parse_entailment,
+)
 from tokop.optimize.findings import (
     CallRow,
     RunStats,
@@ -80,6 +85,7 @@ from tokop.optimize.scorers import (
     fit_scorer,
     scorer_kind,
 )
+from tokop.optimize.ties import Candidate, find_ties
 from tokop.paths import fixtures_dir, repo_root
 from tokop.recording_state import describe as describe_recording
 from tokop.workloads.demo.dataset import DatasetBundle
@@ -314,6 +320,86 @@ def replay_run(
         sample_costs=tuple(sample_costs),
         sample_correct=tuple(sample_correct),
     )
+
+
+class ReplayEntailment:
+    """An entailment judgement read back from the call that made it (UPGRADE_V3.md U6).
+
+    The scorer asks "does A entail B"; this renders the workload's entailment prompt, finds the
+    cassette that request was recorded under, and reads the verdict out of the reply. A missing
+    cassette is a **fixture** problem and propagates; a reply the parser could not read is a
+    *data* condition and raises ``EntailmentError``, which the clustering catches and counts as
+    a pair it could not judge. The two are different and are kept different: one means re-record,
+    the other means the model waffled.
+    """
+
+    def __init__(
+        self,
+        workload: WorkloadSpec,
+        registry: Registry,
+        store: CassetteStore,
+        handbook: str,
+        provider: str = "simulated",
+    ) -> None:
+        spec = workload.entailment
+        if spec is None:
+            raise ReportError(
+                f"workload {workload.id!r} defines no `entailment:` block, so answers cannot be "
+                "clustered by meaning. Add one, or drop `semantic-entropy-v1` from the grid."
+            )
+        self.spec = spec
+        self.model_id = registry.roles[spec.model_role]
+        self.store = store
+        self.handbook = handbook
+        self.provider = provider
+        self.calls = 0
+        self._cache: dict[tuple[str, str, str], bool] = {}
+
+    def __call__(self, question: str, premise: str, hypothesis: str) -> bool:
+        key = (question, premise, hypothesis)
+        if key in self._cache:
+            return self._cache[key]
+        request = self.spec.render(
+            self.provider,
+            self.model_id,
+            {
+                "question": question,
+                "answer_a": premise,
+                "answer_b": hypothesis,
+                "handbook": self.handbook,
+                "timestamp": demo_timestamp(),
+            },
+        )
+        cassette = self.store.get(request.cassette_key())
+        if cassette is None:
+            raise ReportError(
+                f"no recorded entailment judgement for a pair on {question[:60]!r}. The "
+                "response matrix was recorded without the entailment pass, or at a different "
+                "sample depth. Run `tokop build-test-fixtures`."
+            )
+        self.calls += 1
+        verdict = parse_entailment(cassette.response_text)
+        if verdict is None:
+            raise EntailmentError(
+                "the entailment model's reply could not be read as a judgement; the two answers "
+                "stay in separate clusters rather than being merged on a guess"
+            )
+        self._cache[key] = verdict
+        return verdict
+
+
+def entailment_price(manifest: dict[str, Any]) -> Decimal:
+    """The mean recorded price of one entailment call.
+
+    Charged per call a clustering makes. The recording paid for every pair a clustering *might*
+    ask about, which is slightly more than any one clustering asks; that excess is reported as
+    the recording's own cost rather than loaded onto a scorer that did not spend it — the same
+    split the deeper sample matrix already gets (DECISIONS.md D27).
+    """
+    calls = int(manifest.get("entailment_calls", 0) or 0)
+    if calls <= 0:
+        return Decimal(0)
+    return Decimal(str(manifest.get("entailment_recording_cost_usd", "0"))) / Decimal(calls)
 
 
 def _views(
@@ -1017,6 +1103,15 @@ def build_report(
             kind=kind,
         )
 
+    # The entailment judge, read back from the calls that made it. Built once: it caches, and
+    # the same pair recurs across tiers and across configurations.
+    entails = (
+        ReplayEntailment(workload, registry, store, bundle.handbook)
+        if workload.entailment is not None
+        else None
+    )
+    entailment_call_price = entailment_price(manifest)
+
     pseudo = None if calibration_mode == GOLD else build_labels(calibration_mode)
 
     def kept_and_items(labels: PseudoLabels | None) -> tuple[set[str] | None, list[DemoItem]]:
@@ -1073,6 +1168,9 @@ def build_report(
             context = ScorerContext(
                 feature_names=tuple(workload.scorer_features),
                 equivalence=answers_equivalent,
+                entailment=entails,
+                entailment_price=entailment_call_price,
+                hidden_state_models=registry.hidden_state_models(),
                 seed=seed,
                 k=config.k,
                 sample_weights=(
@@ -1130,7 +1228,10 @@ def build_report(
             for view in views:
                 index = index_of[view.task_id]
                 drawn = run.sample_costs[index][: config.k] or (run.cost_usd[index],)
-                costs.append(sum(drawn, Decimal(0)))
+                # Whatever the scorer spends beyond the tier's own generations is charged here
+                # and nowhere else. `semantic-entropy-v1` buys entailment calls; the others buy
+                # nothing and return zero (DECISIONS.md D27's rule, on the protocol this time).
+                costs.append(sum(drawn, Decimal(0)) + scorer.extra_cost(view))
                 if not calibrating:
                     chosen = scorer.answer_index(view)
                     graded = run.sample_correct[index] or run.correct[index : index + 1]
@@ -1496,9 +1597,28 @@ def build_report(
             items_by_id=items_by_id,
             scorer_auroc=candidate.aurocs,
         ).as_dict()
+        # How much k repeated samples agreed with each other, and therefore how many
+        # independent draws they were worth (UPGRADE_V3.md U6). This is the number that
+        # replaces D27's paragraph about correlated sampling: an effective k close to k means
+        # the draws really were independent, which on these fixtures is true and is a fact
+        # about the simulator rather than about sampling.
+        correlation: dict[str, Any] | None = None
+        if candidate.config.k >= 2:
+            per_tier: dict[str, Any] = {}
+            for tier in tiers:
+                run = need(base_pipeline, "test", tier)
+                sizes = candidate.scorers.scorers[tier].cluster_sizes(
+                    _views(run, list(bundle.test), bundle.handbook, candidate.config.k)
+                )
+                if sizes is None:
+                    continue
+                per_tier[tier] = measure_correlation(sizes, candidate.config.k).as_dict()
+            correlation = per_tier or None
+
         scorer_comparison.append(
             {
                 **candidate.config.as_dict(),
+                "sample_correlation": correlation,
                 "is_chosen": candidate.config == config,
                 "thresholds": list(candidate.search.thresholds),
                 "calibration_feasible": candidate.search.feasible,
@@ -1518,6 +1638,31 @@ def build_report(
                 "scorer_auroc": candidate.aurocs,
             }
         )
+
+    # ------------------------------------------------- 6c. every configuration tied for cheapest
+    #
+    # The scorer comparison already carries a cost interval per configuration. Whether one of
+    # them is *cheaper* than the others is a question those intervals answer, and when they
+    # overlap the answer is no (UPGRADE_V3.md U7).
+    tie_candidates = [
+        Candidate(
+            label=row["label"],
+            cost_point=float(row["cost_per_successful_task"]["point"]),
+            cost_low=float(row["cost_per_successful_task"]["low"]),
+            cost_high=float(row["cost_per_successful_task"]["high"]),
+            accuracy_point=float(row["accuracy"]["point"]),
+            scarce_share=float(row["scarce_share"]),
+            adoptable=row["scorer"] in set(cascade_spec.searchable_scorers()),
+            extra={
+                "scorer": row["scorer"],
+                "k": row["k"],
+                "is_operating_point": bool(row["is_chosen"]),
+                "verdict": row["verdict"]["label"],
+            },
+        )
+        for row in scorer_comparison
+    ]
+    tie_report = find_ties(tie_candidates, config.label) if tie_candidates else None
 
     # ---------------------------------------------------------------- 7. findings and lint
     frontier_model = registry.model(registry.roles[tiers[-1]])
@@ -1718,6 +1863,7 @@ def build_report(
                 "search_recording_cost_usd": str(sampling_spend(recorded_depth)),
             },
             "scorer_comparison": scorer_comparison,
+            "ties": tie_report.as_dict() if tie_report else None,
             "scorers": bundle_scorers.as_dict(),
             "frontier_chart": [
                 {
@@ -2200,6 +2346,80 @@ def _contract_metrics_lines(payload: ReportPayload) -> list[str]:
     return lines
 
 
+def _effective_samples(row: dict[str, Any]) -> str:
+    """The worst tier's effective sample count, for one scorer configuration (U6).
+
+    k repeats are worth k only when the draws are independent, and a sampled scorer's whole
+    argument rests on them being so. The cell reports the design effect at the tier where the
+    repeats agree with themselves most, because that is the tier whose routing the correlation
+    eats first.
+    """
+    correlation = row.get("sample_correlation")
+    if not correlation:
+        return "—"
+    tier, measured = min(correlation.items(), key=lambda item: item[1]["effective_k"])
+    return f"{measured['effective_k']:.2f} of {measured['k']} ({tier})"
+
+
+def _scorer_metrics_lines(payload: ReportPayload) -> list[str]:
+    """Every configuration the search compared, and every one it cannot separate (U6, U7)."""
+    cascade = payload["cascade"]
+    rows = cascade["scorer_comparison"]
+    if not rows:
+        return []
+    ties = cascade["ties"]
+    mark = "~" if payload["provenance"]["is_test_data"] else "▪"
+    adoptable = set(cascade["scorer_choice"]["adoptable"])
+    tied = {row["label"] for row in ties["tied"]} if ties and ties["is_tie"] else set()
+    lines = [
+        "**What else was measured** — every scorer configuration the calibration search compared, "
+        "scored on the same test split:",
+        "",
+        "| Configuration | Calls per scored task | Accuracy | Cost per successful task | "
+        "Effective samples | Notes |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for row in rows:
+        cost = row["cost_per_successful_task"]
+        notes = [
+            "operating point" if row["is_chosen"] else "",
+            "tied for cheapest" if row["label"] in tied else "",
+            "" if row["label"] in adoptable else "not adoptable here",
+        ]
+        lines.append(
+            f"| {row['label']} | {row['calls_per_scored_task']} | "
+            f"{row['accuracy']['point'] * 100:.1f}% | "
+            f"${float(cost['point']):.6f} {mark} (${float(cost['low']):.6f}–"
+            f"${float(cost['high']):.6f}) | {_effective_samples(row)} | "
+            f"{', '.join(note for note in notes if note)} |"
+        )
+
+    lines.append("")
+    rhos = [
+        measured["intraclass_correlation"]
+        for row in rows
+        for measured in (row.get("sample_correlation") or {}).values()
+    ]
+    if rhos:
+        lines.append(
+            "- Effective samples is the cluster-sampling design effect `k / (1 + (k-1) rho)` over "
+            f"the intraclass correlation of within-task agreement. Here rho runs {min(rhos):.3f} "
+            f"to {max(rhos):.3f}, so "
+            + (
+                "k repeats are worth very nearly k — which is a property of a simulator that "
+                "draws them independently, not of real sampled generations, and is why the "
+                "sampling scorers are measured here and not adopted."
+                if max(rhos) < 0.1
+                else "k repeats are worth appreciably less than k, and the routing decision is "
+                "weaker than the raw sample count suggests."
+            )
+        )
+    if ties:
+        lines += [f"- {ties['note']}", f"- {ties['fallback_reason']}"]
+    lines.append("")
+    return lines
+
+
 def _judged_metrics_lines(payload: ReportPayload) -> list[str]:
     """The same comparison without the answer key, for the README (UPGRADE_V3.md U1).
 
@@ -2339,6 +2559,7 @@ def metrics_block(payload: ReportPayload) -> str:
             else f"unverified for {', '.join(provenance['unverified_models'])}."
         ),
         "",
+        *_scorer_metrics_lines(payload),
         *_provenance_metrics_lines(payload),
         *_contract_metrics_lines(payload),
         *_judged_metrics_lines(payload),

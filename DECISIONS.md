@@ -751,3 +751,83 @@ sentence rather than with a schema error.
 The demo declares the block despite being `grading: gold`, because the block is useful either
 way — and because a certificate that omitted it would be a certificate that did not know what it
 was measured on.
+
+## D40 — M12: entropy over meanings, and refusing to name a winner that is not one
+
+**The goal.** `UPGRADE_V3.md` U6 and U7. D27 shipped `self-consistency-v1` as an exact-match
+approximation of semantic entropy and said so everywhere; U6 is the thing itself. U7 is the
+report refusing to rank configurations the data cannot separate.
+
+1. **Entailment is a model call, and it is charged.** `semantic-entropy-v1` clusters k samples by
+   bidirectional entailment — two directed calls per candidate pair, because entailment is not
+   symmetric and a model asked a symmetric question answers a symmetric one. The calls are
+   recorded, replayed from cassettes, and billed to the scorer that makes them through a new
+   `extra_cost` on the `Scorer` protocol. On the protocol rather than at the call site: a scorer
+   that spends money the cascade is not charged for is exactly how a comparison stops meaning
+   anything, and D27 learned that once already.
+
+2. **Identical answers are never sent.** Paying a model to confirm that "60" means what "60"
+   means is money for nothing, and on a workload of numbers and yes/no it is most of the bill.
+   830 entailment judgements cover the whole matrix at depth 5 as a result.
+
+3. **The clustering is first-fit and says it is not canonical.** Exact-match equality is a
+   genuine equivalence, so grouping by one representative is exact and order-independent.
+   Model-judged entailment is not transitive: A can match B and B match C while A and C do not.
+   The grouping therefore depends on the order the samples arrive in, which is the recording's
+   order — reproducible, not canonical, and stated rather than left to be assumed.
+
+4. **On this workload, clustering by meaning costs money and buys nothing.** `semantic-entropy-v1`
+   returns exactly the same accuracy, the same AUROC and the same routing as
+   `self-consistency-v1` at every k, and costs $0.000223 more per successful task at k=3. The
+   demo's answers are numbers, enums and yes/no, and the workload's exact-match relation already
+   merges a currency symbol, a trailing percent and a hedge before a yes or no. What it does not
+   merge is a unit word after a number — "60" against "60 days" — and the fixtures contain none.
+
+   That is a property of this question mix, not of the method, and it is pinned by a test so it
+   cannot quietly stop being reported. The paraphrase merging the method exists for is tested
+   against explicit pairs, each one checked to be a case exact match actually misses rather than
+   assumed to be. Three of the four pairs I first wrote down turned out not to be: the grader
+   already handled them, and claiming them would have overstated what the method adds.
+
+5. **Effective k replaces D27's paragraph with a number.** The intraclass correlation of
+   within-task agreement, and the cluster-sampling design effect `k / (1 + (k-1) rho)`. On these
+   fixtures rho runs 0.000 to 0.043 and effective k is 2.94 of 3 and 4.27 of 5 — the repeats
+   really are independent draws, which is a fact about the simulator and is precisely why the
+   scorer comparison is still withheld. A real recording would show a much lower effective k and
+   the number would say so without anyone having to write a paragraph.
+
+6. **`sep-v1` is registered and refuses.** Kossen et al. recover semantic entropy from the hidden
+   states of a single generation, which removes the fivefold sampling cost — and hidden states
+   are what no provider API returns. The registry gained a `hidden_states` flag so the refusal
+   points at something real; no model sets it, and the refusal names `semantic-entropy-v1` and
+   self-hosting as the two ways forward. This is D27.4 unchanged: not a "not yet", a structural
+   consequence of non-negotiable 6.
+
+7. **U7: the report shows the tie.** Three configurations' cost intervals overlap on the demo, so
+   all three are listed, ordered by dollars, and `single_winner` *raises* rather than returning
+   one. The cheapest of them is a configuration this workload does not let the search adopt
+   (D27), so the tie says that too — and there is consequently no fallback, which the report
+   states rather than designating the operating point as its own.
+
+8. **The fallback is an alternative to what is running, not to whichever row is cheapest.** A
+   fallback that shares the constraint it is meant to survive is not a fallback, so it is chosen
+   by scarce-model share among *adoptable* alternatives. A fallback nobody is allowed to run is a
+   footnote. The first version designated the operating point as its own fallback, which is how
+   that rule got written down.
+
+9. **Exploration weights are uniform over the tie, and nothing calls them in anger.** Online
+   exploration does not exist in this build (D24). The rule is implemented and tested because the
+   rule is the interesting part — greedy selection amplifies whichever option won the last sample,
+   which is the frequency amplification Sinha et al. remove — and inventing it later under
+   deadline is how greedy selection creeps back in.
+
+10. **The README's M12 numbers are generated, not typed.** The scorer comparison, its
+    effective-sample column, the tie and the missing fallback are rendered into the metrics block
+    by `optimize/report.py`, because a hand-written tie is a tie that stops being true the next
+    time the fixtures move and nothing fails. Non-negotiable 1, applied to the two upgrades that
+    would otherwise have arrived as prose.
+
+**What M12 does not establish.** The simulated entailment model's error rates are invented, like
+every other rate in `workloads/demo/`. The clustering, the charging, the effective-k measurement
+and the tie logic are real code over recorded calls; what a real entailment model would merge on
+a real workload is not something these fixtures can say.
