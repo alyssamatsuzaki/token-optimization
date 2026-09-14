@@ -1,0 +1,102 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "5f029b01b35b7ebd3550c1d7335760c2c92d38fb37368411521f05250b026507",
+  "latency_ms": 1508.85,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"store credit\", \"evidence\": \"**final-sale** \\u2014 applies to Trail nutrition, Clearance apparel.\", \"section\": \"sec-exceptions\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_5f029b01b35b7ebd",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8297,
+      "input_tokens": 49,
+      "output_tokens": 69
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 8297,
+    "input_tokens": 49,
+    "output_tokens": 69
+  },
+  "recorded_at": "2026-09-14T04:34:07.325792+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Hiking footwear was worn outdoors and is being returned inside the window. How is the refund paid?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "sample_index": 1,
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "005a702e8c81d5a74c60149acd4e2dea281fe73d212380955392920bdf8f8f70"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"store credit\", \"evidence\": \"**final-sale** \\u2014 applies to Trail nutrition, Clearance apparel.\", \"section\": \"sec-exceptions\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 749.85,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 8297,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 49,
+    "output_reasoning": 0,
+    "output_visible": 69,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8297,
+      "input_tokens": 49,
+      "output_tokens": 69
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

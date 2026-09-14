@@ -1,0 +1,102 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "7664f079840fe5cbba2dee932b0a4b697b8b17d31f41d58397760533ea142900",
+  "latency_ms": 488.51,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"0\", \"evidence\": \"This is the single most common source of disputed charges, so check the tier before quoting a fee.\", \"section\": \"sec-loyalty\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_7664f079840fe5cb",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 6382,
+      "input_tokens": 38,
+      "output_tokens": 52
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 6382,
+    "input_tokens": 38,
+    "output_tokens": 52
+  },
+  "recorded_at": "2026-09-14T04:34:16.741130+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "A Standard member asks how many additional days their membership gives them on returns. How many?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "sample_index": 3,
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "005a702e8c81d5a74c60149acd4e2dea281fe73d212380955392920bdf8f8f70"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"0\", \"evidence\": \"This is the single most common source of disputed charges, so check the tier before quoting a fee.\", \"section\": \"sec-loyalty\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 306.51,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 6382,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 38,
+    "output_reasoning": 0,
+    "output_visible": 52,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 6382,
+      "input_tokens": 38,
+      "output_tokens": 52
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

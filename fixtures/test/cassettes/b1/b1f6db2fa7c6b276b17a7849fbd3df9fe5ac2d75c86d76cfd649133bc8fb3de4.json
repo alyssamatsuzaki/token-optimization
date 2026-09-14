@@ -1,0 +1,102 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "b1f6db2fa7c6b276b17a7849fbd3df9fe5ac2d75c86d76cfd649133bc8fb3de4",
+  "latency_ms": 510.15,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"30\", \"evidence\": \"This is the single most common source of disputed charges, so check the tier before quoting a fee.\", \"section\": \"sec-loyalty\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_b1f6db2fa7c6b276",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 6382,
+      "input_tokens": 27,
+      "output_tokens": 52
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 6382,
+    "input_tokens": 27,
+    "output_tokens": 52
+  },
+  "recorded_at": "2026-09-14T04:34:16.774620+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "How many extra return days does the Alpine tier add?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "sample_index": 2,
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "005a702e8c81d5a74c60149acd4e2dea281fe73d212380955392920bdf8f8f70"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"30\", \"evidence\": \"This is the single most common source of disputed charges, so check the tier before quoting a fee.\", \"section\": \"sec-loyalty\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 328.15,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 6382,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 27,
+    "output_reasoning": 0,
+    "output_visible": 52,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 6382,
+      "input_tokens": 27,
+      "output_tokens": 52
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

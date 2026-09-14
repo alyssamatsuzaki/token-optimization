@@ -96,14 +96,26 @@ class CascadeSpec(BaseModel):
     #: Samples drawn per scored task. 1 is one call per tier, which is what a deterministic
     #: scorer needs. A sampling scorer charges every one of these.
     scorer_samples: int = 1
-    #: Scorer kinds the calibration search may choose between. Empty means "only `scorer`".
+    #: Scorer kinds to evaluate and report side by side. Empty means "only `scorer`".
     scorer_grid: list[str] = Field(default_factory=list)
+    #: Which of those the calibration search may actually adopt as the operating point. Empty
+    #: means all of them, which is the right default when the response matrix is a recording.
+    #: Naming a subset is how a workload says "measure this, but do not ship it yet" — and the
+    #: reason has to be written down next to it, because a search that is not allowed to pick
+    #: the cheapest option is a claim that the data cannot support the choice.
+    scorer_search_grid: list[str] = Field(default_factory=list)
     #: Sample counts the calibration search may choose between. Empty means "only
     #: `scorer_samples`". The response matrix has to hold the largest of these.
     scorer_samples_grid: list[int] = Field(default_factory=list)
 
     def scorer_choices(self) -> list[str]:
+        """Every scorer to evaluate, whether or not the search may adopt it."""
         return list(dict.fromkeys(self.scorer_grid or [self.scorer]))
+
+    def searchable_scorers(self) -> list[str]:
+        """The subset the calibration search may choose the operating point from."""
+        allowed = self.scorer_search_grid or self.scorer_choices()
+        return [name for name in self.scorer_choices() if name in set(allowed)]
 
     def sample_choices(self) -> list[int]:
         return sorted(set(self.scorer_samples_grid or [self.scorer_samples]))
@@ -204,7 +216,7 @@ def load_workload(path: Path) -> WorkloadSpec:
                 f"cascade {cascade.id!r} is built on pipeline {cascade.base_pipeline!r}, "
                 f"which is not defined"
             )
-        for name in {cascade.scorer, *cascade.scorer_grid}:
+        for name in {cascade.scorer, *cascade.scorer_grid, *cascade.scorer_search_grid}:
             try:
                 scorer_kind(name)
             except ScorerError as exc:
@@ -213,6 +225,12 @@ def load_workload(path: Path) -> WorkloadSpec:
             raise WorkloadError(
                 f"cascade {cascade.id!r} has a sample count below 1 in its grid: "
                 f"{cascade.scorer_samples_grid}"
+            )
+        unknown = set(cascade.scorer_search_grid) - set(cascade.scorer_choices())
+        if unknown:
+            raise WorkloadError(
+                f"cascade {cascade.id!r} lets the search adopt {sorted(unknown)}, which is not "
+                "among the scorers it evaluates. Add them to `scorer_grid` or remove them."
             )
         if cascade.scorer_samples < 1:
             raise WorkloadError(

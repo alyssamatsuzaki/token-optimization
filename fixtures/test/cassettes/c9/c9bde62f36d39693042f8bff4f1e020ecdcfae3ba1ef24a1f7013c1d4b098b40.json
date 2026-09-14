@@ -1,0 +1,102 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "c9bde62f36d39693042f8bff4f1e020ecdcfae3ba1ef24a1f7013c1d4b098b40",
+  "latency_ms": 578.29,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"3\", \"evidence\": \"A rope that has been climbed on, a sole that has been walked down, and a stove that has been run for three seasons are all working as expected, not failing.\", \"section\": \"sec-warranty\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_c9bde62f36d39693",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 6382,
+      "input_tokens": 27,
+      "output_tokens": 69
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 6382,
+    "input_tokens": 27,
+    "output_tokens": 69
+  },
+  "recorded_at": "2026-09-14T04:33:58.599865+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Warranty length for tents and shelters in years?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "sample_index": 2,
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "005a702e8c81d5a74c60149acd4e2dea281fe73d212380955392920bdf8f8f70"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"3\", \"evidence\": \"A rope that has been climbed on, a sole that has been walked down, and a stove that has been run for three seasons are all working as expected, not failing.\", \"section\": \"sec-warranty\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 336.79,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 6382,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 27,
+    "output_reasoning": 0,
+    "output_visible": 69,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 6382,
+      "input_tokens": 27,
+      "output_tokens": 69
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

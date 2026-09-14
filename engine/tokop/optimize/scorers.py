@@ -272,6 +272,10 @@ class TierScorer:
         probabilities: np.ndarray = self.model.predict_proba(matrix)[:, 1]
         return probabilities
 
+    def answer_index(self, view: TaskView) -> int:
+        """Sample 0: this scorer reads one call and returns what it said."""
+        return 0
+
     def coefficients(self) -> dict[str, float]:
         """What the scorer learned, so a reader can argue with it."""
         if self.degenerate:
@@ -434,6 +438,15 @@ class Scorer(Protocol):
         """P(correct) for each view, in [0, 1]."""
         ...
 
+    def answer_index(self, view: TaskView) -> int:
+        """Which recorded generation this scorer returns as the tier's answer.
+
+        0 for any scorer that reads a single call. A scorer that samples may return a different
+        one, and the checker then grades *that* answer rather than the first — otherwise the
+        cascade would be charged for sampling and graded as though it had not sampled.
+        """
+        ...
+
     def as_dict(self) -> dict[str, Any]: ...
 
 
@@ -552,15 +565,33 @@ def group_samples(samples: Sequence[str], equivalence: EquivalenceFn) -> list[in
     transitive, and clustering under one needs more care than this function takes. That is part
     of why this scorer does not claim to implement one (DECISIONS.md D27).
     """
-    groups: list[list[str]] = []
-    for sample in samples:
+    return sorted((len(g) for g in group_indices(samples, equivalence)), reverse=True)
+
+
+def group_indices(samples: Sequence[str], equivalence: EquivalenceFn) -> list[list[int]]:
+    """The same grouping, as sample positions, in first-appearance order."""
+    groups: list[list[int]] = []
+    for index, sample in enumerate(samples):
         for group in groups:
-            if equivalence(group[0], sample):
-                group.append(sample)
+            if equivalence(samples[group[0]], sample):
+                group.append(index)
                 break
         else:
-            groups.append([sample])
-    return sorted((len(g) for g in groups), reverse=True)
+            groups.append([index])
+    return groups
+
+
+def majority_index(samples: Sequence[str], equivalence: EquivalenceFn) -> int:
+    """Which sample a self-consistency scorer returns: a member of the largest group.
+
+    Ties go to the group that appeared first, which is the earliest sample drawn. Any
+    tie-break is arbitrary; this one is at least deterministic and does not need a random
+    seed to reproduce.
+    """
+    groups = group_indices(samples, equivalence)
+    if not groups:
+        return 0
+    return max(groups, key=len)[0]
 
 
 def discrete_entropy(sizes: Sequence[int]) -> float:
@@ -627,6 +658,10 @@ class SelfConsistencyScorer:
         scaled = self.scaler.transform(self.entropies(views))
         probabilities: np.ndarray = self.model.predict_proba(scaled)[:, 1]
         return probabilities
+
+    def answer_index(self, view: TaskView) -> int:
+        """The majority answer, which is the point: k samples buy a vote, not just a score."""
+        return majority_index(require_samples(view, self.k), self.equivalence)
 
     def as_dict(self) -> dict[str, Any]:
         return {

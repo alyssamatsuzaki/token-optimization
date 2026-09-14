@@ -1,0 +1,102 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "89b78efe272923df46fd559f8ec187aaa4061640318ea3d610f6e20896048f02",
+  "latency_ms": 513.03,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"43.95\", \"evidence\": \"## Shipping fees  Fees are charged per order, by the total shipped weight, not per item.\", \"section\": \"sec-shipping-fees\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_89b78efe272923df",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 6382,
+      "input_tokens": 53,
+      "output_tokens": 57
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 6382,
+    "input_tokens": 53,
+    "output_tokens": 57
+  },
+  "recorded_at": "2026-09-14T04:33:55.640847+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "A 27.5 lb order containing tents and shelters ships to Zone 2 (adjacent states) with no free shipping. What is the shipping fee in dollars?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "sample_index": 3,
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "005a702e8c81d5a74c60149acd4e2dea281fe73d212380955392920bdf8f8f70"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"43.95\", \"evidence\": \"## Shipping fees  Fees are charged per order, by the total shipped weight, not per item.\", \"section\": \"sec-shipping-fees\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 313.53,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 6382,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 53,
+    "output_reasoning": 0,
+    "output_visible": 57,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 6382,
+      "input_tokens": 53,
+      "output_tokens": 57
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

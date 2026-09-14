@@ -59,18 +59,20 @@ from tokop.optimize.scorers import (
     Scorer,
     ScorerBundle,
     ScorerContext,
+    ScorerWarning,
     TaskView,
     evaluate_auroc,
     fit_scorer,
+    scorer_kind,
 )
 from tokop.paths import fixtures_dir, repo_root
 from tokop.recording_state import describe as describe_recording
 from tokop.workloads.demo.dataset import DatasetBundle
 from tokop.workloads.demo.dataset import build as build_dataset
 from tokop.workloads.demo.generator import DemoItem
-from tokop.workloads.grading import grade
+from tokop.workloads.grading import answers_equivalent, grade
 from tokop.workloads.runner import Runner
-from tokop.workloads.spec import WorkloadSpec, demo_timestamp, load_workload
+from tokop.workloads.spec import CascadeSpec, WorkloadSpec, demo_timestamp, load_workload
 
 #: What the grader actually reads out of an answer, in tokens. Used by W03 and PL06 to price
 #: the gap between what is generated and what is consumed.
@@ -100,6 +102,17 @@ class ReplayedRun:
     total_cost: Decimal
     prewarm_cost: Decimal
     origin: str
+    #: Every recorded generation for each task, in sample order. ``sample_outputs[i][0]`` is
+    #: ``outputs[i]``. Length 1 unless the matrix was recorded at depth.
+    sample_outputs: tuple[tuple[str, ...], ...] = ()
+    #: What each of those generations cost. A scorer that draws k of them pays for k.
+    sample_costs: tuple[tuple[Decimal, ...], ...] = ()
+    #: Whether each generation would be graded correct, so that a scorer which returns a
+    #: different sample than the first can be graded on the answer it actually returned.
+    sample_correct: tuple[tuple[int, ...], ...] = ()
+
+    def sample_depth(self) -> int:
+        return min((len(s) for s in self.sample_outputs), default=1)
 
     @property
     def n(self) -> int:
@@ -146,8 +159,17 @@ def replay_run(
     split_name: str,
     tier: str,
     origin: str,
+    samples: int = 1,
 ) -> ReplayedRun:
-    """Replay one recorded run from cassettes and grade it."""
+    """Replay one recorded run from cassettes and grade it.
+
+    ``samples`` is how deep the matrix was recorded. Every generation is replayed and costed,
+    but ``calls``, ``cost_usd``, ``outputs`` and ``correct`` describe **sample 0 alone** — the
+    single call the pipeline makes. Sampling is a property of a cascade's scorer, not of the
+    pipeline, so a deeper matrix must not change what the pipeline's own findings, lint and cost
+    figures say about it. The repeats live in the ``sample_*`` fields, for the one caller that
+    is entitled to charge for them.
+    """
     items = list(bundle.calibration if split_name == "calibration" else bundle.test)
     model_id = registry.roles[tier]
     runner = Runner(
@@ -160,7 +182,9 @@ def replay_run(
         origin=origin,
     )
     result = asyncio.run(
-        runner.run_pipeline(pipeline_id, items, model_id=model_id, split=split_name)
+        runner.run_pipeline(
+            pipeline_id, items, model_id=model_id, split=split_name, samples=samples
+        )
     )
 
     by_id = {item.id: item for item in items}
@@ -168,14 +192,27 @@ def replay_run(
     costs: list[Decimal] = []
     outputs: list[str] = []
     calls: list[CallRow] = []
+    sample_outputs: list[tuple[str, ...]] = []
+    sample_costs: list[tuple[Decimal, ...]] = []
+    sample_correct: list[tuple[int, ...]] = []
     for task in result.tasks:
         item = by_id[task.task_id]
         outcome = grade(task.output, item.gold, item.answer_type, item.aliases)
         correct.append(int(outcome.correct and not task.failed))
         outputs.append(task.output)
         task_cost = Decimal(0)
+        per_sample_cost: list[Decimal] = []
+        per_sample_output: list[str] = []
+        per_sample_correct: list[int] = []
         for request, response, _, _ in task.calls:
             breakdown = snapshot.cost(response.model, response.usage)
+            per_sample_cost.append(breakdown.total)
+            per_sample_output.append(response.text)
+            sample_grade = grade(response.text, item.gold, item.answer_type, item.aliases)
+            per_sample_correct.append(int(sample_grade.correct and not task.failed))
+            if request.sample_index != 0:
+                # A repeat is recorded and costed, but it is not part of what the pipeline did.
+                continue
             task_cost += breakdown.total
             calls.append(
                 CallRow(
@@ -201,6 +238,9 @@ def replay_run(
                 )
             )
         costs.append(task_cost)
+        sample_outputs.append(tuple(per_sample_output))
+        sample_costs.append(tuple(per_sample_cost))
+        sample_correct.append(tuple(per_sample_correct))
 
     prewarm_cost = Decimal(0)
     for warm_request, warm_response in result.prewarm:
@@ -240,11 +280,21 @@ def replay_run(
         total_cost=sum(costs, Decimal(0)) + prewarm_cost,
         prewarm_cost=prewarm_cost,
         origin=origin,
+        sample_outputs=tuple(sample_outputs),
+        sample_costs=tuple(sample_costs),
+        sample_correct=tuple(sample_correct),
     )
 
 
-def _views(run: ReplayedRun, items: Sequence[DemoItem], handbook: str) -> list[TaskView]:
-    """Task views for the scorer. No gold, by construction."""
+def _views(
+    run: ReplayedRun, items: Sequence[DemoItem], handbook: str, samples: int = 1
+) -> list[TaskView]:
+    """Task views for the scorer. No answer key, by construction.
+
+    ``samples`` is how many recorded generations to expose. A scorer that does not sample
+    never reads them; one that does gets exactly the k it is configured for, so two settings
+    of k are compared over the same draws rather than over fresh ones.
+    """
     by_id = {item.id: item for item in items}
     views = []
     outputs_by_task = dict(zip(run.task_ids, run.outputs, strict=True))
@@ -252,8 +302,10 @@ def _views(run: ReplayedRun, items: Sequence[DemoItem], handbook: str) -> list[T
     for call in run.calls:
         if not call.prewarm:
             tokens_by_task[call.task_id] = call.total_output
+    samples_by_task = dict(zip(run.task_ids, run.sample_outputs, strict=False))
     for task_id in run.task_ids:
         item = by_id[task_id]
+        drawn = samples_by_task.get(task_id, (outputs_by_task[task_id],))
         views.append(
             TaskView(
                 task_id=task_id,
@@ -262,9 +314,91 @@ def _views(run: ReplayedRun, items: Sequence[DemoItem], handbook: str) -> list[T
                 context=handbook,
                 tier=run.tier,
                 output_tokens=tokens_by_task.get(task_id, 0),
+                samples=tuple(drawn[:samples]),
             )
         )
     return views
+
+
+@dataclass(frozen=True)
+class CascadeConfig:
+    """One candidate operating point, before its thresholds are chosen."""
+
+    scorer: str
+    k: int
+
+    @property
+    def label(self) -> str:
+        return self.scorer if self.k <= 1 else f"{self.scorer} k={self.k}"
+
+    def as_dict(self) -> dict[str, Any]:
+        kind = scorer_kind(self.scorer)
+        return {
+            "scorer": self.scorer,
+            "k": self.k,
+            "label": self.label,
+            "calls_per_scored_task": kind.calls_per_task(self.k),
+            "method": kind.method_note(self.k),
+        }
+
+
+@dataclass
+class ConfiguredCascade:
+    """A configuration, its fitted scorers, and the thresholds calibration chose for it."""
+
+    config: CascadeConfig
+    scorers: ScorerBundle
+    aurocs: dict[str, float | None]
+    search: SearchResult
+
+    def calibration_cost_per_task(self) -> Decimal:
+        outcome = self.search.outcome
+        return outcome.total_cost / outcome.n if outcome.n else Decimal(0)
+
+
+def _configurations(cascade_spec: CascadeSpec, recorded_depth: int) -> list[CascadeConfig]:
+    """Every (scorer, k) the calibration search is allowed to choose between.
+
+    A scorer whose call count does not move with k is offered once, at k=1: drawing repeats it
+    never reads would be charged for nothing.
+    """
+    out: list[CascadeConfig] = []
+    for name in cascade_spec.scorer_choices():
+        kind = scorer_kind(name)
+        if kind.calls_per_task(2) == kind.calls_per_task(1):
+            out.append(CascadeConfig(scorer=name, k=1))
+            continue
+        for k in cascade_spec.sample_choices():
+            if k >= 2:
+                out.append(CascadeConfig(scorer=name, k=k))
+    return out
+
+
+def _best_configuration(
+    evaluated: Sequence[ConfiguredCascade], objective: str, searchable: Sequence[str]
+) -> ConfiguredCascade:
+    """Pick the operating point on **calibration**, by the objective the user asked for.
+
+    A configuration whose thresholds could not reach the accuracy floor is never preferred to
+    one that could, however cheap it is: the floor is a constraint, not a tiebreak.
+
+    Only scorers the workload allows the search to adopt are eligible. Everything else is still
+    evaluated and reported side by side — measuring a scorer and shipping it are different
+    decisions, and a workload whose fixtures cannot support the second says so in its spec.
+    """
+    allowed = set(searchable)
+    eligible = [c for c in evaluated if c.config.scorer in allowed] or list(evaluated)
+
+    def rank(candidate: ConfiguredCascade) -> tuple[int, float, float]:
+        outcome = candidate.search.outcome
+        score = (
+            float(outcome.scarce_cost)
+            if objective == OBJECTIVE_SCARCE
+            else float(candidate.calibration_cost_per_task())
+        )
+        return (0 if candidate.search.feasible else 1, score, -outcome.accuracy)
+
+    return min(eligible, key=rank)
 
 
 @dataclass
@@ -330,6 +464,7 @@ def build_report(
             key[1],
             key[2],
             origin,
+            samples=int(entry.get("samples", 1)),
         )
 
     def need(pipeline: str, split: str, tier: str) -> ReplayedRun:
@@ -343,61 +478,127 @@ def build_report(
 
     base_pipeline = cascade_spec.base_pipeline
 
-    # ---------------------------------------------------------------- 2. scorers
-    scorer_context = ScorerContext(
-        feature_names=tuple(workload.scorer_features),
-        seed=seed,
-        k=cascade_spec.scorer_samples,
+    # ------------------------------------------------- 2. scorers and the operating point
+    #
+    # The operating point is now a triple: which scorer, how many samples it draws, and the
+    # per-tier thresholds. All three are chosen on the **calibration** split, before any test
+    # result is computed, which is the ordering the whole proof rests on.
+    objective = OBJECTIVE_SCARCE if protect_scarce else OBJECTIVE_COST
+    frontier_calibration = need(base_pipeline, "calibration", tiers[-1])
+    # Held fixed across configurations on purpose. The floor says what the workload requires of
+    # any candidate; letting it move with the candidate would let a worse scorer lower the bar
+    # it is judged against.
+    accuracy_floor = max(0.0, frontier_calibration.accuracy - cascade_spec.accuracy_slack)
+    recorded_depth = min(
+        (
+            need(base_pipeline, split, tier).sample_depth()
+            for split in ("calibration", "test")
+            for tier in tiers
+        ),
+        default=1,
     )
-    scorers: dict[str, Scorer] = {}
-    warnings = []
-    aurocs: dict[str, float | None] = {}
-    for tier in tiers:
-        cal = need(base_pipeline, "calibration", tier)
-        views = _views(cal, list(bundle.calibration), bundle.handbook)
-        scorer, tier_warnings = fit_scorer(
-            cascade_spec.scorer, tier, views, list(cal.correct), scorer_context
-        )
-        test = need(base_pipeline, "test", tier)
-        scorer.auroc = evaluate_auroc(
-            scorer, _views(test, list(bundle.test), bundle.handbook), list(test.correct)
-        )
-        aurocs[tier] = scorer.auroc
-        scorers[tier] = scorer
-        warnings.extend(tier_warnings)
-    bundle_scorers = ScorerBundle(scorers=scorers, warnings=warnings)
 
-    # ---------------------------------------------------------------- 3. calibration search
-    def tier_runs(split_name: str, items: Sequence[DemoItem]) -> list[TierRun]:
+    def fit_bundle(config: CascadeConfig) -> tuple[ScorerBundle, dict[str, float | None]]:
+        scorers: dict[str, Scorer] = {}
+        warnings: list[ScorerWarning] = []
+        aurocs: dict[str, float | None] = {}
+        context = ScorerContext(
+            feature_names=tuple(workload.scorer_features),
+            equivalence=answers_equivalent,
+            seed=seed,
+            k=config.k,
+        )
+        for tier in tiers:
+            cal = need(base_pipeline, "calibration", tier)
+            views = _views(cal, list(bundle.calibration), bundle.handbook, config.k)
+            scorer, tier_warnings = fit_scorer(
+                config.scorer, tier, views, list(cal.correct), context
+            )
+            test = need(base_pipeline, "test", tier)
+            scorer.auroc = evaluate_auroc(
+                scorer,
+                _views(test, list(bundle.test), bundle.handbook, config.k),
+                list(test.correct),
+            )
+            aurocs[tier] = scorer.auroc
+            scorers[tier] = scorer
+            warnings.extend(tier_warnings)
+        return ScorerBundle(scorers=scorers, warnings=warnings), aurocs
+
+    def tier_runs(
+        split_name: str,
+        items: Sequence[DemoItem],
+        scorer_bundle: ScorerBundle,
+        config: CascadeConfig,
+    ) -> list[TierRun]:
+        """One tier's recorded answers under one configuration.
+
+        Two things move with the configuration and both have to. The **cost** is every sample
+        the scorer drew, because k samples at a tier is k generations and the workload pays for
+        all of them. The **answer** is whichever generation the scorer returns, graded as the
+        answer it returned — charging for a vote and then grading the first sample would credit
+        the cascade with an accuracy it did not deliver.
+        """
         out: list[TierRun] = []
         for tier in tiers:
             run = need(base_pipeline, split_name, tier)
-            scores = bundle_scorers.score(tier, _views(run, items, bundle.handbook))
+            views = _views(run, items, bundle.handbook, config.k)
+            scores = scorer_bundle.score(tier, views)
+            scorer = scorer_bundle.scorers[tier]
+            costs: list[Decimal] = []
+            correct: list[int] = []
+            for index, view in enumerate(views):
+                drawn = run.sample_costs[index][: config.k] or (run.cost_usd[index],)
+                costs.append(sum(drawn, Decimal(0)))
+                chosen = scorer.answer_index(view)
+                graded = run.sample_correct[index] or run.correct[index : index + 1]
+                correct.append(graded[chosen])
             out.append(
                 tier_run_from_arrays(
                     tier,
                     run.model_id,
                     run.task_ids,
-                    run.correct,
-                    run.cost_usd,
+                    correct,
+                    costs,
                     scores,
                     scarce=registry.is_scarce(run.model_id),
                 )
             )
         return out
 
-    calibration_tiers = tier_runs("calibration", list(bundle.calibration))
-    frontier_calibration = need(base_pipeline, "calibration", tiers[-1])
-    accuracy_floor = max(0.0, frontier_calibration.accuracy - cascade_spec.accuracy_slack)
-    search: SearchResult = search_thresholds(
-        calibration_tiers,
-        accuracy_floor=accuracy_floor,
-        step=cascade_spec.threshold_step,
-        objective=OBJECTIVE_SCARCE if protect_scarce else OBJECTIVE_COST,
-    )
+    def evaluate_config(config: CascadeConfig) -> ConfiguredCascade:
+        scorer_bundle, aurocs = fit_bundle(config)
+        calibration_tiers = tier_runs(
+            "calibration", list(bundle.calibration), scorer_bundle, config
+        )
+        found = search_thresholds(
+            calibration_tiers,
+            accuracy_floor=accuracy_floor,
+            step=cascade_spec.threshold_step,
+            objective=objective,
+        )
+        return ConfiguredCascade(config=config, scorers=scorer_bundle, aurocs=aurocs, search=found)
 
-    # ---------------------------------------------------------------- 4. simulate on test
-    test_tiers = tier_runs("test", list(bundle.test))
+    candidates = [
+        candidate
+        for candidate in _configurations(cascade_spec, recorded_depth)
+        if candidate.k <= recorded_depth
+    ]
+    if not candidates:
+        raise ReportError(
+            f"no scorer configuration is runnable: the cascade asks for samples the recorded "
+            f"matrix does not hold (recorded depth {recorded_depth})."
+        )
+    evaluated = [evaluate_config(candidate) for candidate in candidates]
+    chosen = _best_configuration(evaluated, objective, cascade_spec.searchable_scorers())
+
+    bundle_scorers = chosen.scorers
+    aurocs = chosen.aurocs
+    config = chosen.config
+    search: SearchResult = chosen.search
+
+    # ---------------------------------------------------------------- 3. simulate on test
+    test_tiers = tier_runs("test", list(bundle.test), bundle_scorers, config)
     cascade_outcome = simulate(test_tiers, search.thresholds)
     test_frontier_entries = []
     for thresholds, _accuracy, _cost, _scarce in search.frontier:
@@ -459,11 +660,36 @@ def build_report(
         Decimal(0),
     )
     prewarm_cost = sum((r.prewarm_cost for r in runs.values()), Decimal(0))
+
+    def sampling_spend(k: int) -> Decimal:
+        """What drawing k generations per task costs beyond the first, across the matrix.
+
+        It belongs on the scorer line and *only* there: `spend()` counts sample 0, so adding
+        the repeats to the matrix lines as well would double-count them in `ProofCost.total`.
+        Zero at k=1, which is what this line has always read.
+        """
+        return sum(
+            (
+                cost
+                for (pipeline, _, _), run in runs.items()
+                if pipeline == base_pipeline
+                for task_samples in run.sample_costs
+                for cost in task_samples[1:k]
+            ),
+            Decimal(0),
+        )
+
+    # Charged for the samples the chosen configuration actually draws, which is zero for a
+    # scorer that reads one call. The repeats beyond that were spent comparing scorers, not
+    # proving this cascade beats the baseline, and loading them onto this line would make the
+    # shipped optimization look more expensive than it is — a misattribution, not caution. What
+    # the comparison cost is reported as its own figure below, where it was incurred.
+    sampling_cost = sampling_spend(config.k)
     proof_cost = ProofCost(
         baseline_run_usd=spend(baseline_run),
         calibration_runs_usd=calibration_cost,
         candidate_run_usd=matrix_cost,
-        scorer_and_judge_usd=Decimal(0),  # the demo scorer is deterministic and makes no calls
+        scorer_and_judge_usd=sampling_cost,
         prewarming_usd=prewarm_cost,
         other_pipelines_usd=other_cost,
     )
@@ -497,6 +723,73 @@ def build_report(
     waterfall = build_waterfall(
         waterfall_arms, margin=effective_margin, seed=seed, resamples=resamples
     )
+
+    # ------------------------------------------------- 6b. the same proof, scorer by scorer
+    #
+    # Every configuration the calibration search considered, carried through to a full test
+    # result with the *same* baseline, the same margin, the same seed and the same statistics
+    # code. This is what answers whether a scorer pays for the sampling it costs: the quality
+    # it buys and the money it spends are both here, in the same row.
+    #
+    # Each row is charged for the samples that row draws, so the comparison isolates the
+    # per-scorer trade. That is deliberately not the same as the headline proof cost above,
+    # which carries the whole recorded depth; the difference is the cost of running the search
+    # itself, and it is attributed where it was incurred rather than to whichever setting won.
+    scorer_comparison = []
+    for candidate in evaluated:
+        candidate_tiers = tier_runs("test", list(bundle.test), candidate.scorers, candidate.config)
+        candidate_outcome = simulate(candidate_tiers, candidate.search.thresholds)
+        arm = ArmResult(
+            pipeline_id=CANDIDATE_CASCADE,
+            label=f"{cascade_spec.name} ({candidate.config.label})",
+            task_ids=candidate_outcome.task_ids,
+            correct=candidate_outcome.correct,
+            cost_usd=candidate_outcome.per_task_cost,
+            model_ids=tuple(registry.roles[t] for t in tiers),
+            scarce_cost_usd=candidate_outcome.scarce_cost,
+            resolved_tier=tuple(tiers[i] for i in candidate_outcome.resolved_tier_index),
+            origin=origin,
+        )
+        row_proof = build_proof(
+            baseline_arm,
+            arm,
+            ProofCost(
+                baseline_run_usd=spend(baseline_run),
+                calibration_runs_usd=calibration_cost,
+                candidate_run_usd=matrix_cost,
+                scorer_and_judge_usd=sampling_spend(candidate.config.k),
+                prewarming_usd=prewarm_cost,
+                other_pipelines_usd=other_cost,
+            ),
+            {"calibration": len(bundle.calibration), "test": len(bundle.test)},
+            margin=effective_margin,
+            seed=seed,
+            resamples=resamples,
+            items_by_id=items_by_id,
+            scorer_auroc=candidate.aurocs,
+        ).as_dict()
+        scorer_comparison.append(
+            {
+                **candidate.config.as_dict(),
+                "is_chosen": candidate.config == config,
+                "thresholds": list(candidate.search.thresholds),
+                "calibration_feasible": candidate.search.feasible,
+                "calibration_cost_per_task_usd": str(candidate.calibration_cost_per_task()),
+                "accuracy": row_proof["candidate"]["accuracy"],
+                "cost_per_successful_task": row_proof["candidate"]["cost_per_successful_task"],
+                "cost_per_task_usd": row_proof["candidate"]["cost_per_task_usd"],
+                "scarce_share": row_proof["candidate"]["scarce_share"],
+                "tier_shares": row_proof["candidate"]["tier_shares"],
+                "delta_accuracy": row_proof["delta_accuracy"],
+                "cost_ratio": row_proof["cost_ratio"],
+                "mcnemar": row_proof["mcnemar"],
+                "verdict": row_proof["verdict"],
+                "proof_cost_usd": row_proof["proof_cost"]["total_usd"],
+                "sampling_cost_usd": row_proof["proof_cost"]["scorer_and_judge_usd"],
+                "repayment_tasks": row_proof["repayment_tasks"],
+                "scorer_auroc": candidate.aurocs,
+            }
+        )
 
     # ---------------------------------------------------------------- 7. findings and lint
     frontier_model = registry.model(registry.roles[tiers[-1]])
@@ -657,6 +950,18 @@ def build_report(
                 for i, tier in enumerate(tiers)
             ],
             "reached_frontier_share": cascade_outcome.tier_shares(len(tiers))[-1],
+            "scorer_choice": {
+                **config.as_dict(),
+                "chosen_on": "calibration",
+                "considered": [candidate.as_dict() for candidate in candidates],
+                "adoptable": list(cascade_spec.searchable_scorers()),
+                "recorded_sample_depth": recorded_depth,
+                # What recording the extra generations cost, so that comparing scorers is not a
+                # free lunch on paper. It is not part of the proof cost above: that proof does
+                # not need them, and this one does not disappear because it is inconvenient.
+                "search_recording_cost_usd": str(sampling_spend(recorded_depth)),
+            },
+            "scorer_comparison": scorer_comparison,
             "scorers": bundle_scorers.as_dict(),
             "frontier_chart": [
                 {

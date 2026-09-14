@@ -227,7 +227,9 @@ class Runner:
         for warm in prewarm_responses:
             total += self.snapshot.cost(model, warm.usage).total
 
-        manifest = self.manifest(pipeline_id, split, [model], items, len(prewarm_responses))
+        manifest = self.manifest(
+            pipeline_id, split, [model], items, len(prewarm_responses), samples
+        )
         return RunResult(
             run_id=run_id,
             pipeline_id=pipeline_id,
@@ -249,6 +251,7 @@ class Runner:
         model_ids: list[str],
         items: Sequence[DemoItem],
         prewarm_calls: int,
+        samples: int = 1,
     ) -> dict[str, Any]:
         """Everything needed to reproduce a run (SPEC.md section 6)."""
         import hashlib
@@ -270,6 +273,9 @@ class Runner:
             "git_sha": git_sha(),
             "recorded_at": datetime.now(UTC).isoformat(),
             "prewarm_calls": prewarm_calls,
+            # How many generations per task this run holds. Replay needs it: a matrix recorded
+            # at depth k is only reproducible by something that knows to ask for k.
+            "samples": samples,
             "price_snapshot_id": self.snapshot.snapshot_id,
             "prices": {
                 model_id: {
