@@ -11,11 +11,14 @@
 | M4 Optimization | **done** | lint, findings, scorers, cascade, proof, report; 406 tests, 95% cover |
 | M5 Optimize screen | **done** | graph, findings, proof, frontier chart, trace drawer; 15 e2e pass |
 | M6 Remaining screens | **done** | Inspect+Brief, Compare, Spend, Settings, New experiment; 38 e2e pass |
-| M7 Finish | **in progress** | README, DEMO, ARCHITECTURE, Dockerfile, critique done; spec review running |
+| M7 Finish | **done** | README, DEMO, ARCHITECTURE, Dockerfile, critique, spec review, CI gate |
+| M8 Pluggable scorers | **done** | scorer registry, `self-consistency-v1`, sampling charged, comparison |
 
 ## Next
 
-Fix whatever the spec review reports, then a final `make verify`.
+A live recording of a small split. It is now the blocker for two separate things rather than
+one: every number turns from simulated to recorded, *and* the scorer comparison in D27 becomes
+a real comparison instead of a statement about the simulator's noise model.
 
 ## Demo result (simulated test fixtures, 200-task test split)
 
@@ -130,3 +133,47 @@ reads 20.1% high on the demo handbook. GitHub's runners get the real tokenizer. 
 The handbook grew 2,918 characters, the fixtures record the counter that built them, and the
 report counts with that counter rather than with whichever one the machine has. Every headline
 number moved as a result, and every generated document now reproduces on any machine.
+
+## A second scorer, and a negative result about the fixtures (D27)
+
+The cascade scorer is now pluggable. `CascadeSpec` names it; `optimize/scorers.py` holds a
+`Scorer` protocol and a registry; `logistic-v1` is the scorer that always shipped, registered
+unchanged and verified byte-identical — a full payload diff across both objectives moved 0 of
+19,473 leaf values.
+
+`self-consistency-v1` is the second: k samples per task, grouped by the workload's
+answer-equivalence relation, routed on the normalized discrete entropy of the group proportions,
+returning the tier's majority answer. It refuses rather than degrades — no equivalence function,
+k below 2, or a matrix recorded shallower than asked for. It is an exact-match approximation of
+semantic entropy, not semantic entropy, and says so everywhere it appears.
+
+The sampling money is charged to the scorer that spends it. k generations at a tier is k times
+that tier's generation cost, through the same per-task accounting, waterfall, proof cost and
+repayment figure as everything else. `tests/test_pluggable_scorers.py` fails if a sampled
+configuration is charged nothing — checked by breaking the accounting on purpose.
+
+**The comparison, on the demo's 200-task test split:**
+
+| Configuration | Calls | Accuracy | 95% CI | $/success | Scarce | Sampling $ | Repays | Verdict |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `logistic-v1` (shipped) | 1 | 96.0% | [92.3, 98.0] | $0.004253 | 36.1% | $0 | 334 | inconclusive |
+| `self-consistency-v1` k=3 | 3 | 96.0% | [92.3, 98.0] | $0.003577 | 0% | $5.98 | 459 | inconclusive |
+| `self-consistency-v1` k=5 | 5 | 97.0% | [93.6, 98.6] | $0.004987 | 0% | $11.82 | 605 | non-inferior |
+
+**This is not a finding, and Tokop does not ship it.** The simulated provider draws repeated
+samples independently, so majority voting gets the full benefit of Condorcet's jury theorem: it
+lifts the cheap tier from 0.848 to 0.939 expected accuracy at k=5 on this question mix, computed
+from the accuracy table that was already committed. Real sampled generations are strongly
+correlated — a model that misreads a rule misreads it every draw — so the benefit on a recording
+would be far smaller, and how much smaller cannot be known from here. The same defect inflates
+the scorer's AUROC to 0.87–0.97 against the logistic scorer's 0.72–0.89.
+
+So the demo measures both and adopts one: `scorer_search_grid: [logistic-v1]`, with the reason
+written beside it in the workload. Every headline number is unchanged. Deleting that one line
+turns the comparison back on, and should be deleted once the matrix is a recording.
+
+The deliverable is the pluggable interface, a second scorer that runs end to end from fixtures
+with its sampling charged honestly, and a documented reason not to believe its result yet.
+
+Fixtures rebuilt at sample depth 5: 1,314 cassettes became 4,914, with all 1,314 originals
+byte-identical. 466 engine tests, 91% line coverage, `make verify` green on all 12 checks.

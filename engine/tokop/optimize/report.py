@@ -115,6 +115,21 @@ class ReplayedRun:
         return min((len(s) for s in self.sample_outputs), default=1)
 
     @property
+    def recorded_cost(self) -> Decimal:
+        """Every dollar this run spent, repeats included.
+
+        ``total_cost`` is the one generation per task the pipeline makes. When the matrix was
+        recorded deeper so that scorers could be compared, this is the larger, true figure —
+        reported so that the runs block and the recorder's own total agree instead of leaving a
+        gap a reader would have to discover.
+        """
+        repeats = sum(
+            (cost for task_samples in self.sample_costs for cost in task_samples[1:]),
+            Decimal(0),
+        )
+        return self.total_cost + repeats
+
+    @property
     def n(self) -> int:
         return len(self.task_ids)
 
@@ -357,10 +372,14 @@ class ConfiguredCascade:
 
 
 def _configurations(cascade_spec: CascadeSpec, recorded_depth: int) -> list[CascadeConfig]:
-    """Every (scorer, k) the calibration search is allowed to choose between.
+    """Every (scorer, k) to evaluate, given how deep the response matrix was recorded.
 
-    A scorer whose call count does not move with k is offered once, at k=1: drawing repeats it
-    never reads would be charged for nothing.
+    Evaluating is not adopting: which of these the search may take as the operating point is a
+    separate question, answered by the workload's `scorer_search_grid`.
+
+    A scorer whose call count does not move with k is offered once, at k=1 — drawing repeats it
+    never reads would be charged for nothing. A k deeper than the recording is dropped here
+    rather than left to fail later with a matrix it cannot use.
     """
     out: list[CascadeConfig] = []
     for name in cascade_spec.scorer_choices():
@@ -368,9 +387,11 @@ def _configurations(cascade_spec: CascadeSpec, recorded_depth: int) -> list[Casc
         if kind.calls_per_task(2) == kind.calls_per_task(1):
             out.append(CascadeConfig(scorer=name, k=1))
             continue
-        for k in cascade_spec.sample_choices():
-            if k >= 2:
-                out.append(CascadeConfig(scorer=name, k=k))
+        out.extend(
+            CascadeConfig(scorer=name, k=k)
+            for k in cascade_spec.sample_choices()
+            if 2 <= k <= recorded_depth
+        )
     return out
 
 
@@ -399,6 +420,46 @@ def _best_configuration(
         return (0 if candidate.search.feasible else 1, score, -outcome.accuracy)
 
     return min(eligible, key=rank)
+
+
+def _operating_point_note(
+    config: CascadeConfig,
+    considered: Sequence[CascadeConfig],
+    search: SearchResult,
+    adoptable: Sequence[str],
+) -> str:
+    """What was chosen on calibration, naming every dimension that was searched.
+
+    Computed rather than fixed. The note is a claim about how the operating point was picked,
+    and a claim that stops matching the search is worse than no note at all: a reader checks it
+    to decide whether the test number means anything.
+    """
+    # Only settings the search was allowed to adopt count as things it chose between. The rest
+    # are measured and reported, and saying the operating point was picked from them would
+    # overstate what the search did.
+    eligible = [c for c in considered if c.scorer in set(adoptable)]
+    dimensions = [f"{search.evaluated:,} threshold settings"]
+    if len({c.scorer for c in eligible}) > 1:
+        dimensions.append(f"{len({c.scorer for c in eligible})} scorers")
+    if len({c.k for c in eligible}) > 1:
+        dimensions.append(f"sample counts {sorted({c.k for c in eligible})}")
+    searched = (
+        ", ".join(dimensions[:-1]) + f" and {dimensions[-1]}"
+        if len(dimensions) > 1
+        else dimensions[0]
+    )
+    note = (
+        f"The operating point — {config.label}, thresholds "
+        f"{', '.join(f'{t:.2f}' for t in search.thresholds[:-1])} — was chosen on the "
+        f"calibration split from {searched}, before any test result was computed."
+    )
+    withheld = sorted({c.scorer for c in considered} - set(adoptable))
+    if withheld:
+        note += (
+            f" {', '.join(withheld)} was measured alongside it and reported below, but this "
+            "workload does not let the search adopt it."
+        )
+    return note
 
 
 @dataclass
@@ -579,11 +640,7 @@ def build_report(
         )
         return ConfiguredCascade(config=config, scorers=scorer_bundle, aurocs=aurocs, search=found)
 
-    candidates = [
-        candidate
-        for candidate in _configurations(cascade_spec, recorded_depth)
-        if candidate.k <= recorded_depth
-    ]
+    candidates = _configurations(cascade_spec, recorded_depth)
     if not candidates:
         raise ReportError(
             f"no scorer configuration is runnable: the cascade asks for samples the recorded "
@@ -708,6 +765,9 @@ def build_report(
         resamples=resamples,
         items_by_id=items_by_id,
         scorer_auroc=aurocs,
+        operating_point_note=_operating_point_note(
+            config, candidates, search, cascade_spec.searchable_scorers()
+        ),
     )
 
     # ---------------------------------------------------------------- 6. waterfall
@@ -1007,7 +1067,12 @@ def build_report(
                 "model_id": run.model_id,
                 "n": run.n,
                 "accuracy": run.accuracy,
-                "total_cost_usd": str(run.total_cost),
+                "total_cost_usd": str(run.recorded_cost),
+                # What the pipeline's own single generation per task cost. The two differ only
+                # when the matrix was recorded deeper to compare scorers; the gap is the price
+                # of the comparison, not of the pipeline.
+                "single_sample_cost_usd": str(run.total_cost),
+                "samples_per_task": run.sample_depth(),
                 "prewarm_cost_usd": str(run.prewarm_cost),
                 "cache_read_tokens": sum(c.cache_read for c in run.calls),
                 "cache_write_tokens": sum(c.cache_write_5m + c.cache_write_1h for c in run.calls),

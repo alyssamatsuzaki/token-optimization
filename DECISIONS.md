@@ -260,3 +260,105 @@ The second CI run took it from four failures to two, both with the same shape:
 What this does not fix: token *estimates* computed here are still ~20% high, because this machine
 still cannot load `o200k_base`. They name `bytes-bpe-approx-v1` everywhere they appear, and now
 the fixtures say so too.
+
+## D27 — A second scorer, and why its result is not a finding
+
+**The goal.** Make the cascade scorer pluggable, add a scorer based on discrete entropy over
+repeated samples, and use Tokop's own cost and proof machinery to answer whether the better
+scorer pays for the sampling it costs. The README already names the failure mode it targets:
+"a scorer that is often unsure sends tasks through every tier, and pays for each one."
+
+1. **The scorer is named in the spec, not hardcoded.** `CascadeSpec` gained `scorer`,
+   `scorer_samples`, and grids for both. `optimize/scorers.py` gained a `Scorer` protocol, a
+   `ScorerContext`, and a registry keyed by name; `logistic-v1` is the existing per-tier logistic
+   regression, registered unchanged. Both call sites in `report.py` go through `fit_scorer`. An
+   unknown scorer name is refused when the workload loads, not when a route is taken.
+
+   Verified byte-identical rather than assumed: a full report payload diff across both
+   objectives showed 0 changed leaf values out of 19,473, the only additions being descriptive
+   keys naming the implementation.
+
+2. **`self-consistency-v1`.** k samples per task, grouped by the workload's answer-equivalence
+   relation, scored by the normalized discrete entropy of the group proportions, mapped to a
+   probability by a one-feature logistic fit on the calibration split. Cluster probabilities come
+   from generation counts rather than token likelihoods, which is what makes it computable behind
+   a provider API at all. The tier returns its majority answer, and the checker grades *that*
+   answer — charging for a vote and grading the first sample would credit an accuracy the cascade
+   did not deliver.
+
+   It refuses rather than degrades: no equivalence function (it will not fall back to string
+   equality, which would silently score a different quantity), k below 2, or a response matrix
+   recorded shallower than it was asked for.
+
+3. **It is not semantic entropy, and says so.** The method it approximates clusters by
+   model-judged meaning — bidirectional entailment — which catches two differently worded answers
+   that say the same thing. An exact-match relation over extracted answers does not, and reads a
+   paraphrase as disagreement. On this workload, whose answers are numbers, enums and yes/no,
+   the gap is narrow; on free-form text it would not be. Every surface calls it "self-consistency
+   over an exact-match equivalence relation, a deterministic approximation of semantic entropy".
+   An entailment model is a model call with its own cost and dependency, and adding one was
+   explicitly out of scope for this pass.
+
+   One thing the deterministic relation buys: it is a genuine equivalence — reflexive, symmetric,
+   transitive — so grouping by one representative per group is exact and order-independent.
+   Entailment-based clustering is not transitive and needs more care than this code takes.
+
+4. **Semantic Entropy Probes are out, permanently, for a structural reason.** They read model
+   hidden states. Tokop is official-APIs-only (non-negotiable 6), and no provider API exposes
+   them. This is not a "not yet": it cannot be done without violating the constraint that defines
+   the project. Do not add a dependency that implies it.
+
+5. **The citation was dropped because the paper could not be opened.** The work this scorer takes
+   its idea from is Farquhar, Kossen, Kuhn and Gal on detecting hallucinations with semantic
+   entropy, in *Nature* (2024). Every host serving it — `nature.com`, `ora.ox.ac.uk`,
+   `oatml.cs.ox.ac.uk`, `api.semanticscholar.org` — is blocked by this environment's egress
+   policy, so it was never read here. No figure, AUROC, cost multiplier or finding from it is
+   quoted anywhere in this repository, and the design is justified on its own terms instead. A
+   bibliographic record is not the paper. When someone can open it, the citation can be written
+   properly, with the departures in point 3 named in the same sentence.
+
+6. **The simulator had to learn to sample, and that is where the trouble starts.** The demo
+   responder was deterministic in (model, task, pipeline): five samples were five identical
+   strings, entropy zero everywhere, the scorer unexercisable. Repeats now draw independently
+   against the accuracy table that was already committed — no new parameter, no added
+   correlation, sample 0 untouched, so all 1,314 existing cassettes rebuild byte-identical.
+
+7. **The result, and why it is an artifact.** The comparison says `self-consistency-v1` at k=3
+   reaches the same 96.0% accuracy for $0.003577 per successful task against `logistic-v1`'s
+   $0.004253, and at k=5 reaches 97.0% and turns the verdict non-inferior. Both route every task
+   to the cheap tier or near it, spending nothing on the scarce model.
+
+   That is not a finding about self-consistency. It is Condorcet's jury theorem, which holds
+   *exactly* when votes are independent — which is precisely what the simulator now assumes.
+   Majority voting over i.i.d. draws lifts the cheap tier from 0.848 to 0.913 expected accuracy
+   at k=3 and 0.939 at k=5 on this question mix, computed directly from the committed accuracy
+   table. Real sampled generations are nothing like independent: a model that misreads a policy
+   misreads it on every draw. The benefit on a recording would be far smaller, and how much
+   smaller is not knowable from here.
+
+   The same defect inflates the scorer's AUROC (0.87–0.97 against the logistic scorer's
+   0.72–0.89): entropy over i.i.d. samples estimates the very probability that determines whether
+   the majority answer is right, so it is predicting an outcome it partly constitutes.
+
+8. **So the search may measure it but not adopt it.** `scorer_search_grid: [logistic-v1]` in the
+   demo workload, with the reason written beside it. The comparison still runs over every
+   configuration and is reported in full; the demo's operating point stays `logistic-v1` and
+   every headline number is unchanged. Letting the search take the cheaper option would have made
+   the README's headline a consequence of the noise model, which is the failure this project
+   exists to prevent. One line to delete once the matrix is a recording.
+
+   The conservative reading is the one taken elsewhere in this repository when the fixtures
+   cannot support a claim: ship the mechanism, report the measurement, withhold the conclusion.
+
+9. **The sampling money is charged to the scorer that spends it.** A tier's cost under a
+   configuration is every sample that configuration drew, flowing through the same per-task
+   accounting, waterfall, proof cost and repayment figure as everything else — `tests/
+   test_pluggable_scorers.py` fails if a sampled configuration is charged nothing, and that test
+   was checked by breaking the accounting on purpose and watching it fail.
+
+   One attribution question had to be settled. The matrix is recorded at depth 5 so that
+   configurations can be compared, but the shipped cascade draws one sample. Charging the proof
+   for all five made it look like the optimization cost $26.92 and repaid after 595 tasks rather
+   than $15.10 and 334 — money spent on the *comparison*, misattributed to the *proof*. Each
+   configuration is now charged for the samples it draws, and what the deeper recording cost is
+   reported separately as `search_recording_cost_usd`, where it was actually incurred.

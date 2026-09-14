@@ -155,6 +155,30 @@ fine-tuned DistilBERT scorer, because a hundred labelled examples is a realistic
 coefficients you can read are worth more than a point of AUROC. Their headline figure used March
 2023 prices and is not quoted here.
 
+**Self-consistency over repeated samples** — a second, optional scorer. It asks a tier the same
+question k times, groups the answers by the workload's own answer-equivalence relation, and
+routes on the normalized discrete entropy of the group proportions: a tier that agrees with
+itself answers, one that does not escalates. Cluster probabilities come from generation counts
+rather than token likelihoods, which is what makes it computable behind a provider API.
+
+This is **self-consistency over an exact-match equivalence relation, a deterministic
+approximation of semantic entropy** — not semantic entropy. The method it approximates groups by
+model-judged meaning and so catches two differently worded answers that say the same thing; an
+exact-match relation reads a paraphrase as disagreement. The idea is taken from work by Farquhar,
+Kossen, Kuhn and Gal in *Nature* (2024), which is deliberately not cited with a figure or a
+finding here: every host serving that paper is blocked by this build's egress policy, so it was
+never opened, and a citation nobody checked is worse than none. See `DECISIONS.md` D27.
+
+**On the demo fixtures this scorer measures cheaper than the default, and Tokop does not ship
+it.** That result is an artifact of the simulated provider, which draws repeated samples
+independently, so majority voting collects the full benefit of Condorcet's jury theorem — it
+lifts the cheap tier from 0.848 to 0.939 expected accuracy at k=5 on this question mix. Real
+sampled generations are strongly correlated: a model that misreads a rule misreads it every
+draw. The demo therefore measures both scorers, reports them side by side with their sampling
+costs, and lets the calibration search adopt only the one the fixtures can support. The
+mechanism is real and so are the dollar figures; the quality comparison is a statement about the
+noise model. It becomes a real comparison the moment the matrix is a recording.
+
 **Cost-Optimal Active AI Model Evaluation** (Angelopoulos, Eisenstein, Berant, Agarwal, Fisch;
 [arXiv:2506.07949](https://arxiv.org/abs/2506.07949)) — a cheap rater scores everything, an
 expensive rater scores a sample, and inverse-probability weighting makes the estimate unbiased

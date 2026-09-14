@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import sys
+from typing import TYPE_CHECKING
 
 import typer
 
 from tokop import recording_state
 from tokop.core.registry import OPENROUTER_MODELS_URL, load_registry
 from tokop.paths import repo_root
+
+if TYPE_CHECKING:  # pragma: no cover - import kept out of the startup path
+    from tokop.optimize.report import ReportPayload
 
 app = typer.Typer(
     add_completion=False,
@@ -179,6 +183,52 @@ def prove(
         raise typer.Exit(1)
 
 
+def _echo_scorer_comparison(payload: ReportPayload) -> None:
+    """Print every scorer the calibration search evaluated, with what its sampling cost.
+
+    The point of the table is the two columns next to each other: what a scorer bought, and
+    what it spent to buy it. A scorer that is cheaper per successful task only because nobody
+    charged it for its samples would show a sampling cost of zero next to a k above 1.
+    """
+    cascade = payload["cascade"]
+    rows = cascade.get("scorer_comparison") or []
+    if len(rows) < 2:
+        return
+    choice = cascade["scorer_choice"]
+
+    typer.echo("")
+    typer.echo("  scorers evaluated on the calibration split")
+    header = (
+        f"  {'configuration':26}{'calls':>6}{'accuracy':>10}{'$/success':>12}"
+        f"{'scarce':>8}{'sampling $':>12}{'repays':>8}  verdict"
+    )
+    typer.echo(header)
+    typer.echo("  " + "-" * (len(header) - 2))
+    for row in rows:
+        accuracy = row["accuracy"]
+        marker = " *" if row["is_chosen"] else "  "
+        typer.echo(
+            f"  {row['label'][:24]:24}{marker}{row['calls_per_scored_task']:>4}"
+            f"{accuracy['point']:>10.1%}"
+            f"{row['cost_per_successful_task']['point']:>12.6f}"
+            f"{row['scarce_share']:>8.1%}"
+            f"{float(row['sampling_cost_usd']):>12.4f}"
+            f"{row['repayment_tasks']!s:>8}  {row['verdict']['label']}"
+        )
+    typer.echo(f"  * the operating point, chosen on {choice['chosen_on']}")
+
+    withheld = sorted({r["scorer"] for r in rows} - set(choice["adoptable"]))
+    if withheld:
+        typer.echo(
+            f"  {', '.join(withheld)} was measured but this workload does not let the search "
+            "adopt it;\n  see DECISIONS.md D27 for why."
+        )
+    typer.echo(
+        f"  recording the repeats this table needed cost "
+        f"${choice['search_recording_cost_usd']}, which is not part of the proof cost above."
+    )
+
+
 @app.command()
 def report(
     check: bool = typer.Option(False, "--check", help="Recompute and assert everything agrees."),
@@ -212,6 +262,7 @@ def report(
         headline = payload.headline()
         for key, value in headline.items():
             typer.echo(f"  {key:38} {value}")
+        _echo_scorer_comparison(payload)
         return
 
     failures = 0

@@ -337,6 +337,7 @@ def build_proof(
     resamples: int = DEFAULT_RESAMPLES,
     items_by_id: dict[str, Any] | None = None,
     scorer_auroc: dict[str, float | None] | None = None,
+    operating_point_note: str | None = None,
 ) -> Proof:
     """Compare two arms over the same tasks."""
     if baseline.task_ids != candidate.task_ids:
@@ -437,6 +438,7 @@ def build_proof(
         by_type=by_type,
         disagreements=disagreements,
         scorer_auroc=scorer_auroc or {},
+        **({} if operating_point_note is None else {"operating_point_note": operating_point_note}),
     )
 
 

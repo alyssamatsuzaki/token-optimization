@@ -239,10 +239,27 @@ class TestReport:
             assert "not a recording" in provenance["note"]
 
     def test_the_proof_cost_reconciles_with_the_runs(self, report) -> None:
-        """Every dollar in the proof cost must be a dollar some run actually spent."""
-        total = Decimal(report["proof"]["proof_cost"]["total_usd"])
+        """Every dollar some run spent is accounted for, and to the right thing.
+
+        The proof is charged for the generations it needed. When the matrix was recorded deeper
+        so that scorers could be compared, the extra generations are the price of the
+        *comparison* and are reported separately. Together they must be the whole bill: if they
+        are not, some money has gone missing or been counted twice.
+        """
+        proof = Decimal(report["proof"]["proof_cost"]["total_usd"])
+        comparison = Decimal(report["cascade"]["scorer_choice"]["search_recording_cost_usd"])
         runs = sum(Decimal(r["total_cost_usd"]) for r in report["runs"])
-        assert total == runs
+        assert proof + comparison == runs
+
+    def test_a_run_reports_what_it_actually_spent(self, report) -> None:
+        """A run recorded k deep costs more than its single generation per task, and says so."""
+        for row in report["runs"]:
+            total = Decimal(row["total_cost_usd"])
+            single = Decimal(row["single_sample_cost_usd"])
+            if row["samples_per_task"] > 1:
+                assert total > single, f"{row['pipeline']}/{row['split']} hid its repeats"
+            else:
+                assert total == single
 
     def test_scarce_share_never_exceeds_one(self, report) -> None:
         for step in report["waterfall"]:
@@ -253,7 +270,13 @@ class TestReport:
         assert len(cascade["thresholds"]) == 3
         assert cascade["evaluated"] > 100
         assert cascade["runtime_seconds"] >= 0
-        assert report["proof"]["operating_point_note"].startswith("The operating point was chosen")
+        note = report["proof"]["operating_point_note"]
+        # The note is computed from the search rather than fixed, so it is checked for the
+        # claims it has to keep making rather than for an exact string.
+        assert "chosen on the calibration split" in note
+        assert "before any test result was computed" in note
+        assert cascade["scorer_choice"]["label"] in note
+        assert f"{cascade['evaluated']:,} threshold settings" in note
 
     def test_tier_shares_sum_to_one(self, report) -> None:
         shares = [t["share_of_tasks"] for t in report["cascade"]["tiers"]]

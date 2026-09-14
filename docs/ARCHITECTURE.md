@@ -128,6 +128,26 @@ guess is all there is. A scorer that could reach a gold answer would make every 
 circular, so `TaskView` has no field that could carry one and
 `tests/test_scorer_isolation.py` checks that structurally, behaviourally and at the source level.
 
+**Which scorer runs is named in the pipeline spec.** `optimize/scorers.py` holds a `Scorer`
+protocol and a registry; `CascadeSpec` names a kind and a sample count, and the calibration
+search chooses between the kinds a workload allows alongside the thresholds — all before any
+test result is computed. Two are registered: `logistic-v1`, the per-tier logistic regression over
+deterministic features, and `self-consistency-v1`, which draws k samples and routes on how much
+a tier agrees with itself.
+
+The isolation survives the second one by injection rather than import. A sampling scorer needs
+to know when two answers mean the same thing, and the obvious source for that is the grader —
+which is exactly what `scorers.py` may not import. So the *workload* supplies the relation
+(`grading.answers_equivalent`, a function of two candidate answers, neither of them a reference)
+and the scorer receives it through `ScorerContext`. The source-level isolation check keeps
+holding, and a workload that supplies no such relation gets a refusal rather than a silent
+fallback to string equality.
+
+A scorer that samples is charged for every sample it draws, through the same per-task
+accounting as everything else, and the answer graded is the one it returned rather than the
+first one drawn. `DECISIONS.md` D27 records why the demo measures the sampling scorer but does
+not adopt it.
+
 ### `optimize/` — the analysis
 
 `lint.py` is local and deterministic and makes **no model calls**. Its ranking rule is the whole
@@ -177,7 +197,7 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
 
 ## Testing
 
-- **438 engine tests**, 91% line coverage on `core/` and `optimize/`
+- **466 engine tests**, 91% line coverage on `core/` and `optimize/`
   (`pytest --cov=tokop/core --cov=tokop/optimize`).
 - **39 Playwright tests** against the production build in replay mode.
 - **Exit-code tests for `tokop prove`** run through a subprocess, because an exit code asserted
