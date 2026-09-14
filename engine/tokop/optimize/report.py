@@ -56,10 +56,12 @@ from tokop.optimize.lint import Finding, LintContext, clear_score, lint
 from tokop.optimize.proof import ArmResult, ProofCost, build_proof, build_waterfall
 from tokop.optimize.scorers import (
     FEATURE_REGISTRY,
+    Scorer,
     ScorerBundle,
+    ScorerContext,
     TaskView,
     evaluate_auroc,
-    fit_tier_scorer,
+    fit_scorer,
 )
 from tokop.paths import fixtures_dir, repo_root
 from tokop.recording_state import describe as describe_recording
@@ -342,14 +344,19 @@ def build_report(
     base_pipeline = cascade_spec.base_pipeline
 
     # ---------------------------------------------------------------- 2. scorers
-    scorers = {}
+    scorer_context = ScorerContext(
+        feature_names=tuple(workload.scorer_features),
+        seed=seed,
+        k=cascade_spec.scorer_samples,
+    )
+    scorers: dict[str, Scorer] = {}
     warnings = []
     aurocs: dict[str, float | None] = {}
     for tier in tiers:
         cal = need(base_pipeline, "calibration", tier)
         views = _views(cal, list(bundle.calibration), bundle.handbook)
-        scorer, tier_warnings = fit_tier_scorer(
-            tier, views, list(cal.correct), workload.scorer_features, seed=seed
+        scorer, tier_warnings = fit_scorer(
+            cascade_spec.scorer, tier, views, list(cal.correct), scorer_context
         )
         test = need(base_pipeline, "test", tier)
         scorer.auroc = evaluate_auroc(
@@ -745,7 +752,7 @@ def fitted_cascade(
     snapshot = registry.snapshot(list(registry.roles.values()), date(2026, 9, 11))
     origin = str(manifest.get("origin", "simulated"))
 
-    scorers = {}
+    scorers: dict[str, Scorer] = {}
     for tier in tiers:
         cal = replay_run(
             workload,
@@ -759,8 +766,16 @@ def fitted_cascade(
             origin,
         )
         views = _views(cal, list(bundle.calibration), bundle.handbook)
-        scorer, _ = fit_tier_scorer(
-            tier, views, list(cal.correct), workload.scorer_features, seed=DEFAULT_SEED
+        scorer, _ = fit_scorer(
+            cascade_spec.scorer,
+            tier,
+            views,
+            list(cal.correct),
+            ScorerContext(
+                feature_names=tuple(workload.scorer_features),
+                seed=DEFAULT_SEED,
+                k=cascade_spec.scorer_samples,
+            ),
         )
         scorers[tier] = scorer
     thresholds = tuple(float(t) for t in payload["cascade"]["thresholds"])

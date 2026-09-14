@@ -19,7 +19,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 import numpy as np
 from sklearn.linear_model import LogisticRegression
@@ -29,6 +29,19 @@ from sklearn.preprocessing import StandardScaler
 
 class ScorerError(ValueError):
     """A scorer could not be fitted or applied."""
+
+
+#: The scorer the cascade shipped with, and still its default. Named rather than assumed so a
+#: pipeline can ask for a different one and so a stored result records which one produced it.
+LOGISTIC_V1 = "logistic-v1"
+SELF_CONSISTENCY_V1 = "self-consistency-v1"
+
+
+#: Whether two candidate answers mean the same thing. Supplied by the workload, never imported
+#: here: the grader's comparisons take a candidate and a reference, and a scorer module that
+#: could import one would be one edit away from reading the answer key. Injection keeps the
+#: isolation structural. Both arguments are model outputs; neither is a reference answer.
+EquivalenceFn = Callable[[str, str], bool]
 
 
 @dataclass(frozen=True)
@@ -48,6 +61,10 @@ class TaskView:
     tier: str = ""
     latency_ms: float = 0.0
     output_tokens: int = 0
+    #: Repeated generations for this task at this tier, when the cascade drew any. ``samples[0]``
+    #: is ``output``. Empty when the tier was called once, which is the ordinary case: a scorer
+    #: that needs repeats must say so rather than assume it got them.
+    samples: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         for forbidden in ("gold", "correct", "answer_type", "question_type", "sections"):
@@ -240,6 +257,7 @@ class TierScorer:
     #: Set when the calibration labels were all one class, so no discrimination is possible.
     degenerate: bool = False
     auroc: float | None = None
+    kind: str = LOGISTIC_V1
 
     def score(self, views: Sequence[TaskView]) -> np.ndarray:
         """P(correct) for each view, in [0, 1]."""
@@ -265,6 +283,7 @@ class TierScorer:
 
     def as_dict(self) -> dict[str, Any]:
         return {
+            "kind": self.kind,
             "tier": self.tier,
             "features": list(self.feature_names),
             "fitted_on": self.fitted_on,
@@ -363,7 +382,7 @@ def fit_tier_scorer(
 
 
 def evaluate_auroc(
-    scorer: TierScorer, views: Sequence[TaskView], labels: Sequence[int]
+    scorer: Scorer, views: Sequence[TaskView], labels: Sequence[int]
 ) -> float | None:
     """AUROC on the **test** split, reported alongside every cascade result (SPEC.md 7.5).
 
@@ -380,7 +399,7 @@ def evaluate_auroc(
 class ScorerBundle:
     """One scorer per tier, plus whatever the caller must be told."""
 
-    scorers: dict[str, TierScorer]
+    scorers: dict[str, Scorer]
     warnings: list[ScorerWarning] = field(default_factory=list)
 
     def score(self, tier: str, views: Sequence[TaskView]) -> np.ndarray:
@@ -397,3 +416,124 @@ class ScorerBundle:
             "tiers": {tier: scorer.as_dict() for tier, scorer in self.scorers.items()},
             "warnings": [{"tier": w.tier, "message": w.message} for w in self.warnings],
         }
+
+
+# --------------------------------------------------------------------------- the interface
+
+
+#: Everything a cascade needs from a scorer, whatever is behind it. Deliberately small: fit on
+#: calibration, score views, describe yourself. A kind that needs more than a ``TaskView`` —
+#: repeated samples, say — asks for it through ``ScorerContext`` and refuses if it is missing,
+#: rather than quietly scoring something weaker than advertised.
+class Scorer(Protocol):
+    tier: str
+    kind: str
+    auroc: float | None
+
+    def score(self, views: Sequence[TaskView]) -> np.ndarray:
+        """P(correct) for each view, in [0, 1]."""
+        ...
+
+    def as_dict(self) -> dict[str, Any]: ...
+
+
+@dataclass(frozen=True)
+class ScorerContext:
+    """What a scorer kind may need beyond the calibration data itself.
+
+    One object rather than a widening parameter list, because each kind reads a different
+    subset of it: ``logistic-v1`` uses ``feature_names`` and ``seed`` and ignores the rest;
+    ``self-consistency-v1`` uses ``k`` and ``equivalence`` and ignores the features.
+    """
+
+    feature_names: tuple[str, ...] = ()
+    #: Supplied by the workload. ``None`` means the workload defined no answer equivalence, and
+    #: a kind that needs one must refuse rather than fall back to string equality.
+    equivalence: EquivalenceFn | None = None
+    seed: int = 20260911
+    #: Samples drawn per scored task at serving time. 1 is one call, the ordinary case.
+    k: int = 1
+    C: float = 1.0
+
+
+FitFn = Callable[
+    [str, Sequence[TaskView], Sequence[int], ScorerContext],
+    tuple[Scorer, list[ScorerWarning]],
+]
+
+
+@dataclass(frozen=True)
+class ScorerKind:
+    """One registered scorer implementation."""
+
+    name: str
+    description: str
+    fit: FitFn
+    #: Calls this kind makes per scored task at serving time, as a function of ``k``. The
+    #: cascade charges this, so a kind that samples cannot hide what it costs.
+    calls_per_task: Callable[[int], int]
+
+    def method_note(self, k: int) -> str:
+        """How this kind estimates, named for the caller (non-negotiable 2)."""
+        calls = self.calls_per_task(k)
+        suffix = "1 call per scored task" if calls == 1 else f"{calls} calls per scored task"
+        return f"{self.description} ({suffix})"
+
+
+SCORER_REGISTRY: dict[str, ScorerKind] = {}
+
+
+def register_scorer(kind: ScorerKind) -> None:
+    if kind.name in SCORER_REGISTRY:
+        raise ScorerError(f"scorer {kind.name!r} is already registered")
+    SCORER_REGISTRY[kind.name] = kind
+
+
+def scorer_kind(name: str) -> ScorerKind:
+    try:
+        return SCORER_REGISTRY[name]
+    except KeyError:
+        raise ScorerError(
+            f"unknown scorer {name!r}; the registry offers {', '.join(sorted(SCORER_REGISTRY))}"
+        ) from None
+
+
+def fit_scorer(
+    name: str,
+    tier: str,
+    views: Sequence[TaskView],
+    labels: Sequence[int],
+    context: ScorerContext,
+) -> tuple[Scorer, list[ScorerWarning]]:
+    """Fit whichever scorer the pipeline named, on the calibration split."""
+    return scorer_kind(name).fit(tier, views, labels, context)
+
+
+def _fit_logistic(
+    tier: str,
+    views: Sequence[TaskView],
+    labels: Sequence[int],
+    context: ScorerContext,
+) -> tuple[Scorer, list[ScorerWarning]]:
+    scorer, warnings = fit_tier_scorer(
+        tier,
+        views,
+        labels,
+        context.feature_names,
+        C=context.C,
+        seed=context.seed,
+    )
+    return scorer, warnings
+
+
+register_scorer(
+    ScorerKind(
+        name=LOGISTIC_V1,
+        description=(
+            "L2-regularized logistic regression over deterministic features, fitted per tier "
+            "on the calibration split"
+        ),
+        fit=_fit_logistic,
+        calls_per_task=lambda k: 1,
+    )
+)

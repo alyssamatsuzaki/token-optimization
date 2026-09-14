@@ -90,6 +90,12 @@ class CascadeSpec(BaseModel):
     description: str
     base_pipeline: str
     tiers: list[str]
+    #: Which scorer implementation routes this cascade, by registry name. Named here rather
+    #: than hardcoded in the report so a cascade records the scorer that produced its numbers.
+    scorer: str = "logistic-v1"
+    #: Samples drawn per scored task. 1 is one call per tier, which is what a deterministic
+    #: scorer needs. A sampling scorer charges every one of these.
+    scorer_samples: int = 1
     threshold_step: float = 0.02
     #: Minimum calibration accuracy, expressed as "the frontier's accuracy minus this".
     accuracy_slack: float = 0.01
@@ -163,11 +169,24 @@ def load_workload(path: Path) -> WorkloadSpec:
     if not isinstance(workload, dict):
         raise WorkloadError(f"{path} needs a top-level `workload:` mapping")
 
+    # Imported here rather than at module scope: the scorer registry lives in `optimize`, which
+    # reads workloads, and a top-level import would tie the two together in both directions.
+    from tokop.optimize.scorers import ScorerError, scorer_kind
+
     for cascade in cascades.values():
         if cascade.base_pipeline not in pipelines:
             raise WorkloadError(
                 f"cascade {cascade.id!r} is built on pipeline {cascade.base_pipeline!r}, "
                 f"which is not defined"
+            )
+        try:
+            scorer_kind(cascade.scorer)
+        except ScorerError as exc:
+            raise WorkloadError(f"cascade {cascade.id!r}: {exc}") from None
+        if cascade.scorer_samples < 1:
+            raise WorkloadError(
+                f"cascade {cascade.id!r} asks for {cascade.scorer_samples} samples per task; "
+                "a tier has to be called at least once"
             )
 
     return WorkloadSpec(
