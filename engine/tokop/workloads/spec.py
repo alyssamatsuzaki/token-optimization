@@ -74,6 +74,12 @@ class PipelineSpec(BaseModel):
     system: list[BlockSpec] = Field(default_factory=list)
     user: list[BlockSpec] = Field(default_factory=list)
     output_contract: OutputContract = "final_answer_line"
+    #: Whether this pipeline asks for output a verifier can *check* cheaply — the rule it
+    #: applied, the numbers it used and the step from one to the other, not just the answer
+    #: (UPGRADE_V3.md U4). It is a lever with two sides: it costs input tokens and output
+    #: tokens, it may cost accuracy, and it buys agreement between a cheap judge and a strong
+    #: grader, which is what the annotation budget is spent on.
+    checkable: bool = False
     #: What this pipeline is meant to demonstrate. Shown in the UI next to the graph.
     notes: list[str] = Field(default_factory=list)
     #: Anti-patterns present on purpose, by lint rule ID, with an explanation each.

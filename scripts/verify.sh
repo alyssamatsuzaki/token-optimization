@@ -68,11 +68,17 @@ if have engine/.venv/bin/pytest && [ -n "$(find engine/tests -name 'test_*.py' 2
       tests/test_judged_proof.py::TestThePolicyOnRecordedVerdicts"
   run "judge sees no gold (U1)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
       tests/test_judge_isolation.py"
+  run "label-free calibration (U3)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
+      tests/test_pseudolabels.py::TestTheAcceptanceCheck"
+  run "negative-delta disclosure (U4)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
+      tests/test_contract.py::TestItNeverSuppressesANegativeAccuracyDelta"
 else
   skip "pytest + coverage" "no tests yet"
   skip "adversarial judge (U1)" "no tests yet"
   skip "variance reduction (U2)" "no tests yet"
   skip "judge sees no gold (U1)" "no tests yet"
+  skip "label-free calibration (U3)" "no tests yet"
+  skip "negative-delta disclosure (U4)" "no tests yet"
 fi
 
 # ---------------------------------------------------------------- 3. web build

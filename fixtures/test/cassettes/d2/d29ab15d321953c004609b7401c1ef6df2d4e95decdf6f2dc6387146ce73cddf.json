@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "d29ab15d321953c004609b7401c1ef6df2d4e95decdf6f2dc6387146ce73cddf",
+  "latency_ms": 2351.51,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"102.95\", \"evidence\": \"Weight bands are inclusive of their upper bound: a parcel weighing exactly 5 lb falls in the \\\"over 2 lb up to 5 lb\\\" band, not the next one up.\", \"section\": \"sec-shipping-fees\", \"derivation\": \"sec-shipping-fees gives the rule; applying it to the values in the question yields 102.95\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_d29ab15d321953c0",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8390,
+      "input_tokens": 57,
+      "output_tokens": 136
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 8390,
+    "input_tokens": 57,
+    "output_tokens": 136
+  },
+  "recorded_at": "2026-09-14T15:02:49.455979+00:00",
+  "request": {
+    "max_tokens": 320,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "A parcel over 12 lb up to 25 lb is going to Zone 5 (international). What is the fee in dollars?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "8cb7948632bba9c3390e6aa3e2f4bd016cfc3cb30370890af28bc3b208fa7be9"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"102.95\", \"evidence\": \"Weight bands are inclusive of their upper bound: a parcel weighing exactly 5 lb falls in the \\\"over 2 lb up to 5 lb\\\" band, not the next one up.\", \"section\": \"sec-shipping-fees\", \"derivation\": \"sec-shipping-fees gives the rule; applying it to the values in the question yields 102.95\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 855.51,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 8390,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 57,
+    "output_reasoning": 0,
+    "output_visible": 136,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8390,
+      "input_tokens": 57,
+      "output_tokens": 136
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

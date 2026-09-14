@@ -1,0 +1,6 @@
+Customer question: A 58 lb order containing tents and shelters ships to Zone 4 (Alaska and Hawaii) with no free shipping. What is the shipping fee in dollars?
+
+Answer under review:
+<<<ANSWER
+{"answer": "156.95", "evidence": "A rope that has been climbed on, a sole that has been walked down, and a stove that has been run for three seasons are all working as expected, not failing.", "section": "sec-warranty", "derivation": "sec-warranty gives the rule; applying it to the values in the question yields 156.95"}
+ANSWER>>>

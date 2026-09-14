@@ -1,0 +1,97 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "f6aa98358549c3345a394e6116d71bba18c3f91f1179f33758710df81dff1d95",
+  "latency_ms": 1350.47,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"correct\": true, \"confidence\": 0.97, \"why\": \"checked against sec-exceptions\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_f6aa98358549c334",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8190,
+      "input_tokens": 152,
+      "output_tokens": 42
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 8190,
+    "input_tokens": 152,
+    "output_tokens": 42
+  },
+  "recorded_at": "2026-09-14T15:05:34.682050+00:00",
+  "request": {
+    "max_tokens": 150,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Customer question: Navigation electronics with the seal opened \u2014 how many days to return?\n\nAnswer under review:\n<<<ANSWER\n{\"answer\": \"14\", \"evidence\": \"An exception never widens a window; it only narrows one or changes how the refund is paid.\", \"section\": \"sec-exceptions\", \"derivation\": \"sec-exceptions gives the rule; applying it to the values in the question yields 14\"}\nANSWER>>>\n"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "ba85e0cb260695f919fed99032ca5576ae676fb845f3c27bd10e94e527c372ff"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"correct\": true, \"confidence\": 0.97, \"why\": \"checked against sec-exceptions\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 888.47,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 8190,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 152,
+    "output_reasoning": 0,
+    "output_visible": 42,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8190,
+      "input_tokens": 152,
+      "output_tokens": 42
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

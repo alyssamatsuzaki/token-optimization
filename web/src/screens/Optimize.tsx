@@ -6,7 +6,7 @@
  * number comes from `/api/report`, which is the same computation the CLI runs and the README is
  * generated from.
  */
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useHealth, useReport } from "../lib/api";
 import {
   count,
@@ -21,7 +21,14 @@ import {
   usd,
   usdShort,
 } from "../lib/format";
-import type { FindingView, JudgedView, Provenance, Report } from "../lib/types";
+import type {
+  CalibrationView,
+  ContractView,
+  FindingView,
+  JudgedView,
+  Provenance,
+  Report,
+} from "../lib/types";
 import { FrontierChart } from "../components/FrontierChart";
 import { PipelineGraph, type StepNode } from "../components/PipelineGraph";
 import {
@@ -413,6 +420,10 @@ export default function Optimize() {
             </dl>
           </Section>
 
+          <CalibrationPanel calibration={report.calibration} />
+
+          <ContractPanel contract={report.contract} />
+
           <JudgedPanel judged={report.judged} margin={proof.verdict.margin} />
 
           <Section
@@ -674,6 +685,130 @@ function JudgedPanel({ judged, margin }: { judged: JudgedView; margin: number })
       </ul>
       <p className="mt-3 text-micro text-graphite max-w-prose">{annotation.method}</p>
       <Legend kinds={["estimated", "simulated"]} />
+    </Section>
+  );
+}
+
+/**
+ * Where the cascade's thresholds came from, and what a calibration with no answer key would
+ * have chosen instead (UPGRADE_V3.md U3).
+ */
+function CalibrationPanel({ calibration }: { calibration: CalibrationView }) {
+  if (!calibration) return null;
+  const exercise = calibration.fixtures_can_exercise_this;
+  return (
+    <Section
+      title="Where the thresholds came from"
+      subtitle={calibration.description}
+      right={<Pill tone="neutral">{calibration.mode}</Pill>}
+      id="calibration"
+    >
+      <dl className="text-small grid grid-cols-[12rem_1fr] gap-x-4 gap-y-1">
+        <dt className="text-graphite">Operating point</dt>
+        <dd className="tabular-nums" data-testid="calibration-thresholds">
+          {calibration.thresholds.slice(0, -1).map((t) => t.toFixed(2)).join(", ")} at a{" "}
+          {pct(calibration.accuracy_floor)} accuracy floor
+          {calibration.excluded > 0 &&
+            `, ${count(calibration.excluded)} of ${count(calibration.n)} tasks excluded`}
+        </dd>
+        {calibration.alternatives.map((alternative) => {
+          const agreements = Object.values(alternative.label_agreement_with_gold).filter(
+            (value): value is number => value !== null,
+          );
+          return (
+            <Fragment key={alternative.kind}>
+              <dt className="text-graphite">{alternative.kind}</dt>
+              <dd className="tabular-nums">
+                {alternative.thresholds.slice(0, -1).map((t) => t.toFixed(2)).join(", ")} — gap{" "}
+                {alternative.max_threshold_gap.toFixed(2)}, {count(alternative.excluded)} excluded
+                {agreements.length > 0 && `, labels agree ${pct(Math.min(...agreements), 0)}`}
+              </dd>
+            </Fragment>
+          );
+        })}
+      </dl>
+      <p className="mt-3 text-small text-graphite max-w-prose">{calibration.note}</p>
+      {calibration.alternatives.length > 0 && !exercise.answer && (
+        <p className="mt-2 text-small text-graphite max-w-prose" data-testid="calibration-limits">
+          {exercise.reason}
+        </p>
+      )}
+    </Section>
+  );
+}
+
+/**
+ * The legibility tax, priced (UPGRADE_V3.md U4).
+ *
+ * The accuracy delta is rendered with its sign whatever that sign is. Hiding a negative one
+ * next to a saving is the single most tempting dishonesty in this product, and the engine test
+ * `test_contract.py` fails if this row ever stops carrying it.
+ */
+function ContractPanel({ contract }: { contract: ContractView }) {
+  if (!contract) return null;
+  if (!contract.available) {
+    return (
+      <Section
+        title="What checkability costs, and what it buys"
+        subtitle="A contract that makes an answer easy to verify, priced against the annotation budget."
+        id="contract"
+      >
+        <p className="text-small text-graphite max-w-prose" data-testid="contract-unavailable">
+          {contract.reason ?? "Not priced for this report."}
+        </p>
+      </Section>
+    );
+  }
+  return (
+    <Section
+      title="What checkability costs, and what it buys"
+      subtitle={`${contract.candidate_pipeline} against ${contract.baseline_pipeline}, judged by ${contract.judge.model_id} and corrected by ${count(contract.annotated)} of ${count(contract.n)} strong-graded tasks.`}
+      right={
+        <Pill tone={contract.pays_for_itself ? "better" : "neutral"}>
+          {contract.pays_for_itself ? "Pays for itself" : "Does not pay here"}
+        </Pill>
+      }
+      id="contract"
+    >
+      <table className="w-full text-base" data-testid="contract-table">
+        <thead>
+          <tr className="text-small text-graphite">
+            <th className="text-left font-medium py-2">Pipeline</th>
+            <th className="text-right font-medium py-2">Judge agrees</th>
+            <th className="text-right font-medium py-2">Sample rate</th>
+            <th className="text-right font-medium py-2">Annotation</th>
+            <th className="text-right font-medium py-2">Accuracy</th>
+            <th className="text-right font-medium py-2">Generation</th>
+          </tr>
+        </thead>
+        <tbody>
+          {contract.arms.map((arm) => (
+            <tr key={arm.pipeline} className="rule-t">
+              <td className="py-2">
+                {arm.pipeline} <span className="text-graphite text-small">{arm.label}</span>
+              </td>
+              <td className="text-right tabular-nums">
+                {pct(arm.judge_agreement_with_strong_grader)}
+              </td>
+              <td className="text-right tabular-nums">{pct(arm.sampling_rate_for_target)}</td>
+              <td className="text-right tabular-nums">
+                {usd(arm.annotation_cost_for_target_usd, 4)}
+              </td>
+              <td className="text-right tabular-nums">{pct(arm.accuracy)}</td>
+              <td className="text-right tabular-nums">{usd(arm.generation_cost_usd, 4)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-3 text-body max-w-prose" data-testid="contract-verdict">
+        The contract moves judge agreement {points(contract.agreement_delta)} points and accuracy{" "}
+        <span data-testid="contract-accuracy-delta">{points(contract.accuracy_delta)}</span> points.
+        Annotation saving {usd(contract.annotation_saving_usd, 4)} against a generation premium of{" "}
+        {usd(contract.generation_premium_usd, 4)}: net{" "}
+        {usd(contract.net_on_evaluation_split_usd, 4)} on the evaluation split, at a target
+        standard error of {contract.target_standard_error.toFixed(2)}.
+      </p>
+      <p className="mt-2 text-small text-graphite max-w-prose">{contract.note}</p>
     </Section>
   );
 }

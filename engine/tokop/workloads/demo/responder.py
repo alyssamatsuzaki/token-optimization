@@ -68,6 +68,14 @@ PARSE_FAILURE = {"final_answer_line": 0.02, "json_answer": 0.005}
 #: P(the cited section is wrong | the answer is wrong). Gives the scorer real signal to learn.
 WRONG_SECTION_GIVEN_WRONG = 0.55
 
+#: What a checkable output contract costs in accuracy (UPGRADE_V3.md U4). Kirchner et al.
+#: measure a *legibility tax*: optimizing a chain of thought for legibility rather than only for
+#: answer correctness costs test performance. The size here is invented like everything else in
+#: this file, and the point of the lever is not its size — it is that the waterfall row shows a
+#: negative accuracy delta next to the dollars the contract saved, instead of reporting whichever
+#: half is flattering.
+CHECKABLE_ACCURACY_TAX = 0.02
+
 
 @dataclass(frozen=True)
 class TierProfile:
@@ -178,6 +186,7 @@ class DemoResponder:
         tiers: dict[str, TierProfile],
         pipeline_id: str = "B2",
         output_contract: str = "json_answer",
+        checkable: bool = False,
     ) -> None:
         self.by_question = {item.question: item for item in items}
         self.handbook = handbook
@@ -185,6 +194,7 @@ class DemoResponder:
         self.role_by_model = {p.model_id: p.role for p in tiers.values()}
         self.pipeline_id = pipeline_id
         self.output_contract = output_contract
+        self.checkable = checkable
 
     def item_for(self, request: LLMRequest) -> DemoItem | None:
         """Find the task a request is asking about, by matching the question text."""
@@ -210,7 +220,12 @@ class DemoResponder:
                 f"{', '.join(sorted(self.role_by_model))}"
             )
         salt = "c" if sample_index == 0 else f"c#{sample_index}"
-        return _draw(model_id, item.id, "accuracy", salt) < ACCURACY[role][item.question_type]
+        # The legibility tax, if this pipeline asked for a checkable answer. Subtracted from the
+        # committed accuracy table rather than given its own: the contract makes the task
+        # slightly harder, it does not make the model a different model.
+        tax = CHECKABLE_ACCURACY_TAX if self.checkable else 0.0
+        ceiling = max(0.0, ACCURACY[role][item.question_type] - tax)
+        return _draw(model_id, item.id, "accuracy", salt) < ceiling
 
     def __call__(self, request: LLMRequest) -> str:
         item = self.item_for(request)
@@ -257,5 +272,14 @@ class DemoResponder:
             return _essay(item, "", evidence, rng).replace("Final answer: ", "In summary, ")
 
         if contract == "json_answer":
-            return json.dumps({"answer": answer, "evidence": evidence, "section": section})
+            payload = {"answer": answer, "evidence": evidence, "section": section}
+            if self.checkable:
+                # The line the whole lever is about: a verifier can check the answer against
+                # this instead of redoing the reasoning. It costs output tokens, which are
+                # charged to this pipeline like any other generation.
+                payload["derivation"] = (
+                    f"{section} gives the rule; applying it to the values in the question "
+                    f"yields {answer}"
+                )
+            return json.dumps(payload)
         return _essay(item, answer, evidence, rng)

@@ -1,0 +1,97 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "dc9d18be3355f3ca0c77502d4005d68b319ef254e6d1e806b68d1dc4dff9cb7c",
+  "latency_ms": 1326.65,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"correct\": false, \"confidence\": 0.351, \"why\": \"does not follow from sec-restocking\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_dc9d18be3355f3ca",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8190,
+      "input_tokens": 173,
+      "output_tokens": 42
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 8190,
+    "input_tokens": 173,
+    "output_tokens": 42
+  },
+  "recorded_at": "2026-09-14T15:05:34.568822+00:00",
+  "request": {
+    "max_tokens": 150,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Customer question: A Standard member returns camp stoves and cookware that cost $560.00. What restocking fee is charged, in dollars?\n\nAnswer under review:\n<<<ANSWER\n{\"answer\": \"57.00\", \"evidence\": \"the policy states that this situation is handled as described above\", \"section\": \"sec-returns-windows\", \"derivation\": \"sec-returns-windows gives the rule; applying it to the values in the question yields 57.00\"}\nANSWER>>>\n"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "ba85e0cb260695f919fed99032ca5576ae676fb845f3c27bd10e94e527c372ff"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"correct\": false, \"confidence\": 0.351, \"why\": \"does not follow from sec-restocking\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 864.65,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 8190,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 173,
+    "output_reasoning": 0,
+    "output_visible": 42,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8190,
+      "input_tokens": 173,
+      "output_tokens": 42
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

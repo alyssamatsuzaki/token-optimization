@@ -1,0 +1,97 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "d1ad3431ca5ad2e50607d209e49149cfba89bf3b8fcbc00530cd863663c9835b",
+  "latency_ms": 1360.66,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"correct\": true, \"confidence\": 0.98, \"why\": \"checked against sec-returns-windows\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_d1ad3431ca5ad2e5",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8190,
+      "input_tokens": 133,
+      "output_tokens": 46
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 8190,
+    "input_tokens": 133,
+    "output_tokens": 46
+  },
+  "recorded_at": "2026-09-14T15:05:34.963832+00:00",
+  "request": {
+    "max_tokens": 150,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Customer question: How long is the return window for camp stoves and cookware for someone in the Alpine tier, in days?\n\nAnswer under review:\n<<<ANSWER\n{\"answer\": \"75\", \"evidence\": \"## Return windows by category  The base return window runs from the delivery date, not the order date.\", \"section\": \"sec-returns-windows\"}\nANSWER>>>\n"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "ba85e0cb260695f919fed99032ca5576ae676fb845f3c27bd10e94e527c372ff"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"correct\": true, \"confidence\": 0.98, \"why\": \"checked against sec-returns-windows\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 854.66,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 8190,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 133,
+    "output_reasoning": 0,
+    "output_visible": 46,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8190,
+      "input_tokens": 133,
+      "output_tokens": 46
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

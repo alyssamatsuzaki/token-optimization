@@ -41,7 +41,7 @@ cascade, each edge labelled with the share of tasks that flows along it.
 > vouch for."
 
 The cascade summary underneath shows the search: **2,601 threshold settings
-evaluated in 0.27 seconds**, on recorded answers, costing nothing.
+evaluated in 0.20 seconds**, on recorded answers, costing nothing.
 
 ## 0:45 — Run the proof (25 s)
 
@@ -89,8 +89,8 @@ Click **Open trace** on any disagreement.
 
 Close with the honest part:
 
-> "The proof cost **$15.10** to produce and repays after
-> **334 tasks**. And these fixtures are simulated — this build had no
+> "The proof cost **$16.61** to produce and repays after
+> **367 tasks**. And these fixtures are simulated — this build had no
 > API credentials, so the model answers underneath are generated. The engine, the statistics and
 > every number on screen are real."
 

@@ -60,6 +60,19 @@ JUDGE_TYPE_PENALTY: dict[str, float] = {
     "exception": 0.06,
 }
 
+#: What a checkable answer buys the judge (UPGRADE_V3.md U4). An answer that shows the step
+#: from the quoted rule to the number can be *checked*; one that shows only the number has to be
+#: re-derived, and a cheap model re-deriving is a cheap model answering. The bonus lands mostly
+#: on specificity, because catching a wrong answer is where a cheap judge fails: a derivation
+#: that does not produce the stated answer is visible without knowing the right one.
+#:
+#: Invented, like every other number in this file. What is *not* invented is where it shows up:
+#: a higher-agreement judge shrinks the correction term in the active estimator, which shrinks
+#: the annotation budget for a given interval width, and the report prices that against the
+#: accuracy the contract cost. The mechanism is real; the size is a simulator parameter.
+CHECKABLE_SENSITIVITY_BONUS = 0.01
+CHECKABLE_SPECIFICITY_BONUS = 0.12
+
 #: How far the stated confidence wanders from the posterior. A judge that reported its own
 #: reliability to three decimal places would make the uncertainty feature suspiciously clean.
 CONFIDENCE_JITTER = 0.05
@@ -124,8 +137,13 @@ def posterior(sensitivity: float, specificity: float, says_correct: bool) -> flo
     return numerator / denominator if denominator else base
 
 
-def rates_for(role: str, question_type: str) -> tuple[float, float]:
-    """(sensitivity, specificity) for one judge role on one question type."""
+def rates_for(role: str, question_type: str, *, checkable: bool = False) -> tuple[float, float]:
+    """(sensitivity, specificity) for one judge role on one question type.
+
+    ``checkable`` is a property of the *answer under review*, not of the judge: the same judge
+    reading an answer that shows its derivation catches more wrong answers than one reading a
+    bare number.
+    """
     try:
         sensitivity = JUDGE_SENSITIVITY[role]
         specificity = JUDGE_SPECIFICITY[role]
@@ -135,7 +153,26 @@ def rates_for(role: str, question_type: str) -> tuple[float, float]:
             f"{', '.join(sorted(JUDGE_SENSITIVITY))}"
         ) from None
     penalty = JUDGE_TYPE_PENALTY.get(question_type, 0.0)
-    return max(0.5, sensitivity - penalty), max(0.5, specificity - penalty)
+    if checkable:
+        sensitivity += CHECKABLE_SENSITIVITY_BONUS
+        specificity += CHECKABLE_SPECIFICITY_BONUS
+    return (
+        min(0.999, max(0.5, sensitivity - penalty)),
+        min(0.999, max(0.5, specificity - penalty)),
+    )
+
+
+def is_checkable(answer: str) -> bool:
+    """Whether the answer under review shows the step from its rule to its number.
+
+    Read off the answer itself rather than passed in as a flag, because that is what makes the
+    lever honest: the judge is better because the answer carries something checkable, not
+    because a configuration said it should be.
+    """
+    from tokop.workloads.grading import extract_json_answer
+
+    payload = extract_json_answer(answer)
+    return bool(payload and str(payload.get("derivation", "")).strip())
 
 
 class DemoJudgeResponder:
@@ -186,7 +223,9 @@ class DemoJudgeResponder:
         from tokop.workloads.grading import grade
 
         truth = grade(answer, item.gold, item.answer_type, item.aliases).correct
-        sensitivity, specificity = rates_for(role, item.question_type)
+        sensitivity, specificity = rates_for(
+            role, item.question_type, checkable=is_checkable(answer)
+        )
         hit_rate = sensitivity if truth else specificity
         digest = _answer_hash(answer)
         agrees = _draw(request.model, item.id, digest, "verdict") < hit_rate

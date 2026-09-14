@@ -20,6 +20,7 @@ savings repay it.
 | B0 Current pipeline | 95.5% (91.7–97.6) | $0.05172 ~ ($0.05037–$0.05341) | 100% |
 | B1 Cache-friendly order | 95.5% (91.7–97.6) | $0.01088 ~ ($0.01058–$0.01127) | 100% |
 | B2 CLEAR rewrite with an output contract | 97.0% (93.6–98.6) | $0.00648 ~ ($0.00633–$0.00666) | 100% |
+| B2c Checkable output contract | 94.5% (90.4–96.9) | $0.00768 ~ ($0.00745–$0.00796) | 100% |
 | B3 Cascade on the B2 prompt | 96.0% (92.3–98.0) | $0.00425 ~ ($0.00376–$0.00477) | 36% |
 
 **Verdict: Inconclusive: about 4 more tasks would settle it**
@@ -29,8 +30,18 @@ savings repay it.
 - Cost per successful task falls from $0.05172 to $0.00425, a 91.8% reduction.
 - 23% of tasks reached the frontier model (claude-opus-5).
 - McNemar exact p = 1.000 on 13 discordant pairs.
-- The proof itself cost $15.1022 and repays after 334 tasks.
+- The proof itself cost $16.6071 and repays after 367 tasks.
 - Prices: 1d339a1b5b0556ab, all verified against the provider's own page.
+
+**What checkability costs** — B2c is B2's prompt plus one line showing how the quoted rule produces the answer:
+
+| Pipeline | Cheap judge agrees with the strong grader | Strong labels needed | Annotation | Accuracy | Generation |
+| --- | --- | --- | --- | --- | --- |
+| B2 CLEAR rewrite with an output contract | 83.7% | 89% of tasks | $1.2412 | 97.0% | $1.2567 |
+| B2c Checkable output contract | 93.0% | 78% of tasks | $1.1064 | 94.5% | $1.4521 |
+
+- Judge agreement moves +9.4 points and accuracy -2.5 points. The accuracy cost is reported with its sign; a row that showed the saving and hid it would be the most tempting dishonesty in this product.
+- Annotation saving $0.13473 against a generation premium of $0.19545000 at a target standard error of 0.01: net $-0.06072000 — **it does not pay here**.
 
 **Without the answer key** — the same test split graded by claude-haiku-4-5-20251001 on every task, corrected from 44 tasks re-graded by claude-opus-5:
 
@@ -166,11 +177,48 @@ the same interval width. That last figure is allowed to be the *smaller* one: a 
 unreliable enough that mixing does not pay, and Tokop reports the cost-optimal sampling rate
 rather than selling a saving that is not there.
 
-Two things it does not claim. The estimate targets the **strong grader's** mean, not a perfect
-one; a strong grader that is itself wrong moves the target and no weight can correct for that.
-And the cascade's operating point is still calibrated against labels — only the test comparison
-is label-free so far. Both limitations are rendered on the screen, in the CLI and in the metrics
-block above, not buried here.
+One thing it does not claim: the estimate targets the **strong grader's** mean, not a perfect
+one. A strong grader that is itself wrong moves the target and no weight can correct for that.
+That limitation is rendered on the screen, in the CLI and in the metrics block above, not buried
+here.
+
+## Calibrating the router without labels either
+
+The cascade's thresholds are fitted on a calibration split, which under `grading: judged` has no
+answer key. The substitute is a vote over repeated generations, and the vote is the thing to be
+careful about — majority votes on unlabelled data are spurious often enough to poison what they
+train. So `penalized-v1` borrows the correction rather than the confidence: a tier does not vote
+on its own label, a distribution with no clear winner is excluded **and counted**, and a tier
+that confidently disagrees with the consensus has its disagreement weighted up rather than
+softened.
+
+    tokop prove --workload W --calibration penalized-v1
+
+What that is worth is measured against the naive vote on a calibration set built around the
+failure: a cheap model whose mistakes *repeat* — the same confusable answer, five draws out of
+five. The naive vote reads that repetition as correctness and routes **every task** to the cheap
+tier; the penalized version excludes those tasks and lands within one percentage point of the
+gold-calibrated accuracy floor. That check is in `make verify` by name.
+
+What it cannot do is see a wrong answer every tier agrees on. Nothing label-free can, and the
+module says so rather than leaving it to be discovered.
+
+## What checkability costs, and what it buys
+
+A contract that asks the model to show the step from the rule it quoted to the number it returned
+makes the answer cheaper to *check*. That matters in dollars: a cheap judge that agrees with the
+strong grader more often has a smaller correction term, and a smaller correction term needs fewer
+strong labels for the same interval width.
+
+It is also not free. On this workload the contract lifts judge agreement from 83.7% to 93.0% and
+cuts the annotation bill from $1.2412 to $1.1064 — and costs 7,406 extra output tokens and **2.5
+accuracy points**. Net: **it does not pay here**, and the waterfall row says so with the accuracy
+delta carrying its sign. Kirchner et al. call that a legibility tax and measure it; this is the
+rare place it has a price.
+
+The two halves are reported apart rather than netted into one number, because they recur
+differently: the annotation saving is paid once per evaluation, the generation premium on every
+task the pipeline ever runs.
 
 ## The gate
 
@@ -252,8 +300,9 @@ engine is what would make savings billable — you cannot invoice against "it se
 
 - **A cascade needs labelled examples from the distribution it will serve** — around 100 per
   workload. Below about 30 the thresholds are fitted to noise, and Tokop warns rather than
-  quietly proceeding. Judged grading removes that requirement from the *test* comparison only;
-  calibration still needs labels.
+  quietly proceeding. Judged grading removes that requirement from the test comparison and
+  `--calibration penalized-v1` removes it from calibration, at the cost of excluding the tasks
+  whose answer distribution settles nothing — a count the report always shows.
 - **The judged estimate is unbiased for the strong grader, not for the truth.** If your frontier
   judge or your reviewer is wrong, the estimate is centred on their answer. What the correction
   removes completely is the cheap judge's bias, and it reports how large that was.
@@ -286,10 +335,14 @@ In rough order, from the exclusions this version made on purpose:
 1. ~~**Judges and human rating for unlabelled workloads**~~ — shipped in M9. `grading: judged`,
    `tokop annotate`, and a cost-optimal allocation policy; see "Proving a workload nobody
    labelled" above. What is still labelled is calibration.
-2. **Calibrating the router without labels**, so a judged workload is label-free end to end.
-3. **An upload wizard** for YAML, JSONL or CSV workloads.
-4. **LangGraph trace import** — the pipeline spec already uses nodes, edges and shared state.
-5. **Experiments**: semantic caching with its own false-hit evaluation, and TRIM-style output
+2. ~~**Calibrating the router without labels**~~ — shipped in M10, along with a priced
+   checkable-output-contract lever; see the two sections above.
+3. **Certificates that expire**, with a canary that re-runs a stratified subset on a schedule and
+   spends alpha across looks, and **dataset provenance** that refuses to certify an eval set whose
+   tail has thinned.
+4. **An upload wizard** for YAML, JSONL or CSV workloads.
+5. **LangGraph trace import** — the pipeline spec already uses nodes, edges and shared state.
+6. **Experiments**: semantic caching with its own false-hit evaluation, and TRIM-style output
    compression.
 
 Deliberately out of scope, and staying that way: browser automation of consumer AI apps, reuse of

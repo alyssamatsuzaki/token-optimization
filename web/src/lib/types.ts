@@ -131,6 +131,73 @@ export interface JudgedView {
   caveats: string[];
 }
 
+/**
+ * What a checkable output contract costs and what it buys (UPGRADE_V3.md U4).
+ *
+ * `accuracy_delta` is allowed to be negative — a contract that makes an answer easy to check
+ * can make it harder to get right — and the screen renders it with its sign either way.
+ */
+export interface ContractView {
+  available: boolean;
+  reason?: string;
+  baseline_pipeline: string;
+  candidate_pipeline: string;
+  target_standard_error: number;
+  n: number;
+  annotated: number;
+  judge: { kind: string; model_id: string; method: string };
+  strong_grader: { source: string; model_id: string | null };
+  arms: {
+    pipeline: string;
+    label: string;
+    checkable: boolean;
+    judge_agreement_with_strong_grader: number;
+    judge_mean_square_error: number;
+    sampling_rate_for_target: number;
+    annotation_cost_for_target_usd: string;
+    accuracy: number;
+    generation_cost_usd: string;
+    output_tokens: number;
+  }[];
+  accuracy_delta: number;
+  agreement_delta: number;
+  annotation_saving_usd: string;
+  generation_premium_usd: string;
+  net_on_evaluation_split_usd: string;
+  pays_for_itself: boolean;
+  note: string;
+  origin: string;
+}
+
+/** Where the cascade's calibration labels came from (UPGRADE_V3.md U3). */
+export interface CalibrationView {
+  mode: string;
+  description: string;
+  thresholds: number[];
+  accuracy_floor: number;
+  excluded: number;
+  n: number;
+  alternatives: {
+    kind: string;
+    description: string;
+    thresholds: number[];
+    max_threshold_gap: number;
+    excluded: number;
+    excluded_share: number;
+    kept: number;
+    label_agreement_with_gold: Record<string, number | null>;
+    test_accuracy: number;
+    test_cost_per_task_usd: string;
+  }[];
+  note: string;
+  limits: string;
+  fixtures_can_exercise_this: {
+    answer: boolean;
+    reason: string;
+    min_label_agreement_with_gold: number | null;
+  };
+}
+
 export interface ProofView {
   baseline: ArmView;
   candidate: ArmView;
@@ -307,6 +374,8 @@ export interface Report {
   provenance: ProvenanceView;
   proof: ProofView;
   judged: JudgedView;
+  calibration: CalibrationView;
+  contract: ContractView;
   waterfall: WaterfallStepView[];
   cascade: CascadeView;
   findings: FindingView[];

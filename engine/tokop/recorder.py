@@ -10,7 +10,8 @@ is discovered after a few dollars rather than after twenty:
    within 3 points of the frontier (the set is too easy to show escalation).
 3. B2 on the **test** split with each tier. With step 1 this completes the response matrix the
    cascade simulator needs.
-4. B0 and B1 on the test split with the frontier model.
+4. The single-call pipelines on the test split with the frontier model: B0 and B1, and B2c if
+   the workload defines one.
 
 The same code drives two very different things. Against live providers it is ``make record``,
 capped by ``RECORD_BUDGET_USD``. Against the deterministic simulated provider it builds
@@ -184,6 +185,7 @@ class Recorder:
             self.tiers,
             pipeline_id,
             pipeline.output_contract,
+            pipeline.checkable,
         )
         inner = SimulatedAdapter(
             simulated_profiles(self.registry, list(self.registry.models)), responder
@@ -275,9 +277,12 @@ class Recorder:
         for tier in ("cheap", "mid", "frontier"):
             keep(await self._step("B2", "test", tier, test, matrix_samples))
 
-        # 4. B0 and B1 on test with the frontier model.
-        for pipeline_id in ("B0", "B1"):
-            keep(await self._step(pipeline_id, "test", "frontier", test))
+        # 4. Every remaining single-call pipeline on test with the frontier model. B0 and B1
+        #    are the waterfall's first two steps; B2c is the checkable-contract lever
+        #    (UPGRADE_V3.md U4), which is a pipeline like any other and is priced like one.
+        for pipeline_id in ("B0", "B1", "B2c"):
+            if pipeline_id in self.workload.pipelines:
+                keep(await self._step(pipeline_id, "test", "frontier", test))
 
         report.cassette_count = len(self.store)
         return report

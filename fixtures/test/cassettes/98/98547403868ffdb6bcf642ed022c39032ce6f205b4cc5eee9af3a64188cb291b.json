@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "98547403868ffdb6bcf642ed022c39032ce6f205b4cc5eee9af3a64188cb291b",
+  "latency_ms": 2199.24,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"89\", \"evidence\": \"A return is counted as started on the day the customer requests a return authorisation, not the day the parcel arrives back at the warehouse.\", \"section\": \"sec-returns-windows\", \"derivation\": \"sec-returns-windows gives the rule; applying it to the values in the question yields 89\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_98547403868ffdb6",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8390,
+      "input_tokens": 51,
+      "output_tokens": 127
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 8390,
+    "input_tokens": 51,
+    "output_tokens": 127
+  },
+  "recorded_at": "2026-09-14T15:02:49.127520+00:00",
+  "request": {
+    "max_tokens": 320,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "A Summit member bought sleeping bags during the holiday window. How many days do they have to return it?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "8cb7948632bba9c3390e6aa3e2f4bd016cfc3cb30370890af28bc3b208fa7be9"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"89\", \"evidence\": \"A return is counted as started on the day the customer requests a return authorisation, not the day the parcel arrives back at the warehouse.\", \"section\": \"sec-returns-windows\", \"derivation\": \"sec-returns-windows gives the rule; applying it to the values in the question yields 89\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 802.24,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 8390,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 51,
+    "output_reasoning": 0,
+    "output_visible": 127,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8390,
+      "input_tokens": 51,
+      "output_tokens": 127
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

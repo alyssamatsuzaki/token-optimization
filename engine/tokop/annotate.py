@@ -233,6 +233,7 @@ def run_annotation(
     provider: str = "simulated",
     origin: str = "simulated",
     queue_path: Path | None = None,
+    contract: bool = False,
 ) -> AnnotationRun:
     """Run the annotation plan. ``arms`` comes from :func:`arms_for_annotation`."""
     judge = workload.judge
@@ -495,7 +496,7 @@ def run_annotation(
             "must treat as never sampled."
         )
     run.annotations = annotations
-    run.path = annotations_path(fixtures_root)
+    run.path = annotations_path(fixtures_root, contract=contract)
     annotations.write(run.path)
     return run
 
@@ -533,10 +534,17 @@ def build_demo_annotations(
     seed: int | None = None,
     protect_scarce: bool = False,
     taken: date | None = None,
+    contract: bool = False,
 ) -> AnnotationRun:
-    """Annotate the demo workload from the committed fixtures. Spends nothing."""
+    """Annotate the demo workload from the committed fixtures. Spends nothing.
+
+    ``contract`` points the same machinery at the checkable-contract pair (UPGRADE_V3.md U4)
+    instead of at the proof's two arms, and writes its own set. Same judge, same prompt, same
+    prices: the only difference between the two runs is which answers are under review, which
+    is what makes the agreement figures comparable.
+    """
     from tokop.core.registry import load_registry
-    from tokop.optimize.report import arms_for_annotation
+    from tokop.optimize.report import arms_for_annotation, arms_for_contract
     from tokop.paths import fixtures_dir
     from tokop.recording_state import describe as describe_recording
     from tokop.workloads.demo.dataset import build as build_dataset
@@ -551,7 +559,7 @@ def build_demo_annotations(
     )
     snapshot = registry.snapshot(list(registry.roles.values()), taken or date(2026, 9, 11))
     root = fixtures_dir() / describe_recording().fixture_source
-    arms = arms_for_annotation(protect_scarce=protect_scarce)
+    arms = arms_for_contract() if contract else arms_for_annotation(protect_scarce=protect_scarce)
     return run_annotation(
         fixtures_root=root,
         workload=workload,
@@ -565,4 +573,5 @@ def build_demo_annotations(
         seed=seed,
         provider="simulated",
         origin=str(arms.get("origin", "simulated")),
+        contract=contract,
     )

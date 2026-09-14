@@ -14,15 +14,15 @@
 | M7 Finish | **done** | README, DEMO, ARCHITECTURE, Dockerfile, critique, spec review, CI gate |
 | M8 Pluggable scorers | **done** | scorer registry, `self-consistency-v1`, sampling charged, comparison |
 | M9 Proof without gold | **done** | `grading: judged`, `tokop annotate`, cost-optimal allocation, adversarial judge test |
+| M10 Label-free calibration, priced checkability | **done** | `penalized-v1` pseudo-labels, B2c contract lever, negative-delta disclosure |
 
 ## Next
 
-**M10: U3 and U4** — calibrate the router when there are no labels either, and price a checkable
-output contract. M9 made the *test* comparison label-free; the cascade's thresholds and its
-scorer are still fitted against labelled calibration tasks, and the judged block says so on every
-surface it appears on. U3 closes that. U4 then makes the judge's job easier on purpose and prices
-what that buys, which on these fixtures is the difference between a cost-optimal sampling rate of
-100% and something below it.
+**M11: U5 and U8** — certificates that expire, and dataset provenance. A proof is currently a
+snapshot with a price hash and nothing invalidates it when a provider ships a new model revision
+under the same name; `tokop canary` re-runs a stratified subset on a schedule with alpha spending
+across looks. U8 then makes every certificate carry where its task set came from, and refuses to
+certify above a synthetic-share threshold.
 
 Still outstanding, and still the blocker for the same two things: **a live recording of a small
 split**. Every number turns from simulated to recorded, and the scorer comparison in D27 becomes
@@ -77,6 +77,55 @@ the mean rate it promised once the floor clipped (D32), and the strong grader's 
 was 38% low because it carried the cheap model's token counts across a tokenizer-generation
 boundary (D29.6).
 
+## Calibrating without labels, and pricing checkability (M10, UPGRADE_V3.md U3 and U4)
+
+**U3.** `optimize/pseudolabels.py` stands in for an answer key on the calibration split, with two
+registered kinds so the comparison is always in front of you: `majority-vote`, implemented
+honestly rather than as a straw man, and `penalized-v1`, which borrows RESTRAIN's mechanism — a
+tier does not vote on its own label, a distribution with no clear winner is excluded and counted,
+and confident disagreement with the consensus is weighted **up** rather than softened.
+`tokop prove --calibration penalized-v1` runs the whole proof on a label-free operating point.
+
+**And the demo's fixtures cannot say whether it works.** Every pseudo-label on the calibration
+split agrees with the answer key, under *both* kinds. That is a fact about the noise model, not
+about the method: the simulated provider draws wrong answers independently and each is a
+different perturbation, so the correct answer is the unique plurality almost every time and a
+majority vote cannot go wrong here. The report computes that diagnosis rather than asserting it,
+and prints it on the screen and in the CLI.
+
+So the acceptance check is a constructed calibration set, built around the failure rather than
+around the result: a cheap tier whose mistakes *repeat* — the same confusable answer five draws
+out of five, on 60% of the tasks it gets wrong, with the mid tier sharing it. At every committed
+seed the naive vote reads that repetition as correctness and the search routes **everything** to
+the cheap tier (threshold 0.00 against gold's 0.78–0.98), with an accuracy floor 21 to 31 points
+too low. The penalized version excludes those tasks, agrees with the answer key on what survives,
+and lands within 0.012 of the gold accuracy floor. Three earlier fixtures were tried and rejected
+for measuring noise; D34 records why.
+
+**U4.** B2c is B2's prompt plus one line showing how the quoted rule produces the answer — a new
+waterfall row between the rewrite and the cascade, found from the spec rather than hardcoded.
+`tokop annotate --contract` judges the B2/B2c pair with the same judge, the same prompt and the
+same prices as the proof's own annotation run, so the agreement figures are one comparison rather
+than two experiments.
+
+| Pipeline | Judge agrees with the strong grader | Strong labels needed | Annotation | Accuracy | Generation |
+| --- | --- | --- | --- | --- | --- |
+| B2 CLEAR rewrite | 83.7% | 89% of tasks | $1.2412 | 97.0% | $1.2567 |
+| B2c Checkable contract | 93.0% | 78% of tasks | $1.1064 | 94.5% | $1.4521 |
+
+Both priced at the same stated target: a standard error of one accuracy point. The contract buys
+$0.1347 of annotation. It costs 7,406 extra output tokens ($0.1955) and **2.5 accuracy points**.
+Net on the evaluation split: **−$0.0607. It does not pay here.**
+
+That is the headline, and the machinery exists to make sure it stays the headline. The accuracy
+delta is rendered with its sign on the screen, in the CLI and in the README's generated block,
+and `make verify` runs the disclosure check by name. The saving and the premium are reported
+apart rather than netted: the annotation saving is paid once per evaluation, the generation
+premium on every task the pipeline ever runs.
+
+The proof cost moved from $15.10 to $16.61, repaying after 367 tasks instead of 334, because
+B2c's test run is money spent exploring the waterfall and lands where B1's always has.
+
 ## Demo result (simulated test fixtures, 200-task test split)
 
 Generated into README.md by `tokop report --write-readme`. Headline: B0 $0.05172 per successful
@@ -91,10 +140,14 @@ These are simulated, not recorded (DECISIONS.md D1).
 
 ## Known issues
 
-- `make verify` runs all 15 checks with none skipped.
-- **The cascade's operating point is still calibrated against gold labels.** Only the test
-  comparison is label-free. That is U3 (M10), and until it lands the judged block carries the
-  limitation as a caveat rendered verbatim in the UI, the CLI and the README.
+- `make verify` runs all 17 checks with none skipped.
+- **The demo's own calibration is still gold, by choice.** `--calibration penalized-v1` runs the
+  label-free path end to end, and the demo reports what it would have chosen; the shipped
+  operating point stays gold because the fixtures cannot show whether the label-free one is any
+  good (D34.3). One flag switches it.
+- **The legibility tax and the checkability bonus are invented parameters.** The mechanism runs
+  end to end over recorded calls; their sizes come from `workloads/demo/`, and every surface that
+  shows a number derived from them labels it simulated.
 - **A judged proof needs one sample per task.** The judge reviews the answer the cascade
   returned, and only the first generation of each task has been judged, so `tokop annotate`
   refuses an operating point that draws more. The demo's is `logistic-v1` at k=1.
@@ -160,8 +213,8 @@ everything around it.
   Playwright's own resolution when that path is absent, which is everywhere but here.
 
 438 engine tests, 39 Playwright tests, 91% line coverage on `core/` and `optimize/`.
-`make verify`: 12 checks, none skipped, green. (At M9: 549 engine tests, 41 Playwright tests,
-91% coverage, 15 checks.)
+`make verify`: 12 checks, none skipped, green. (At M10: 599 engine tests, 43 Playwright tests,
+91% coverage, 17 checks.)
 
 ## The tokenizer divergence (D26)
 
@@ -244,5 +297,5 @@ byte-identical. 466 engine tests, 91% line coverage, `make verify` green on all 
 
 ## Where the build stands
 
-549 engine tests, 41 Playwright tests, 91% line coverage on `core/` and `optimize/`.
-`make verify`: 15 checks, none skipped, green.
+599 engine tests, 43 Playwright tests, 91% line coverage on `core/` and `optimize/`.
+`make verify`: 17 checks, none skipped, green.

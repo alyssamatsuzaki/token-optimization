@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "f29bea71d2d1ac07f37ac3c437e3a4a8192f4aa92aae73aefbb78a4e33ca0173",
+  "latency_ms": 2259.76,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"17.95\", \"evidence\": \"Return shipping is paid by the customer unless the return is for a manufacturing defect, in which case Northwind Ridge Outfitters pays it.\", \"section\": \"sec-shipping-fees\", \"derivation\": \"sec-shipping-fees gives the rule; applying it to the values in the question yields 17.95\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_f29bea71d2d1ac07",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8390,
+      "input_tokens": 60,
+      "output_tokens": 125
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 8390,
+    "input_tokens": 60,
+    "output_tokens": 125
+  },
+  "recorded_at": "2026-09-14T15:02:48.918635+00:00",
+  "request": {
+    "max_tokens": 320,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Work out the shipping charged on a $32 order, 14 lb, to Zone 1 (in-state), for a Summit member."
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "8cb7948632bba9c3390e6aa3e2f4bd016cfc3cb30370890af28bc3b208fa7be9"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"17.95\", \"evidence\": \"Return shipping is paid by the customer unless the return is for a manufacturing defect, in which case Northwind Ridge Outfitters pays it.\", \"section\": \"sec-shipping-fees\", \"derivation\": \"sec-shipping-fees gives the rule; applying it to the values in the question yields 17.95\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 884.76,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 8390,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 60,
+    "output_reasoning": 0,
+    "output_visible": 125,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8390,
+      "input_tokens": 60,
+      "output_tokens": 125
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

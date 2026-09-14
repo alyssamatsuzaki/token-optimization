@@ -119,6 +119,51 @@ test("build candidate, run proof, and read the verdict", async ({ page }) => {
   }
 });
 
+test("the screen says where the cascade's thresholds came from", async ({ page }) => {
+  await openOptimize(page);
+  await page.getByTestId("build-candidate").click();
+  await page.getByTestId("run-proof").click();
+
+  const calibration = report.calibration;
+  await expect(page.getByTestId("calibration-thresholds")).toContainText(
+    calibration.thresholds[0].toFixed(2),
+  );
+  // A label-free calibration is measured beside the labelled one, and when these fixtures
+  // cannot exercise the difference the screen says so rather than implying a result.
+  if (calibration.alternatives.length > 0 && !calibration.fixtures_can_exercise_this.answer) {
+    await expect(page.getByTestId("calibration-limits")).toContainText(
+      calibration.fixtures_can_exercise_this.reason.slice(0, 60),
+    );
+  }
+});
+
+test("the checkability row shows the accuracy it cost, not just the money it saved", async ({
+  page,
+}) => {
+  await openOptimize(page);
+  await page.getByTestId("build-candidate").click();
+  await page.getByTestId("run-proof").click();
+
+  const contract = report.contract;
+  if (!contract.available) {
+    await expect(page.getByTestId("contract-unavailable")).toContainText(contract.reason);
+    return;
+  }
+
+  // UPGRADE_V3.md U4: the row is allowed to show a negative accuracy delta, and must.
+  const delta = page.getByTestId("contract-accuracy-delta");
+  const sign = contract.accuracy_delta >= 0 ? "+" : "-";
+  await expect(delta).toHaveText(
+    `${sign}${Math.abs(contract.accuracy_delta * 100).toFixed(1)}`,
+  );
+
+  const table = page.getByTestId("contract-table");
+  for (const arm of contract.arms as { pipeline: string }[]) {
+    await expect(table).toContainText(arm.pipeline);
+  }
+  await expect(page.getByTestId("contract-verdict")).toContainText("net ");
+});
+
 test("the proof without the answer key shows what the judge alone would have said", async ({
   page,
 }) => {

@@ -1,0 +1,97 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "d04e9439c7bacfb0b1686813157fc2a8b1fe115aab1a69bf3e1fe92376eaf91e",
+  "latency_ms": 1315.41,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"correct\": true, \"confidence\": 0.98, \"why\": \"checked against sec-loyalty\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_d04e9439c7bacfb0",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8190,
+      "input_tokens": 142,
+      "output_tokens": 42
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 8190,
+    "input_tokens": 142,
+    "output_tokens": 42
+  },
+  "recorded_at": "2026-09-14T15:05:34.740734+00:00",
+  "request": {
+    "max_tokens": 150,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Customer question: What is the annual fee for the Summit tier?\n\nAnswer under review:\n<<<ANSWER\n{\"answer\": \"49.00\", \"evidence\": \"## Loyalty tiers  Every customer sits in one of three tiers.\", \"section\": \"sec-loyalty\", \"derivation\": \"sec-loyalty gives the rule; applying it to the values in the question yields 49.00\"}\nANSWER>>>\n"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "ba85e0cb260695f919fed99032ca5576ae676fb845f3c27bd10e94e527c372ff"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"correct\": true, \"confidence\": 0.98, \"why\": \"checked against sec-loyalty\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 853.41,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 8190,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 142,
+    "output_reasoning": 0,
+    "output_visible": 42,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8190,
+      "input_tokens": 142,
+      "output_tokens": 42
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

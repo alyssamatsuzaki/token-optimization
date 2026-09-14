@@ -316,14 +316,21 @@ def fit_tier_scorer(
     *,
     C: float = 1.0,
     seed: int = 20260911,
+    sample_weights: Sequence[float] | None = None,
 ) -> tuple[TierScorer, list[ScorerWarning]]:
     """Fit one tier's scorer on the calibration split.
 
     ``labels`` come from the checker, not from a scorer: fitting is the *only* moment a scorer
     is allowed anywhere near a grade, and even then it sees the label, never the gold answer.
+
+    ``sample_weights`` lets a caller say how much each label is worth. A gold label is worth one;
+    a pseudo-label standing in for one is worth what the consensus behind it is worth
+    (UPGRADE_V3.md U3, ``optimize/pseudolabels.py``).
     """
     if len(views) != len(labels):
         raise ScorerError(f"{len(views)} views but {len(labels)} labels")
+    if sample_weights is not None and len(sample_weights) != len(views):
+        raise ScorerError(f"{len(views)} views but {len(sample_weights)} weights")
     if not views:
         raise ScorerError("a scorer needs at least one calibration example")
 
@@ -371,7 +378,7 @@ def fit_tier_scorer(
     # L2 is scikit-learn's default penalty; passing penalty="l2" explicitly is deprecated from
     # 1.8 and removed in 1.10, so the regularization is L2 by default rather than by argument.
     model = LogisticRegression(C=C, max_iter=1000, random_state=seed)
-    model.fit(scaled, y)
+    model.fit(scaled, y, sample_weight=None if sample_weights is None else list(sample_weights))
     return (
         TierScorer(
             tier=tier,
@@ -467,6 +474,12 @@ class ScorerContext:
     #: Samples drawn per scored task at serving time. 1 is one call, the ordinary case.
     k: int = 1
     C: float = 1.0
+    #: Per-example fitting weights, one per calibration view. ``None`` means every example
+    #: counts equally, which is what a gold label deserves. Pseudo-labels do not: a label
+    #: standing in for an answer key is only as good as the consensus behind it, so
+    #: ``optimize/pseudolabels.py`` supplies a weight per example and the fit honours it
+    #: (UPGRADE_V3.md U3).
+    sample_weights: tuple[float, ...] | None = None
 
 
 FitFn = Callable[
@@ -535,6 +548,7 @@ def _fit_logistic(
         context.feature_names,
         C=context.C,
         seed=context.seed,
+        sample_weights=context.sample_weights,
     )
     return scorer, warnings
 
@@ -777,7 +791,11 @@ def fit_self_consistency(
 
     scaled = scaler.fit_transform(matrix)
     model = LogisticRegression(C=context.C, max_iter=1000, random_state=context.seed)
-    model.fit(scaled, y)
+    model.fit(
+        scaled,
+        y,
+        sample_weight=None if context.sample_weights is None else list(context.sample_weights),
+    )
     return (
         SelfConsistencyScorer(
             tier=tier,

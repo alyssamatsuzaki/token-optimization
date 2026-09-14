@@ -1,0 +1,97 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "6c4237287a15a49c000049a97e1002c61a0293b0276982e861d42eda40ac6b9c",
+  "latency_ms": 414.83,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"correct\": false, \"confidence\": 0.343, \"why\": \"does not follow from sec-warranty\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_6c4237287a15a49c",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 6300,
+      "input_tokens": 131,
+      "output_tokens": 32
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 6300,
+    "input_tokens": 131,
+    "output_tokens": 32
+  },
+  "recorded_at": "2026-09-14T15:05:19.489117+00:00",
+  "request": {
+    "max_tokens": 150,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Customer question: Warranty length for navigation electronics in years?\n\nAnswer under review:\n<<<ANSWER\n{\"answer\": \"2\", \"evidence\": \"A rope that has been climbed on, a sole that has been walked down, and a stove that has been run for three seasons are all working as expected, not failing.\", \"section\": \"sec-warranty\", \"derivation\": \"sec-warranty gives the rule; applying it to the values in the question yields 2\"}\nANSWER>>>\n"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "ba85e0cb260695f919fed99032ca5576ae676fb845f3c27bd10e94e527c372ff"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"correct\": false, \"confidence\": 0.343, \"why\": \"does not follow from sec-warranty\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 302.83,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 6300,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 131,
+    "output_reasoning": 0,
+    "output_visible": 32,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 6300,
+      "input_tokens": 131,
+      "output_tokens": 32
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

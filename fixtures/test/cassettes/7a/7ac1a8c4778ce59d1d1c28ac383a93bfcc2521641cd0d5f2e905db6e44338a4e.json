@@ -1,0 +1,97 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "7ac1a8c4778ce59d1d1c28ac383a93bfcc2521641cd0d5f2e905db6e44338a4e",
+  "latency_ms": 1259.21,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"correct\": true, \"confidence\": 0.98, \"why\": \"checked against sec-shipping-fees\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_7ac1a8c4778ce59d",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8190,
+      "input_tokens": 146,
+      "output_tokens": 44
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 8190,
+    "input_tokens": 146,
+    "output_tokens": 44
+  },
+  "recorded_at": "2026-09-14T15:05:34.995723+00:00",
+  "request": {
+    "max_tokens": 150,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Customer question: What do we charge to send 18 lb to Zone 4 (Alaska and Hawaii)?\n\nAnswer under review:\n<<<ANSWER\n{\"answer\": \"57.95\", \"evidence\": \"Weight bands are inclusive of their upper bound: a parcel weighing exactly 5 lb falls in the \\\"over 2 lb up to 5 lb\\\" band, not the next one up.\", \"section\": \"sec-shipping-fees\"}\nANSWER>>>\n"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "ba85e0cb260695f919fed99032ca5576ae676fb845f3c27bd10e94e527c372ff"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"correct\": true, \"confidence\": 0.98, \"why\": \"checked against sec-shipping-fees\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 775.21,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 8190,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 146,
+    "output_reasoning": 0,
+    "output_visible": 44,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8190,
+      "input_tokens": 146,
+      "output_tokens": 44
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

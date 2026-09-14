@@ -194,6 +194,14 @@ that is not organisational: the allocation reads disagreement between the two ar
 candidate arm is a cascade whose per-task tier is only known once calibration has chosen an
 operating point. `DECISIONS.md` D29 records the rest.
 
+`pseudolabels.py` stands in for an answer key on the **calibration** split, for the other half of
+the same problem: thresholds have to be fitted somehow, and a workload with no labels has none
+there either. Two kinds are registered so the comparison is always available — a plain majority
+vote over pooled generations, and `penalized-v1`, which will not let a tier vote on its own
+label, excludes and counts distributions with no clear winner, and weights confident disagreement
+up rather than down. A tier's own repetition is the failure it is built for: a cheap model whose
+mistakes repeat looks, to a majority vote, exactly like a cheap model that is right.
+
 ## Modes
 
 | | replay | live |
@@ -227,9 +235,9 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
 
 ## Testing
 
-- **549 engine tests**, 91% line coverage on `core/` and `optimize/`
+- **599 engine tests**, 91% line coverage on `core/` and `optimize/`
   (`pytest --cov=tokop/core --cov=tokop/optimize`).
-- **41 Playwright tests** against the production build in replay mode.
+- **43 Playwright tests** against the production build in replay mode.
 - **Exit-code tests for `tokop prove`** run through a subprocess, because an exit code asserted
   in-process is not the thing CI observes. They pin the case that matters: an *inconclusive*
   verdict fails the build.
@@ -241,11 +249,14 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
   **judge-isolation test** that does the same for the verifier and the allocation policy.
 - An **adversarial judge test**, which is a release blocker: a judge that marks 20% of one class
   of correct answers wrong must break the naive estimate and not the corrected one.
+- A **label-free calibration test** over a constructed set where a cheap tier's mistakes repeat,
+  and a **negative-delta disclosure test** that fails if the checkable-contract row ever reports
+  the money it saved without the accuracy it cost.
 - A **variance-reduction test** that compares the allocation policy against uniform sampling at
   the same budget by evaluating the estimator's variance exactly, rather than by drawing once
   and eyeballing the interval.
-- `make verify` runs all fifteen checks in SPEC.md section 10 plus the UPGRADE_V3.md acceptance
-  checks, in order, and prints `VERIFY PASSED (15 checks)`.
+- `make verify` runs all seventeen checks in SPEC.md section 10 plus the UPGRADE_V3.md acceptance
+  checks, in order, and prints `VERIFY PASSED (17 checks)`.
 
 ## What is simulated in this build
 
@@ -256,8 +267,8 @@ model's minimum — and emits Anthropic-shaped usage payloads so the real normal
 them.
 
 What it cannot simulate is whether a model is actually right; answer quality comes from a
-responder with a per-tier, per-difficulty accuracy model. A second responder invents how often a
-*judge* is wrong, with sensitivity and specificity given separately because the characteristic
+responder with a per-tier, per-difficulty accuracy model, plus a legibility tax when a pipeline
+asks for a checkable answer. A second responder invents how often a *judge* is wrong, with sensitivity and specificity given separately because the characteristic
 LLM-judge failure is leniency rather than error. Everything downstream is real code over those
 traces, and every surface that displays a number derived from them labels it simulated.
 `DECISIONS.md` D1 records the whole arrangement, and D29 records why the guarantee U1 rests on is

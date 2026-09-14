@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import typer
@@ -142,6 +143,11 @@ def annotate(
     queue_results: str = typer.Option(
         "", "--queue-results", help="Fold a completed review queue back into the annotation set."
     ),
+    contract: bool = typer.Option(
+        False,
+        "--contract",
+        help="Judge the checkable-contract pair instead of the proof's two arms (U4).",
+    ),
 ) -> None:
     """Buy the strong labels the judged proof corrects a cheap judge with (UPGRADE_V3.md U1).
 
@@ -171,13 +177,14 @@ def annotate(
             typer.echo(f"no review queue at {source}", err=True)
             raise typer.Exit(2)
         try:
-            existing = AnnotationSet.read(annotations_path(root))
+            existing = AnnotationSet.read(annotations_path(root, contract=contract))
             merged, filled = merge_queue_results(existing, source.read_text())
         except AnnotationError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(2) from exc
-        merged.write(annotations_path(root))
-        typer.echo(f"folded {filled} reviewed items into {annotations_path(root).name}")
+        target = annotations_path(root, contract=contract)
+        merged.write(target)
+        typer.echo(f"folded {filled} reviewed items into {target.name}")
         return
 
     try:
@@ -185,6 +192,7 @@ def annotate(
             budget_usd=None if budget < 0 else _Decimal(str(budget)),
             policy=policy or None,
             strong_grader=("human" if queue else (strong_grader or None)),
+            contract=contract,
         )
     except (AnnotationStopped, AnnotationError) as exc:
         typer.echo(str(exc), err=True)
@@ -208,6 +216,85 @@ def annotate(
         typer.echo(f"wrote {run.path.relative_to(repo_root())}")
         if annotations.origin != "recorded":
             typer.echo("\nNOTE: simulated verdicts, not a recording (DECISIONS.md D1).", err=True)
+
+
+def _echo_calibration(calibration: dict[str, Any]) -> None:
+    """Where the operating point's labels came from, and what a label-free one would pick."""
+    typer.echo("")
+    typer.echo(
+        f"CALIBRATION:   {calibration['mode']} — "
+        f"{', '.join(f'{t:.2f}' for t in calibration['thresholds'][:-1])} at a "
+        f"{calibration['accuracy_floor']:.1%} accuracy floor"
+        + (
+            f", {calibration['excluded']} of {calibration['n']} tasks excluded"
+            if calibration["excluded"]
+            else ""
+        )
+    )
+    for alternative in calibration["alternatives"]:
+        agreement = [
+            value
+            for value in alternative["label_agreement_with_gold"].values()
+            if value is not None
+        ]
+        typer.echo(
+            f"  {alternative['kind']:15} "
+            f"{', '.join(f'{t:.2f}' for t in alternative['thresholds'][:-1])}  "
+            f"(gap {alternative['max_threshold_gap']:.2f}, "
+            f"{alternative['excluded']} excluded"
+            + (
+                f", labels agree {min(agreement):.0%}"
+                if agreement
+                else ", agreement not computable"
+            )
+            + ")"
+        )
+    exercise = calibration["fixtures_can_exercise_this"]
+    if calibration["alternatives"] and not exercise["answer"]:
+        typer.echo(f"  {exercise['reason']}")
+
+
+def _echo_contract(contract: dict[str, Any]) -> None:
+    """What the checkable output contract costs and what it buys (UPGRADE_V3.md U4)."""
+    typer.echo("")
+    if not contract.get("available"):
+        typer.echo(f"CHECKABILITY:  not priced — {contract.get('reason', 'no reason given')}")
+        return
+    typer.echo(
+        f"CHECKABILITY:  {contract['candidate_pipeline']} against "
+        f"{contract['baseline_pipeline']}, judged by {contract['judge']['model_id']} and "
+        f"corrected by {contract['annotated']} of {contract['n']} strong-graded tasks"
+    )
+    header = (
+        f"  {'pipeline':10}{'judge agrees':>14}{'sample rate':>13}"
+        f"{'annotation $':>14}{'accuracy':>10}{'generation $':>14}"
+    )
+    typer.echo(header)
+    typer.echo("  " + "-" * (len(header) - 2))
+    for arm in contract["arms"]:
+        typer.echo(
+            f"  {arm['pipeline']:10}"
+            f"{arm['judge_agreement_with_strong_grader']:>13.1%}"
+            f"{arm['sampling_rate_for_target']:>13.1%}"
+            f"{float(arm['annotation_cost_for_target_usd']):>14.4f}"
+            f"{arm['accuracy']:>10.1%}"
+            f"{float(arm['generation_cost_usd']):>14.4f}"
+        )
+    typer.echo(
+        f"  the contract moves judge agreement {contract['agreement_delta'] * 100:+.1f} points "
+        f"and accuracy {contract['accuracy_delta'] * 100:+.1f} points"
+    )
+    typer.echo(
+        f"  annotation saving ${contract['annotation_saving_usd']} against a generation premium "
+        f"of ${contract['generation_premium_usd']}: "
+        + (
+            "it pays for itself on this split"
+            if contract["pays_for_itself"]
+            else f"net ${contract['net_on_evaluation_split_usd']} — it does not pay here"
+        )
+        + f" (target standard error {contract['target_standard_error']:.2f})"
+    )
+    typer.echo(f"  {contract['note']}")
 
 
 def _echo_judged(judged: dict[str, Any]) -> None:
@@ -261,6 +348,14 @@ def prove(
         "--annotation-budget",
         help="Replay the judged estimate at a smaller annotation budget, in dollars.",
     ),
+    calibration: str = typer.Option(
+        "",
+        "--calibration",
+        help=(
+            "Where calibration labels come from: gold, penalized-v1 or majority-vote. "
+            "Defaults to the workload's grading mode."
+        ),
+    ),
 ) -> None:
     """Run the proof for a candidate pipeline against a baseline.
 
@@ -280,9 +375,20 @@ def prove(
         raise typer.Exit(2)
 
     # The margin is applied, not echoed: the verdict below is computed against this number.
+    from tokop.optimize.pseudolabels import GOLD, PSEUDO_LABEL_REGISTRY
+
+    if calibration and calibration not in {GOLD, *PSEUDO_LABEL_REGISTRY}:
+        typer.echo(
+            f"--calibration must be one of {', '.join([GOLD, *sorted(PSEUDO_LABEL_REGISTRY)])}, "
+            f"not {calibration!r}.",
+            err=True,
+        )
+        raise typer.Exit(2)
+
     payload = build_report(
         margin=margin,
         annotation_budget=None if annotation_budget < 0 else _Decimal(str(annotation_budget)),
+        calibration=calibration or None,
     )
     proof = payload["proof"]
     if workload != "data/demo/workload.yaml":
@@ -317,6 +423,8 @@ def prove(
         typer.echo(f", repaid after {proof['repayment_tasks']:,} tasks")
     else:
         typer.echo("")
+    _echo_calibration(payload["calibration"])
+    _echo_contract(payload["contract"])
     judged = payload["judged"]
     if workload_has_judge(payload):
         _echo_judged(judged)
@@ -588,58 +696,67 @@ def fixtures_check() -> None:
 def _check_annotations() -> list[tuple[str, bool | None, str]]:
     """Replay every verdict an annotation set records and assert it matches its cassette.
 
-    The annotation set is a committed artifact holding numbers that reach the screen, so it has
+    An annotation set is a committed artifact holding numbers that reach the screen, so it has
     to be checkable the way the dataset is: regenerate from the source and compare. The source
     here is the judge call itself. A verdict that no longer matches the reply it came from means
     either the parser changed or the file was edited, and both are defects.
     """
-    from tokop.adapters.cassette import CassetteStore
     from tokop.optimize.annotation import AnnotationError, AnnotationSet, annotations_path
     from tokop.paths import fixtures_dir
-    from tokop.workloads.verification import verifier_kind
 
     checks: list[tuple[str, bool | None, str]] = []
     for kind in ("demo", "test"):
         root = fixtures_dir() / kind
-        path = annotations_path(root)
-        if not path.exists():
-            continue
-        try:
-            annotations = AnnotationSet.read(path)
-        except AnnotationError as exc:
-            checks.append((f"fixtures/{kind}: annotations.json", False, str(exc)))
-            continue
-        store = CassetteStore(root / "cassettes")
-        parse = verifier_kind(str(annotations.judge["kind"])).parse
-        missing: list[str] = []
-        disagreeing: list[str] = []
-        replayed = 0
-        for item in annotations.items:
-            for name, arm in (("baseline", item.baseline), ("candidate", item.candidate)):
-                pairs: list[tuple[str, int | None]] = [(arm.judge_cassette_key, arm.judge_correct)]
-                if arm.strong_cassette_key is not None:
-                    pairs.append((arm.strong_cassette_key, arm.strong_correct))
-                for key, recorded in pairs:
-                    cassette = store.get(key)
-                    if cassette is None:
-                        missing.append(f"{item.task_id}.{name}")
-                        continue
-                    replayed += 1
-                    verdict = parse(cassette.response_text)
-                    stored = recorded if recorded is not None else verdict.correct
-                    if verdict.correct != stored:
-                        disagreeing.append(f"{item.task_id}.{name}")
-        ok = not missing and not disagreeing
-        detail = f"{replayed} judge verdicts replayed from cassettes, all matching"
-        if missing:
-            detail = f"{len(missing)} verdicts name a cassette that is not there: {missing[:3]}"
-        elif disagreeing:
-            detail = (
-                f"{len(disagreeing)} verdicts disagree with the reply they came from: "
-                f"{disagreeing[:3]}"
-            )
-        checks.append((f"fixtures/{kind}: every recorded verdict matches its call", ok, detail))
+        for contract in (False, True):
+            path = annotations_path(root, contract=contract)
+            if not path.exists():
+                continue
+            try:
+                annotations = AnnotationSet.read(path)
+            except AnnotationError as exc:
+                checks.append((f"fixtures/{kind}: {path.name}", False, str(exc)))
+                continue
+            checks.append(_replay_verdicts(kind, root, path, annotations))
     return checks
+
+
+def _replay_verdicts(
+    kind: str, root: Path, path: Path, annotations: Any
+) -> tuple[str, bool | None, str]:
+    """One annotation set's verdicts, re-read from the calls they came from."""
+    from tokop.adapters.cassette import CassetteStore
+    from tokop.workloads.verification import verifier_kind
+
+    store = CassetteStore(root / "cassettes")
+    parse = verifier_kind(str(annotations.judge["kind"])).parse
+    missing: list[str] = []
+    disagreeing: list[str] = []
+    replayed = 0
+    for item in annotations.items:
+        for name, arm in (("baseline", item.baseline), ("candidate", item.candidate)):
+            pairs: list[tuple[str, int | None]] = [(arm.judge_cassette_key, arm.judge_correct)]
+            if arm.strong_cassette_key is not None:
+                pairs.append((arm.strong_cassette_key, arm.strong_correct))
+            for key, recorded in pairs:
+                cassette = store.get(key)
+                if cassette is None:
+                    missing.append(f"{item.task_id}.{name}")
+                    continue
+                replayed += 1
+                verdict = parse(cassette.response_text)
+                stored = recorded if recorded is not None else verdict.correct
+                if verdict.correct != stored:
+                    disagreeing.append(f"{item.task_id}.{name}")
+
+    ok = not missing and not disagreeing
+    detail = f"{replayed} judge verdicts replayed from cassettes, all matching"
+    if missing:
+        detail = f"{len(missing)} verdicts name a cassette that is not there: {missing[:3]}"
+    elif disagreeing:
+        detail = (
+            f"{len(disagreeing)} verdicts disagree with the reply they came from: {disagreeing[:3]}"
+        )
+    return (f"fixtures/{kind}: every verdict in {path.name} matches its call", ok, detail)
 
 
 def _check_fixture_dirs() -> list[tuple[str, bool | None, str]]:

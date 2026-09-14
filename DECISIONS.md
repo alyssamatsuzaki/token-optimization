@@ -561,3 +561,120 @@ with the split it was computed over.
 So the row is on Optimize, immediately under the verdict it qualifies, as a section titled
 **Without the answer key**. Reality wins over the document (CLAUDE.md), and the conservative
 option is the one that puts a number next to the thing it is about.
+
+## D34 — M10: calibrating without labels, and pricing what checkability buys
+
+**The goal.** `UPGRADE_V3.md` U3 and U4. M9 made the *test* comparison label-free; the cascade's
+thresholds were still fitted against gold. U3 removes that. U4 then makes the judge's job easier
+on purpose and prices what that costs.
+
+1. **A pseudo-label is a vote, and the vote is the thing to be careful about.**
+   `optimize/pseudolabels.py` registers two kinds so the comparison is always available:
+   `majority-vote`, implemented honestly rather than as a straw man, and `penalized-v1`, which
+   borrows RESTRAIN's *mechanism* — penalize the rollouts that would otherwise dominate the vote
+   — and none of its results. Three corrections, each of which is a way the naive version goes
+   wrong: a tier does not vote on its own label; a distribution with no clear winner is excluded
+   and counted; and confident disagreement with the consensus is weighted **up**, not softened.
+
+2. **Exclusion is by margin, not by entropy.** "Close to uniform" sounds like an entropy rule and
+   is not one: normalized by sample count, a 5/5/5 split reads as 0.4 and looks decisive. The
+   rule that actually captures "the plurality is an accident of the draw" is the margin — how far
+   ahead the winner is — with a uniformity cutoff measured against the *number of clusters* as a
+   second net. A task is excluded when the pooled distribution has no clear winner or any single
+   tier's leave-one-out reference does not, because the threshold search needs the same tasks at
+   every tier.
+
+3. **What the demo's fixtures can say about this: nothing, and the report says so.** Every
+   pseudo-label on the demo's calibration split agrees with the answer key, under both kinds. That
+   is not evidence the method works. The simulated provider draws wrong answers independently and
+   each one is a *different* perturbation, so the correct answer is the unique plurality almost
+   every time and a majority vote cannot go wrong there. `calibration.fixtures_can_exercise_this`
+   is computed, not asserted, and prints that reason on the screen and in the CLI. This is D27's
+   discipline applied to a second mechanism: ship it, measure it, withhold the conclusion.
+
+4. **So the acceptance check is a constructed calibration set, and it is constructed around the
+   failure rather than around the result.** `tests/test_pseudolabels.py` builds a cheap tier with
+   a *characteristic* error: on 60% of the tasks it gets wrong it produces the same confusable
+   answer five draws out of five, and the mid tier shares it. That is what a real model does and
+   what the simulator deliberately does not. The naive vote reads five identical wrong answers as
+   correctness, the cheap tier's apparent accuracy goes up, the frontier's goes down, and the
+   search **routes everything to the cheap tier** — threshold 0.00 against gold's 0.78 to 0.98, at
+   every committed seed. The penalized version excludes those tasks, agrees with the answer key on
+   what survives, and lands within 0.06 to 0.38 of the gold thresholds with an accuracy floor
+   within 0.012 of gold's against the naive version's 21 to 31 points low.
+
+5. **Three earlier fixtures were tried and rejected, and the reason matters.** A poisoned subset
+   that hit all tiers equally barely moved the threshold, because the floor and the tier
+   accuracies deflate together and largely cancel. A two-tier version made leave-one-out too
+   fragile to mean anything. A version poisoning only hard tasks biased the calibration set by
+   construction. The fixture that works is the one where the label error is *asymmetric across
+   tiers*, which is also the realistic one — a cheap model's characteristic error is its own, not
+   the frontier's. The threshold argmin on the discarded fixtures was a flat surface and the
+   comparison was noise; asserting on it would have been asserting on a seed.
+
+6. **A checkable output contract is a pipeline, not a mode.** `PipelineSpec.checkable` marks it,
+   B2c is B2's prompt plus one line showing how the quoted rule produces the answer, and the
+   waterfall finds it from the spec rather than from a hardcoded id. The simulated judge's bonus
+   is read off the *answer* — does it carry a derivation? — rather than passed in as a flag, so
+   the judge is better because the answer is checkable and not because a configuration said so.
+
+7. **The lever is priced against a stated interval width.** At a uniform rate the active
+   estimator's variance is `mse (1 - pi) / (pi T)`, so `pi = mse / (mse + T se^2)` is the sample a
+   given judge needs for a given standard error. Both contracts are priced at the same target —
+   one accuracy point of standard error, about plus or minus two points of interval — and the
+   target is named in the payload so a reader can see it was not chosen after the fact.
+
+8. **The answer on these fixtures is that it does not pay, and that is the headline.** The
+   contract lifts the cheap judge's agreement with the strong grader from 83.7% to 93.0%, which
+   cuts the strong labels needed from 89% of tasks to 78% and the annotation bill from $1.2412 to
+   $1.1064 — a saving of $0.1347. It costs 7,406 extra output tokens ($0.1955) and **2.5 accuracy
+   points**. Net on the evaluation split: **-$0.0607**. `pays_for_itself: false`.
+
+   The accuracy delta is reported with its sign on every surface, and
+   `tests/test_contract.py::TestItNeverSuppressesANegativeAccuracyDelta` is a named check in
+   `make verify` because a row that showed the saving and hid the cost is the single most tempting
+   dishonesty in this product. The saving and the premium are also kept apart rather than netted
+   into one number: the annotation saving is paid once per evaluation and the generation premium
+   is paid on every task the pipeline ever runs, so a contract that wins on the split can still
+   lose in production.
+
+9. **The proof cost moved, correctly.** $15.10 to $16.61, repaying after 367 tasks rather than
+   334, because B2c's test run is money spent exploring the waterfall and lands in
+   `other_pipelines_usd` like B1's always has.
+
+**What M10 does not establish.** The size of the legibility tax and the size of the checkability
+bonus are invented parameters in `workloads/demo/`. The *mechanism* is real and runs end to end
+over recorded calls; the numbers are a simulator's. What is not a simulator's is the disclosure
+rule, which is tested against the payload rather than against the fixtures.
+
+## D35 — The annotation machinery is pointed at a second pair rather than generalized
+
+U4 needs judge and strong-grader verdicts on the B2/B2c pair, and M9 already had machinery that
+judges two arms, allocates a budget across them, draws, and commits a set. Rather than widen
+`AnnotationSet` to hold three arms — which would have made every consumer handle a shape that
+only one caller produces — `tokop annotate --contract` runs the *same* code over a different pair
+and writes `contract-annotations.json` beside `annotations.json`.
+
+Same judge, same prompt, same prices, same allocation policy. That is what makes the two
+agreement figures comparable at all: the only thing that differs between the runs is which
+answers are under review. `tokop fixtures-check` now replays both sets — 488 verdicts in one and
+502 in the other — against the cassettes they name.
+
+## D36 — `uncertainty_proportional_rates` is solved, not clipped (see also D32)
+
+Recorded here as well because U3's and U4's budgets both depend on it: the function now solves
+for the scale by bisection so `mean(clip(lambda * u, floor, 1))` hits the target exactly. Every
+"what would this cost" figure in the contract row rests on the rate being the rate that was asked
+for.
+
+## D37 — The blob-count test asserted a property of the fixtures, not of the store
+
+`test_blobs_deduplicate_the_handbook` asserted `blob_count() < 20`. The judge prompts added in M9
+carry the answer under review, and B0's answers are essays, so a long *unique* string correctly
+gets a blob of its own and the count went to 206.
+
+The test's name says what it was for, and the count was never it. It now asserts the dedup
+property directly: the handbook appears in at most three distinct blobs — one per wrapper text —
+across 6,026 calls, and the blob count stays below a tenth of the call count. A cap on the total
+would have been a cap on how many long strings the fixtures are allowed to contain, which is not
+a property anybody wants to freeze.

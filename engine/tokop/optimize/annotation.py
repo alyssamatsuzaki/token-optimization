@@ -62,9 +62,13 @@ ANNOTATION_SCHEMA = "tokop.annotation-set.v1"
 #: Where an annotation set lives, next to the fixtures it was drawn against.
 ANNOTATIONS_FILE = "annotations.json"
 
+#: The second set: the same machinery pointed at the checkable-contract pair rather than at the
+#: proof's two arms, so the lever in UPGRADE_V3.md U4 can be priced in the same units.
+CONTRACT_ANNOTATIONS_FILE = "contract-annotations.json"
 
-def annotations_path(root: Path) -> Path:
-    return root / ANNOTATIONS_FILE
+
+def annotations_path(root: Path, *, contract: bool = False) -> Path:
+    return root / (CONTRACT_ANNOTATIONS_FILE if contract else ANNOTATIONS_FILE)
 
 
 class AnnotationError(ValueError):
@@ -271,6 +275,51 @@ def strong_only_items_for_width(variance_h: float, standard_error: float) -> int
     if standard_error <= 0 or variance_h == 0:
         return None
     return math.ceil(variance_h / (standard_error**2))
+
+
+def rate_for_standard_error(
+    mean_square_error: float, n: int, target_standard_error: float
+) -> float:
+    """The uniform sampling rate that buys a given standard error (UPGRADE_V3.md U4).
+
+    At a uniform rate ``pi`` the active estimator's variance is ``mse * (1 - pi) / (pi * T)``
+    with ``mse = E[(H - G)^2]``, so matching a target ``se`` needs
+
+        pi = mse / (mse + T * se^2)
+
+    which is the formula behind the whole checkability argument: a judge that agrees with the
+    strong grader more often has a smaller ``mse``, and a smaller ``mse`` needs a smaller
+    ``pi`` for the same interval width. Returns 1.0 when even sampling everything would not
+    reach it, and clamps to (0, 1].
+    """
+    if n <= 0:
+        raise AnnotationError("a rate needs at least one item")
+    if target_standard_error <= 0:
+        raise AnnotationError("a target standard error must be positive")
+    if mean_square_error <= 0:
+        # A judge that never disagrees with the strong grader needs no strong labels at all —
+        # except that believing that requires having checked, so the floor still applies.
+        return MIN_SAMPLING_RATE
+    denominator = mean_square_error + n * target_standard_error**2
+    return float(min(1.0, max(MIN_SAMPLING_RATE, mean_square_error / denominator)))
+
+
+def budget_for_standard_error(
+    mean_square_error: float,
+    n: int,
+    target_standard_error: float,
+    cost_cheap_per_item: Decimal,
+    cost_strong_per_item: Decimal,
+) -> tuple[Decimal, float]:
+    """(dollars, rate) to reach a target standard error with this judge.
+
+    The cheap pass is paid for every item because that is what a cheap judge is for; the strong
+    grader is paid for the sampled share. Both prices are measured, not assumed.
+    """
+    rate = rate_for_standard_error(mean_square_error, n, target_standard_error)
+    cheap = cost_cheap_per_item * Decimal(n)
+    strong = cost_strong_per_item * Decimal(str(rate)) * Decimal(n)
+    return (cheap + strong).quantize(Decimal("0.00001")), rate
 
 
 # --------------------------------------------------------------------------- the artifact

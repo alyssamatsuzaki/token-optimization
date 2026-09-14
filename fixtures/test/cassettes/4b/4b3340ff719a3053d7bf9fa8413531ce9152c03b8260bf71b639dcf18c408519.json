@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "4b3340ff719a3053d7bf9fa8413531ce9152c03b8260bf71b639dcf18c408519",
+  "latency_ms": 1831.74,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"yes\", \"evidence\": \"Missing packaging on a category that requires it is not an automatic refusal.\", \"section\": \"sec-packaging\", \"derivation\": \"sec-packaging gives the rule; applying it to the values in the question yields yes\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_4b3340ff719a3053",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8390,
+      "input_tokens": 46,
+      "output_tokens": 100
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 8390,
+    "input_tokens": 46,
+    "output_tokens": 100
+  },
+  "recorded_at": "2026-09-14T15:02:49.661250+00:00",
+  "request": {
+    "max_tokens": 320,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Is original packaging required to return camp stoves and cookware? Yes or no."
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "8cb7948632bba9c3390e6aa3e2f4bd016cfc3cb30370890af28bc3b208fa7be9"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"yes\", \"evidence\": \"Missing packaging on a category that requires it is not an automatic refusal.\", \"section\": \"sec-packaging\", \"derivation\": \"sec-packaging gives the rule; applying it to the values in the question yields yes\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 731.74,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 8390,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 46,
+    "output_reasoning": 0,
+    "output_visible": 100,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8390,
+      "input_tokens": 46,
+      "output_tokens": 100
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

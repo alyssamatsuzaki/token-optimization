@@ -315,6 +315,68 @@ pipelines:
       - label: question
         text: "{{question}}"
 
+  # ------------------------------------------------------------------ B2c
+  B2c:
+    name: Checkable output contract
+    description: >-
+      B2's prompt with one addition: the model must show the step from the rule it quoted to
+      the number it returned. Nothing else changes — same model, same handbook, same cache
+      breakpoint. The point of the lever is not the answer, it is that a cheap verifier can
+      check the answer against the derivation instead of re-deriving it, which is what moves
+      the annotation budget (UPGRADE_V3.md U4).
+    model_role: frontier
+    max_tokens: 320
+    output_contract: json_answer
+    checkable: true
+    notes:
+      - >-
+        It is allowed to be worse. Kirchner et al. measure a legibility tax — optimizing a
+        chain of thought for legibility costs test performance — and if this contract costs
+        accuracy here, the waterfall row shows the negative delta next to the dollars it saved
+        rather than reporting whichever half is flattering.
+      - >-
+        The extra output tokens are real money and are charged to this row like any other
+        generation. Tokop is the rare place where legibility has a price tag, because the
+        buyer of legibility is the annotation budget.
+    system:
+      - label: instructions
+        text: |
+          You are a returns-policy specialist at Northwind Ridge Outfitters. You answer one
+          customer question at a time using only the handbook below.
+
+          Task: read the question, find the rule that governs it, and return the answer.
+
+          How to get it right:
+          - Work out the category first, then any exception, then the loyalty tier, then the
+            seasonal extension. Exceptions override general rules; the more restrictive wins.
+          - Return windows are counted from the delivery date; warranties run from the purchase
+            date. They are different questions.
+          - Give money to the cent and windows in whole days.
+          - Use only the handbook. If it does not cover the question, answer "not covered".
+
+          Reply with one JSON object and nothing else:
+
+          {"answer": "...", "evidence": "<verbatim quote from the handbook>", "section": "<section id>", "derivation": "<rule -> inputs -> result, one line>"}
+
+          - answer: the value only. A number with no units, a dollar amount with no symbol,
+            "yes", "no", or the exact key the question asks for.
+          - evidence: a quote copied exactly from the handbook that contains the rule you used.
+          - section: the id of the section you quoted, such as sec-returns-windows.
+          - derivation: one line showing how the quoted rule produces the answer, with the
+            numbers you used. Someone who has the handbook must be able to check the answer
+            from this line without redoing your reasoning.
+      - label: handbook
+        text: |
+          Handbook:
+
+          {{handbook}}
+        cache: 5m
+      - label: timestamp
+        text: "{{timestamp}}"
+    user:
+      - label: question
+        text: "{{question}}"
+
 cascades:
   # ------------------------------------------------------------------ B3
   B3:
