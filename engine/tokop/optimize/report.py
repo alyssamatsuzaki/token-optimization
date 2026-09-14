@@ -569,6 +569,96 @@ def _horvitz_thompson(values: Sequence[float], rates: Sequence[float], n: int) -
     return sum(value / rate for value, rate in zip(values, rates, strict=True)) / n
 
 
+def canary_observation(
+    payload: ReportPayload, *, fraction: float, seed: int
+) -> tuple[int, float, float]:
+    """Re-score a stratified subset of the current report: (size, delta, standard error).
+
+    The subset is stratified by question type because a canary that happened to draw only
+    lookups would miss exactly the drift worth catching — a cascade's risk lives in its hardest
+    types, and those are its smallest strata.
+    """
+    from tokop.optimize.certificate import paired_delta, stratified_subset
+
+    per_task = payload["proof"]["per_task"]
+    task_ids = list(per_task["task_ids"])
+    by_type = {b["question_type"]: b for b in payload["proof"]["by_type"]}
+    workload = load_workload(repo_root() / "data/demo/workload.yaml")
+    bundle = build_dataset(
+        size=workload.dataset.size,
+        calibration_size=workload.dataset.calibration_size,
+        seed=workload.dataset.seed,
+    )
+    types = {item.id: item.question_type for item in bundle.test}
+    strata = [types.get(task_id, "unknown") for task_id in task_ids]
+    if not by_type:  # pragma: no cover - defensive; the demo always has types
+        strata = ["all"] * len(task_ids)
+
+    chosen = set(stratified_subset(task_ids, strata, fraction, seed))
+    index = [i for i, task_id in enumerate(task_ids) if task_id in chosen]
+    baseline = [int(per_task["baseline_correct"][i]) for i in index]
+    candidate = [int(per_task["candidate_correct"][i]) for i in index]
+    delta, standard_error = paired_delta(baseline, candidate)
+    return len(index), delta, standard_error
+
+
+def current_identity(payload: ReportPayload) -> dict[str, Any]:
+    """What the world says today about the models, prices and modes a certificate rests on."""
+    provenance = payload["provenance"]
+    return {
+        "model_snapshots": [
+            {
+                "role": role,
+                "model_id": model_id,
+                "snapshot": f"{model_id}@{provenance.get('recorded_at') or 'unrecorded'}",
+            }
+            for role, model_id in sorted(provenance["model_ids"].items())
+        ],
+        "price_snapshot_id": str(provenance["price_snapshot_id"]),
+        "grading_mode": str(payload["workload"].get("grading", "gold")),
+        "calibration_mode": str(payload["calibration"]["mode"]),
+    }
+
+
+def dataset_provenance_block(workload: WorkloadSpec, bundle: DatasetBundle) -> dict[str, Any]:
+    """Where the task set came from, and whether it can back a certificate (UPGRADE_V3.md U8).
+
+    The declared origins come from the workload; the shape — template coverage, how much of the
+    set sits in rarely-seen templates, how concentrated it is — is computed from the items. A
+    workload that declares nothing gets a block saying so and is refused, because "we did not
+    say" and "it is fine" have to look different.
+    """
+    from tokop.workloads.demo.generator import all_templates
+    from tokop.workloads.provenance import DeclaredProvenance, build_provenance
+
+    declared_spec = workload.dataset_provenance
+    declared = (
+        DeclaredProvenance(
+            real_traffic_items=declared_spec.real_traffic_items,
+            model_generated_items=declared_spec.model_generated_items,
+            program_generated_items=declared_spec.program_generated_items,
+            generators=tuple(declared_spec.generators),
+            decoding_budget=declared_spec.decoding_budget,
+            relabelled_by_frozen_reference=declared_spec.relabelled_by_frozen_reference,
+            real_traffic_accumulating=declared_spec.real_traffic_accumulating,
+            notes=tuple(declared_spec.notes),
+        )
+        if declared_spec is not None
+        else DeclaredProvenance(
+            notes=(
+                "This workload declares no `dataset_provenance:` block, so nothing is known "
+                "about where its tasks came from.",
+            )
+        )
+    )
+    provenance = build_provenance(
+        [item.template_id for item in bundle.items],
+        [template.id for template in all_templates()],
+        declared,
+    )
+    return {**provenance.as_dict(), "declared": declared_spec is not None}
+
+
 def _contract_block(
     root: Path,
     workload: WorkloadSpec,
@@ -1360,6 +1450,7 @@ def build_report(
     )
 
     contract_block = _contract_block(root, workload, runs, tiers[-1], origin)
+    provenance_block = dataset_provenance_block(workload, bundle)
 
     # ------------------------------------------------- 6b. the same proof, scorer by scorer
     #
@@ -1522,6 +1613,7 @@ def build_report(
             "description": workload.description,
             "margin": effective_margin,
             "workload_margin": workload.margin,
+            "grading": workload.grading,
             "latency_sensitive": workload.latency_sensitive,
             "dataset": {
                 "size": len(bundle.items),
@@ -1560,6 +1652,7 @@ def build_report(
         "judged": judged,
         "calibration": calibration_block,
         "contract": contract_block,
+        "dataset_provenance": provenance_block,
         "waterfall": [
             {
                 **step.as_dict(),
@@ -2046,6 +2139,25 @@ METRICS_START = "<!-- metrics:start -->"
 METRICS_END = "<!-- metrics:end -->"
 
 
+def _provenance_metrics_lines(payload: ReportPayload) -> list[str]:
+    """Where the task set came from, and whether it can certify (UPGRADE_V3.md U8)."""
+    block = payload["dataset_provenance"]
+    shape = block["shape"]
+    lines = [
+        f"**Where these tasks came from** — {block['n']} items: "
+        f"{block['real_traffic_items']} from real traffic, "
+        f"{block['model_generated_items']} written by a model, "
+        f"{block['program_generated_items']} templated by a program. "
+        f"{shape['templates_present']} of {shape['template_space']} question templates appear "
+        f"({shape['tail_coverage'] * 100:.0f}% tail coverage).",
+        "",
+        f"- **Certifiable: {'yes' if block['certifiable'] else 'no'}.**",
+    ]
+    lines += [f"  - Refused: {refusal}" for refusal in block["refusals"]]
+    lines.append("")
+    return lines
+
+
 def _contract_metrics_lines(payload: ReportPayload) -> list[str]:
     """What a checkable output contract cost and what it bought (UPGRADE_V3.md U4)."""
     contract = payload["contract"]
@@ -2227,6 +2339,7 @@ def metrics_block(payload: ReportPayload) -> str:
             else f"unverified for {', '.join(provenance['unverified_models'])}."
         ),
         "",
+        *_provenance_metrics_lines(payload),
         *_contract_metrics_lines(payload),
         *_judged_metrics_lines(payload),
         f"<sub>{mark} "

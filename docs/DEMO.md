@@ -41,7 +41,7 @@ cascade, each edge labelled with the share of tasks that flows along it.
 > vouch for."
 
 The cascade summary underneath shows the search: **2,601 threshold settings
-evaluated in 0.20 seconds**, on recorded answers, costing nothing.
+evaluated in 0.17 seconds**, on recorded answers, costing nothing.
 
 ## 0:45 — Run the proof (25 s)
 

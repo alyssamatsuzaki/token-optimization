@@ -136,3 +136,85 @@ class TestTheJudgedGate:
         result = prove("--annotation-budget", "0.30")
         assert result.returncode == 1
         assert "WITHOUT GOLD" in result.stdout
+
+
+def run_cli(*args: str) -> subprocess.CompletedProcess[str]:
+    if not TOKOP.exists():
+        pytest.skip("the tokop CLI is not installed; run make setup")
+    env = dict(os.environ, TOKOP_MODE="replay")
+    env.pop("ANTHROPIC_API_KEY", None)
+    return subprocess.run(
+        [str(TOKOP), *args],
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=repo_root(),
+        timeout=900,
+    )
+
+
+class TestTheCanaryGate:
+    """`tokop canary` exits like `tokop prove`: 0 while the certificate stands, 1 when a look
+    raises. A scheduled canary gates a deploy the way the proof gates a merge, so the exit code
+    is the interface and is tested through a subprocess (UPGRADE_V3.md U5)."""
+
+    def test_a_certificate_is_issued_and_a_look_at_it_is_clear(self, tmp_path) -> None:
+        cert = tmp_path / "cert.json"
+        issued = run_cli("certificate", "--out", str(cert))
+        assert issued.returncode == 0, issued.stdout + issued.stderr
+        assert cert.exists()
+
+        looked = run_cli("canary", "--certificate", str(cert), "--log", str(tmp_path / "log.json"))
+        assert looked.returncode == 0, looked.stdout + looked.stderr
+        assert "CANARY CLEAR" in looked.stdout
+        # Replaying the same cassettes cannot produce a different answer, and the canary says
+        # so rather than reporting a tautology as a pass.
+        assert "not tested" in looked.stdout
+
+    def test_a_swapped_snapshot_identifier_raises_and_fails_the_gate(self, tmp_path) -> None:
+        import json
+
+        cert = tmp_path / "cert.json"
+        run_cli("certificate", "--out", str(cert))
+        payload = json.loads(cert.read_text())
+        for snapshot in payload["model_snapshots"]:
+            if snapshot["role"] == "frontier":
+                snapshot["snapshot"] = snapshot["snapshot"] + "-rev2"
+        swapped = tmp_path / "swapped.json"
+        swapped.write_text(json.dumps(payload, indent=2, sort_keys=True))
+
+        result = run_cli(
+            "canary", "--certificate", str(swapped), "--log", str(tmp_path / "swapped-log.json")
+        )
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert "CANARY RAISED" in result.stdout
+        assert "frontier model changed" in result.stdout
+
+    def test_an_expired_certificate_fails_the_gate(self, tmp_path) -> None:
+        cert = tmp_path / "cert.json"
+        run_cli("certificate", "--out", str(cert))
+        result = run_cli(
+            "canary",
+            "--certificate",
+            str(cert),
+            "--log",
+            str(tmp_path / "log.json"),
+            "--today",
+            "2099-01-01",
+        )
+        assert result.returncode == 1
+        assert "expired" in result.stdout
+
+    def test_a_missing_certificate_is_refused_with_the_command_that_makes_one(
+        self, tmp_path
+    ) -> None:
+        result = run_cli("canary", "--certificate", str(tmp_path / "absent.json"))
+        assert result.returncode == 2
+        assert "tokop certificate" in result.stderr
+
+    def test_provenance_reports_and_does_not_gate(self) -> None:
+        """A set that cannot certify is a fact about the set, not a defect in the build."""
+        result = run_cli("provenance", "--check")
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "CERTIFIABLE: no" in result.stdout
+        assert "no real recorded traffic" in result.stdout

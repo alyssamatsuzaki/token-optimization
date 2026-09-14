@@ -151,6 +151,39 @@ class AnnotationSpec(BaseModel):
     model_config = {"frozen": True}
 
 
+class DatasetProvenanceSpec(BaseModel):
+    """Where the workload claims its tasks came from (UPGRADE_V3.md U8).
+
+    A claim, not a measurement. Tokop cannot look at a question and tell whether a person typed
+    it, a program templated it or a model wrote it, so the origins are declared and everything
+    the *items* reveal — template coverage, how much of the set sits in rarely-seen templates,
+    how concentrated it is — is computed beside them. Certification is refused on the pair.
+    """
+
+    #: Items taken from real recorded traffic. The only kind that is evidence about production.
+    real_traffic_items: int = 0
+    #: Items a model wrote. The ones the collapse literature is about.
+    model_generated_items: int = 0
+    #: Items a program templated. Synthetic, but nothing sampled them from a model, so they do
+    #: not compound the way a self-consuming loop does. Kept separate for that reason.
+    program_generated_items: int = 0
+    generators: list[str] = Field(default_factory=list)
+    #: Sampling budget the generators ran at. Hu et al. find a larger decoding budget mitigates
+    #: collapse; ``None`` when no model was involved and there is nothing to record.
+    decoding_budget: str | None = None
+    relabelled_by_frozen_reference: bool = False
+    real_traffic_accumulating: bool = False
+    notes: list[str] = Field(default_factory=list)
+
+    model_config = {"frozen": True}
+
+    #: The upgrade brief writes this as a share; it is stored as counts because a share cannot
+    #: be checked against the set and a count can.
+    @property
+    def declared_total(self) -> int:
+        return self.real_traffic_items + self.model_generated_items + self.program_generated_items
+
+
 class CascadeSpec(BaseModel):
     """A cascade over an existing pipeline's prompt."""
 
@@ -227,6 +260,7 @@ class WorkloadSpec(BaseModel):
     grading: GradingMode = "gold"
     judge: JudgeSpec | None = None
     annotation: AnnotationSpec | None = None
+    dataset_provenance: DatasetProvenanceSpec | None = None
     margin: float = 0.03
     #: Whether the workload has a latency requirement; drives the Batch API finding (W05).
     latency_sensitive: bool = False
@@ -312,6 +346,10 @@ def load_workload(path: Path) -> WorkloadSpec:
                 "a tier has to be called at least once"
             )
 
+    provenance_raw = raw.get("dataset_provenance") or workload.get("dataset_provenance")
+    dataset_provenance = (
+        DatasetProvenanceSpec(**provenance_raw) if isinstance(provenance_raw, dict) else None
+    )
     judge_raw = raw.get("judge") or workload.get("judge")
     judge = JudgeSpec(**judge_raw) if isinstance(judge_raw, dict) else None
     annotation_raw = raw.get("annotation") or workload.get("annotation")
@@ -323,7 +361,7 @@ def load_workload(path: Path) -> WorkloadSpec:
             "dataset's answer key; `judged` has a cheap verifier grade everything and corrects "
             "it from a sampled subset of strong labels."
         )
-    _validate_judging(path, grading, judge, annotation)
+    _validate_judging(path, grading, judge, annotation, dataset_provenance)
 
     return WorkloadSpec(
         id=str(workload["id"]),
@@ -337,6 +375,7 @@ def load_workload(path: Path) -> WorkloadSpec:
         grading=grading,  # type: ignore[arg-type]
         judge=judge,
         annotation=annotation,
+        dataset_provenance=dataset_provenance,
         margin=float(workload.get("margin", 0.03)),
         latency_sensitive=bool(workload.get("latency_sensitive", False)),
     )
@@ -347,12 +386,19 @@ def _validate_judging(
     grading: str,
     judge: JudgeSpec | None,
     annotation: AnnotationSpec | None,
+    dataset_provenance: DatasetProvenanceSpec | None = None,
 ) -> None:
     """Refuse a judged workload that cannot actually be judged.
 
     Every failure here is one a user would otherwise meet halfway through an annotation run,
     after money had been spent on the cheap judge.
     """
+    if grading == "judged" and dataset_provenance is None:
+        raise WorkloadError(
+            f"{path} declares `grading: judged` but no `dataset_provenance:` block. A judged "
+            "workload arrives without labels, so where its tasks came from is the only thing "
+            "left that says whether a certificate over it means anything (UPGRADE_V3.md U8)."
+        )
     if grading == "judged" and judge is None:
         raise WorkloadError(
             f"{path} declares `grading: judged` but defines no `judge:` block. Judged grading "

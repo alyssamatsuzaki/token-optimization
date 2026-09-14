@@ -211,11 +211,24 @@ workload:
         assert workload.judge is None
         assert workload.annotation is None
 
+    def test_judged_without_a_provenance_block_is_refused(self, tmp_path: object) -> None:
+        """A judged workload arrives without labels, so where its tasks came from is the only
+        thing left that says whether a certificate over it means anything (U8)."""
+        from tokop.workloads.spec import WorkloadError, load_workload
+
+        with pytest.raises(WorkloadError, match="no `dataset_provenance:` block"):
+            load_workload(self._write(tmp_path, "  grading: judged\n"))  # type: ignore[arg-type]
+
     def test_judged_without_a_judge_block_is_refused(self, tmp_path: object) -> None:
         from tokop.workloads.spec import WorkloadError, load_workload
 
+        extra = """  grading: judged
+
+dataset_provenance:
+  real_traffic_items: 10
+"""
         with pytest.raises(WorkloadError, match="defines no `judge:` block"):
-            load_workload(self._write(tmp_path, "  grading: judged\n"))  # type: ignore[arg-type]
+            load_workload(self._write(tmp_path, extra))  # type: ignore[arg-type]
 
     def test_an_unknown_grading_mode_is_refused(self, tmp_path: object) -> None:
         from tokop.workloads.spec import WorkloadError, load_workload

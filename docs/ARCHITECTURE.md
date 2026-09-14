@@ -148,6 +148,12 @@ accounting as everything else, and the answer graded is the one it returned rath
 first one drawn. `DECISIONS.md` D27 records why the demo measures the sampling scorer but does
 not adopt it.
 
+**`provenance.py` asks where the task set came from**, and refuses to certify on the answer. The
+declared origins are a claim the workload makes; the tail coverage, the share of items in
+rarely-seen templates and the concentration across templates are computed from the items. The
+detector that would resample a set towards human-written text is deliberately absent — it needs a
+model, and one that guessed would resample towards its own guess.
+
 **`verification.py` is the gold-free half of `grading.py`,** and the same isolation applies for a
 stronger reason. A *verifier* reads the question, the grounding document and the answer, and
 returns a verdict; it never sees gold, because a judge that could reach the answer key would make
@@ -194,6 +200,12 @@ that is not organisational: the allocation reads disagreement between the two ar
 candidate arm is a cascade whose per-task tier is only known once calibration has chosen an
 operating point. `DECISIONS.md` D29 records the rest.
 
+`certificate.py` turns a report into something with an expiry, and takes the looks that keep it
+honest. Alpha is spent across the looks a certificate plans — the looks are independent samples,
+not accumulating data, so the exact correction is a product over `(1 - alpha_k)` rather than a
+group-sequential boundary — and a changed model snapshot raises before any statistics are
+computed, because a certificate about a model that is no longer there is not a certificate.
+
 `pseudolabels.py` stands in for an answer key on the **calibration** split, for the other half of
 the same problem: thresholds have to be fitted somehow, and a workload with no labels has none
 there either. Two kinds are registered so the comparison is always available — a plain majority
@@ -235,9 +247,9 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
 
 ## Testing
 
-- **599 engine tests**, 91% line coverage on `core/` and `optimize/`
+- **653 engine tests**, 91% line coverage on `core/` and `optimize/`
   (`pytest --cov=tokop/core --cov=tokop/optimize`).
-- **43 Playwright tests** against the production build in replay mode.
+- **44 Playwright tests** against the production build in replay mode.
 - **Exit-code tests for `tokop prove`** run through a subprocess, because an exit code asserted
   in-process is not the thing CI observes. They pin the case that matters: an *inconclusive*
   verdict fails the build.
@@ -252,11 +264,14 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
 - A **label-free calibration test** over a constructed set where a cheap tier's mistakes repeat,
   and a **negative-delta disclosure test** that fails if the checkable-contract row ever reports
   the money it saved without the accuracy it cost.
+- An **alpha-spending simulation** over 40,000 certificate lifetimes, which also measures what
+  *uncorrected* weekly looking would have cost, and a **collapse-refusal test** over a set piled
+  onto a fifth of its template space.
 - A **variance-reduction test** that compares the allocation policy against uniform sampling at
   the same budget by evaluating the estimator's variance exactly, rather than by drawing once
   and eyeballing the interval.
-- `make verify` runs all seventeen checks in SPEC.md section 10 plus the UPGRADE_V3.md acceptance
-  checks, in order, and prints `VERIFY PASSED (17 checks)`.
+- `make verify` runs all nineteen checks in SPEC.md section 10 plus the UPGRADE_V3.md acceptance
+  checks, in order, and prints `VERIFY PASSED (19 checks)`.
 
 ## What is simulated in this build
 

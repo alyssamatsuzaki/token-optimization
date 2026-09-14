@@ -72,6 +72,11 @@ if have engine/.venv/bin/pytest && [ -n "$(find engine/tests -name 'test_*.py' 2
       tests/test_pseudolabels.py::TestTheAcceptanceCheck"
   run "negative-delta disclosure (U4)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
       tests/test_contract.py::TestItNeverSuppressesANegativeAccuracyDelta"
+  run "alpha spending (U5)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
+      tests/test_certificate.py::TestAlphaSpending \
+      tests/test_certificate.py::TestTheCanaryRaises"
+  run "collapse refusal (U8)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
+      tests/test_provenance.py::TestTheCollapsedFixture"
 else
   skip "pytest + coverage" "no tests yet"
   skip "adversarial judge (U1)" "no tests yet"
@@ -79,6 +84,8 @@ else
   skip "judge sees no gold (U1)" "no tests yet"
   skip "label-free calibration (U3)" "no tests yet"
   skip "negative-delta disclosure (U4)" "no tests yet"
+  skip "alpha spending (U5)" "no tests yet"
+  skip "collapse refusal (U8)" "no tests yet"
 fi
 
 # ---------------------------------------------------------------- 3. web build

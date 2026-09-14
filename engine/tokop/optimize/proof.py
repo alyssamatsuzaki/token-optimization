@@ -321,6 +321,16 @@ class Proof:
             "repayment_tasks": self.repayment_tasks(),
             "savings_per_task_usd": str(self.savings_per_task),
             "split_sizes": self.split_sizes,
+            # The per-task outcomes, so a canary can re-score a stratified subset without
+            # replaying the whole matrix and a reader can check any aggregate above by hand.
+            # Three short arrays for 200 tasks; the alternative is a second computation of the
+            # same thing somewhere else, which is how two numbers start to disagree.
+            "per_task": {
+                "task_ids": list(self.baseline.task_ids),
+                "baseline_correct": list(self.baseline.correct),
+                "candidate_correct": list(self.candidate.correct),
+                "resolved_tier": list(self.candidate.resolved_tier),
+            },
             "by_type": [b.as_dict() for b in self.by_type],
             "disagreements": [d.as_dict() for d in self.disagreements],
             "scorer_auroc": self.scorer_auroc,

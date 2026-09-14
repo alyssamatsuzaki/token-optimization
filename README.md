@@ -33,6 +33,11 @@ savings repay it.
 - The proof itself cost $16.6071 and repays after 367 tasks.
 - Prices: 1d339a1b5b0556ab, all verified against the provider's own page.
 
+**Where these tasks came from** — 300 items: 0 from real traffic, 0 written by a model, 300 templated by a program. 28 of 28 question templates appear (100% tail coverage).
+
+- **Certifiable: no.**
+  - Refused: the set contains no real recorded traffic, so it cannot certify behaviour on a distribution nobody has observed. Everything measured on it is still true about the set; none of it is yet evidence about production.
+
 **What checkability costs** — B2c is B2's prompt plus one line showing how the quoted rule produces the answer:
 
 | Pipeline | Cheap judge agrees with the strong grader | Strong labels needed | Annotation | Accuracy | Generation |
@@ -220,6 +225,51 @@ The two halves are reported apart rather than netted into one number, because th
 differently: the annotation saving is paid once per evaluation, the generation premium on every
 task the pipeline ever runs.
 
+## Certificates expire
+
+A proof is a snapshot. Nothing in it notices when a provider ships a new revision of a model
+under the same name, and vendors edit models continuously without telling you. So a certificate
+carries what it rests on — model snapshot identifiers, the price hash, the grading mode, the
+calibration mode, where the task set came from — and an expiry.
+
+    tokop certificate --out cert.json
+    tokop canary --certificate cert.json      # exits 1 when a look raises
+
+Between issue and expiry a canary takes looks: it re-scores a stratified subset and asks whether
+the accuracy difference has moved. Checking a stable quantity every week at the 5% level raises
+on more than one workload in six over a month — measured, not asserted — so alpha is spent across
+the looks the certificate plans, and the expiry is what makes that number finite. A swapped
+snapshot identifier raises immediately and is not a statistical question: the certificate is
+about a model that is no longer there.
+
+A canary replaying the recording its certificate came from has nothing to find, and reports that
+rather than a reassuring pass.
+
+## Where the tasks came from
+
+Every certificate carries a `dataset_provenance` block, and certification can be refused on it
+before a single metric is read. The failure that makes this worth doing is specific: **a cascade
+earns its savings on easy tasks and its risk lives in the tail.** An eval set whose tail has
+thinned will certify a router that fails in production, and every number on the certificate will
+look fine while it does.
+
+    tokop provenance --dataset data/demo/dataset.jsonl
+
+The block declares who wrote the items — real traffic, a model, or a program, counted separately
+because only the second is in the self-consuming loop the collapse literature describes — and
+Tokop computes what the items themselves reveal: how much of the generator's template space
+appears, how much of the set sits in rarely-seen templates, how concentrated it is.
+
+**Tokop's own demo dataset is refused.** It is 300 program-generated items with no real recorded
+traffic behind it, so it cannot certify behaviour on a distribution nobody has observed. The
+certificate is still issued and carries the refusal. That is the honest answer, and shipping a
+tool whose own demo passes its own provenance check would have meant weakening the check.
+
+The machine-generated-text detector that would let Tokop resample a user's set towards
+human-written items is **not built and refuses**: it needs a trained model, and one that guessed
+would resample the set towards its own guess. The resampling mathematics is there and tested for
+anyone who has a real detector.
+
 ## The gate
 
 `tokop prove` exits 0 only when the verdict is non-inferior, so it works as a merge gate
@@ -324,6 +374,9 @@ engine is what would make savings billable — you cannot invoice against "it se
   is not built — the loader and runner are workload-agnostic, but dataset ingestion and a
   general grader are not. `tokop prove --workload` refuses anything else by name rather than
   reporting the demo's numbers under your workload's title. `DECISIONS.md` D24.
+- **A certificate is only as good as the set it was measured on**, and Tokop's own demo set is
+  refused: it is entirely program-generated with no real traffic behind it. That refusal is the
+  feature working.
 - **No live recording has ever run.** The live path is wired and tested up to the request, but
   this build had no credentials and no budget, so every number here is simulated and labelled
   simulated. `make record` stops before spending. `DECISIONS.md` D24.
@@ -337,12 +390,14 @@ In rough order, from the exclusions this version made on purpose:
    labelled" above. What is still labelled is calibration.
 2. ~~**Calibrating the router without labels**~~ — shipped in M10, along with a priced
    checkable-output-contract lever; see the two sections above.
-3. **Certificates that expire**, with a canary that re-runs a stratified subset on a schedule and
-   spends alpha across looks, and **dataset provenance** that refuses to certify an eval set whose
-   tail has thinned.
-4. **An upload wizard** for YAML, JSONL or CSV workloads.
-5. **LangGraph trace import** — the pipeline spec already uses nodes, edges and shared state.
-6. **Experiments**: semantic caching with its own false-hit evaluation, and TRIM-style output
+3. ~~**Certificates that expire**~~ and ~~**dataset provenance**~~ — shipped in M11; see the two
+   sections above.
+4. **Semantic entropy** over meaning clusters rather than exact-match strings, with effective-k
+   reported, and a report that names every configuration statistically tied for cheapest instead
+   of one winner.
+5. **An upload wizard** for YAML, JSONL or CSV workloads.
+6. **LangGraph trace import** — the pipeline spec already uses nodes, edges and shared state.
+7. **Experiments**: semantic caching with its own false-hit evaluation, and TRIM-style output
    compression.
 
 Deliberately out of scope, and staying that way: browser automation of consumer AI apps, reuse of

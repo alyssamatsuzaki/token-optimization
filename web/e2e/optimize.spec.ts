@@ -119,6 +119,26 @@ test("build candidate, run proof, and read the verdict", async ({ page }) => {
   }
 });
 
+test("the screen says where the tasks came from and whether that can certify", async ({
+  page,
+}) => {
+  await openOptimize(page);
+  await page.getByTestId("build-candidate").click();
+  await page.getByTestId("run-proof").click();
+
+  const provenance = report.dataset_provenance;
+  await expect(page.getByTestId("provenance-tail")).toContainText(
+    `${provenance.shape.templates_present} of ${provenance.shape.template_space}`,
+  );
+  // A set that cannot certify says why, in the words the engine chose.
+  if (provenance.refusals.length > 0) {
+    const refusals = page.getByTestId("provenance-refusals");
+    for (const refusal of provenance.refusals as string[]) {
+      await expect(refusals).toContainText(refusal.slice(0, 60));
+    }
+  }
+});
+
 test("the screen says where the cascade's thresholds came from", async ({ page }) => {
   await openOptimize(page);
   await page.getByTestId("build-candidate").click();

@@ -24,6 +24,7 @@ import {
 import type {
   CalibrationView,
   ContractView,
+  DatasetProvenanceView,
   FindingView,
   JudgedView,
   Provenance,
@@ -420,6 +421,8 @@ export default function Optimize() {
             </dl>
           </Section>
 
+          <ProvenancePanel provenance={report.dataset_provenance} />
+
           <CalibrationPanel calibration={report.calibration} />
 
           <ContractPanel contract={report.contract} />
@@ -809,6 +812,63 @@ function ContractPanel({ contract }: { contract: ContractView }) {
         standard error of {contract.target_standard_error.toFixed(2)}.
       </p>
       <p className="mt-2 text-small text-graphite max-w-prose">{contract.note}</p>
+    </Section>
+  );
+}
+
+/**
+ * Where the tasks came from, and whether that is enough to certify anything (UPGRADE_V3.md U8).
+ *
+ * Sits under the verdict because it qualifies it. A cascade earns its savings on easy tasks and
+ * its risk lives in the tail, so an eval set whose tail has thinned will certify a router that
+ * fails in production — and every number above will look fine while it does.
+ */
+function ProvenancePanel({ provenance }: { provenance: DatasetProvenanceView }) {
+  if (!provenance) return null;
+  const shape = provenance.shape;
+  return (
+    <Section
+      title="Where these tasks came from"
+      subtitle={`${count(provenance.n)} items: ${count(provenance.real_traffic_items)} real traffic, ${count(provenance.model_generated_items)} model-generated, ${count(provenance.program_generated_items)} program-generated.`}
+      right={
+        <Pill tone={provenance.certifiable ? "better" : "worse"}>
+          {provenance.certifiable ? "Can certify" : "Cannot certify"}
+        </Pill>
+      }
+      id="provenance"
+    >
+      <dl className="text-small grid grid-cols-[12rem_1fr] gap-x-4 gap-y-1">
+        <dt className="text-graphite">Tail coverage</dt>
+        <dd className="tabular-nums" data-testid="provenance-tail">
+          {count(shape.templates_present)} of {count(shape.template_space)} question templates
+          present ({pct(shape.tail_coverage, 0)}), {pct(shape.tail_share, 1)} of items in
+          rarely-seen templates, concentration {shape.concentration.toFixed(2)}
+        </dd>
+        <dt className="text-graphite">Generators</dt>
+        <dd>
+          {provenance.generators.join(", ") || "none declared"}
+          {provenance.decoding_budget
+            ? `, decoding budget ${provenance.decoding_budget}`
+            : ", no decoding budget (no model wrote any of it)"}
+        </dd>
+      </dl>
+      {provenance.refusals.length > 0 && (
+        <ul
+          className="mt-3 text-small text-vermilion max-w-prose list-disc pl-5 space-y-1"
+          data-testid="provenance-refusals"
+        >
+          {provenance.refusals.map((refusal) => (
+            <li key={refusal}>{refusal}</li>
+          ))}
+        </ul>
+      )}
+      {provenance.warnings.length > 0 && (
+        <ul className="mt-2 text-small text-graphite max-w-prose list-disc pl-5 space-y-1">
+          {provenance.warnings.map((warning) => (
+            <li key={warning}>{warning}</li>
+          ))}
+        </ul>
+      )}
     </Section>
   );
 }

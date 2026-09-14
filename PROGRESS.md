@@ -15,14 +15,14 @@
 | M8 Pluggable scorers | **done** | scorer registry, `self-consistency-v1`, sampling charged, comparison |
 | M9 Proof without gold | **done** | `grading: judged`, `tokop annotate`, cost-optimal allocation, adversarial judge test |
 | M10 Label-free calibration, priced checkability | **done** | `penalized-v1` pseudo-labels, B2c contract lever, negative-delta disclosure |
+| M11 Expiry and provenance | **done** | certificates with a canary and alpha spending, dataset provenance that refuses |
 
 ## Next
 
-**M11: U5 and U8** — certificates that expire, and dataset provenance. A proof is currently a
-snapshot with a price hash and nothing invalidates it when a provider ships a new model revision
-under the same name; `tokop canary` re-runs a stratified subset on a schedule with alpha spending
-across looks. U8 then makes every certificate carry where its task set came from, and refuses to
-certify above a synthetic-share threshold.
+**M12: U6 and U7** — semantic entropy over meanings rather than strings, with effective-k
+reported beside AUROC, and a report that names every configuration statistically tied for
+cheapest rather than one winner. `sep-v1` stays refused against an API (D27.4), and D27's refusal
+to call the simulated self-consistency comparison a finding stays in force.
 
 Still outstanding, and still the blocker for the same two things: **a live recording of a small
 split**. Every number turns from simulated to recorded, and the scorer comparison in D27 becomes
@@ -126,6 +126,55 @@ premium on every task the pipeline ever runs.
 The proof cost moved from $15.10 to $16.61, repaying after 367 tasks instead of 334, because
 B2c's test run is money spent exploring the waterfall and lands where B1's always has.
 
+## Certificates expire, and this task set cannot back one (M11, UPGRADE_V3.md U5 and U8)
+
+**U5.** `tokop certificate` issues what was proven, what it rests on — model snapshot identifiers,
+the price hash, the grading mode, the calibration mode, the dataset's provenance — and when it
+stops being true. Thirty days, four weekly looks, and `tokop canary` takes them.
+
+Looking repeatedly is the part that needs care, so the correction is measured rather than argued:
+four unadjusted looks at the 5% level raise on more than 15% of workloads where nothing happened,
+and the spent schedule holds the family-wise rate at 0.05 over 40,000 simulated certificate
+lifetimes. The looks are independent draws, not accumulating data, so the exact correction is
+`alpha_k = 1 - (1 - S_k)/(1 - S_{k-1})` rather than a group-sequential boundary — D38.2 says why
+the difference matters.
+
+A swapped snapshot identifier raises immediately and is not a statistical question: the
+certificate is about a model that is no longer there. `tokop canary` exits 1 on that, on an
+expired certificate, and on a moved interval, so a scheduled canary gates a deploy the way
+`tokop prove` gates a merge.
+
+And a canary in replay has nothing to find: re-scoring the cassettes the certificate was issued
+from cannot produce a different answer, so the drift test reports *not tested* with that reason
+rather than a reassuring pass.
+
+**U8.** Every certificate now carries a `dataset_provenance` block, and the demo's own dataset is
+**refused**:
+
+    items:      300
+    origins:    0 real traffic, 0 model-generated, 300 program-generated (100% synthetic)
+    tail:       28 of 28 templates present (100%), concentration 0.21
+
+    CERTIFIABLE: no
+      refused:  the set contains no real recorded traffic, so it cannot certify behaviour on a
+                distribution nobody has observed.
+
+That is the right answer, not an inconvenience. Everything measured on this set is true about the
+set; none of it is yet evidence about anybody's production traffic. The certificate is still
+issued and carries the refusal, and `tokop provenance` reports without gating — a set that cannot
+certify is a fact about the set, not a defect in the build.
+
+Program-generated and model-generated items are counted apart, because the collapse literature is
+about a model sampling from its own output and a program templating from a policy file is not in
+that loop. The acceptance fixture is: the same number of items piled onto 4 of 20 templates,
+refused with the 16 that are missing named. The failure it guards against is specific — a cascade
+earns its savings on easy tasks and its risk lives in the tail, so a thinned tail certifies a
+router that fails in production while every number above it looks fine.
+
+The machine-generated-text detector is **not built and refuses**: it needs a model, this build has
+none, and one that guessed would importance-resample a set towards its own guess. The resampling
+mathematics is implemented and tested for a caller who has a real detector.
+
 ## Demo result (simulated test fixtures, 200-task test split)
 
 Generated into README.md by `tokop report --write-readme`. Headline: B0 $0.05172 per successful
@@ -140,7 +189,7 @@ These are simulated, not recorded (DECISIONS.md D1).
 
 ## Known issues
 
-- `make verify` runs all 17 checks with none skipped.
+- `make verify` runs all 19 checks with none skipped.
 - **The demo's own calibration is still gold, by choice.** `--calibration penalized-v1` runs the
   label-free path end to end, and the demo reports what it would have chosen; the shipped
   operating point stays gold because the fixtures cannot show whether the label-free one is any
@@ -213,8 +262,8 @@ everything around it.
   Playwright's own resolution when that path is absent, which is everywhere but here.
 
 438 engine tests, 39 Playwright tests, 91% line coverage on `core/` and `optimize/`.
-`make verify`: 12 checks, none skipped, green. (At M10: 599 engine tests, 43 Playwright tests,
-91% coverage, 17 checks.)
+`make verify`: 12 checks, none skipped, green. (At M11: 653 engine tests, 44 Playwright tests,
+91% coverage, 19 checks.)
 
 ## The tokenizer divergence (D26)
 
@@ -297,5 +346,5 @@ byte-identical. 466 engine tests, 91% line coverage, `make verify` green on all 
 
 ## Where the build stands
 
-599 engine tests, 43 Playwright tests, 91% line coverage on `core/` and `optimize/`.
-`make verify`: 17 checks, none skipped, green.
+653 engine tests, 44 Playwright tests, 91% line coverage on `core/` and `optimize/`.
+`make verify`: 19 checks, none skipped, green.

@@ -678,3 +678,76 @@ property directly: the handbook appears in at most three distinct blobs — one 
 across 6,026 calls, and the blob count stays below a tenth of the call count. A cap on the total
 would have been a cap on how many long strings the fixtures are allowed to contain, which is not
 a property anybody wants to freeze.
+
+## D38 — M11: a certificate that expires, and a task set that has to earn the right to back one
+
+**The goal.** `UPGRADE_V3.md` U5 and U8. A proof was a snapshot with a price hash, and nothing
+invalidated it when a provider shipped a new revision under the same name. A task set was a
+number of rows, and nothing asked where they came from.
+
+1. **The expiry and the alpha spending need each other.** A canary that checks a stable quantity
+   at the 5% level every week raises on about one workload in five over a month — measured, in
+   `tests/test_certificate.py`, not asserted — so alpha has to be spent across the looks. Spending
+   it needs a finite number of looks, and a certificate with no expiry has none. So the TTL (30
+   days) and the canary interval (7 days) between them fix K = 4, and the per-look levels come
+   from a spending function over k/K.
+
+2. **It is not a group-sequential boundary, and calling it one would be wrong.** Pocock and
+   O'Brien–Fleming correct for looks at *accumulating* data, where the looks are correlated. A
+   canary draws a fresh stratified subset each time, so the looks are independent and the exact
+   correction is `alpha_k = 1 - (1 - S_k)/(1 - S_{k-1})`, which makes the family-wise error rate
+   exactly alpha. The spending *functions* are borrowed (Pocock's even spending is the default,
+   because a model can be swapped in any week and no look matters less than the last); the
+   correlated correction is not.
+
+3. **A changed model snapshot is not a statistical question.** The certificate records a snapshot
+   identifier per role and the canary raises immediately when one moves, before any re-scoring.
+   Most model ids do not pin a revision, so the identifier is the id plus the recording's own
+   stamp — the best available, and the certificate says that rather than implying the provider
+   supplied one.
+
+4. **A canary in replay has no drift to find, and says so.** Re-scoring the cassettes a
+   certificate was issued from cannot produce a different answer. Reporting that as a pass would
+   be reporting a tautology as evidence, so the drift test is marked *not applicable* with the
+   reason and only the identity checks fire. `tokop canary` on the demo prints exactly that.
+
+5. **The demo's own dataset is refused, and that is the right answer.** 300 items, all templated
+   by a program from `policy.yaml`, none from real traffic. `tokop provenance` refuses
+   certification with the reason named: a set nobody has observed in production cannot certify
+   production, however good its numbers are. The certificate is still *issued* — everything on it
+   is true about the set — and it carries `certifiable: false` with the refusal.
+
+6. **Program-generated and model-generated are counted separately.** The collapse literature is
+   about a model sampling from its own output; a program templating questions from a policy file
+   is synthetic without being in that loop. Conflating them would refuse every seeded benchmark
+   for the wrong reason, so the refusal that mentions the self-consuming loop fires only on
+   *model-generated* share, and the demo does not trip it.
+
+7. **Tail coverage is measured against the generator's template space.** The failure worth
+   catching is specific and worth restating: a cascade earns its savings on easy tasks and its
+   risk lives in the tail, so an eval set whose tail has thinned certifies a router that fails in
+   production while every number above it looks fine. The demo covers 28 of 28 templates; the
+   acceptance fixture piles the same number of items onto 4 of 20 and is refused with the count
+   of what is missing.
+
+8. **The detector is not built, and the refusal says why.** Drayson et al. train a
+   machine-generated-text detector and importance-resample towards likely human content. A
+   detector needs a model; this build has none (D1). `DETECTOR_REGISTRY` is empty and asking for
+   one raises — a detector that guessed would resample the set towards its own guess, which is
+   the self-consuming loop wearing a lab coat. `importance_weights` is implemented and tested,
+   because a caller with a real detector can use it; the detector is not faked.
+
+9. **`proof.per_task` is now in the payload.** Three short arrays for 200 tasks. The canary needs
+   per-task outcomes to re-score a stratified subset, and the alternative was a second computation
+   of the same thing in a second place, which is how two numbers start to disagree.
+
+## D39 — `grading: judged` now requires a `dataset_provenance:` block
+
+`UPGRADE_V3.md` section 2 marks the block "required when `grading: judged`", and the reason is
+worth spelling out: a judged workload has no answer key, so where its tasks came from is the only
+remaining evidence that a certificate over it means anything. The loader refuses with that
+sentence rather than with a schema error.
+
+The demo declares the block despite being `grading: gold`, because the block is useful either
+way — and because a certificate that omitted it would be a certificate that did not know what it
+was measured on.

@@ -198,6 +198,40 @@ export interface CalibrationView {
   };
 }
 
+/**
+ * Where the task set came from, and whether it can back a certificate (UPGRADE_V3.md U8).
+ *
+ * `certifiable: false` is a fact about the dataset, not a failure of the build: a set nobody
+ * has observed in production cannot certify production, however good its numbers are.
+ */
+export interface DatasetProvenanceView {
+  n: number;
+  declared: boolean;
+  real_traffic_items: number;
+  model_generated_items: number;
+  program_generated_items: number;
+  real_traffic_share: number;
+  model_generated_share: number;
+  synthetic_share: number;
+  generators: string[];
+  decoding_budget: string | null;
+  relabelled_by_frozen_reference: boolean;
+  real_traffic_accumulating: boolean;
+  notes: string[];
+  shape: {
+    template_space: number;
+    templates_present: number;
+    tail_coverage: number;
+    tail_share: number;
+    concentration: number;
+    missing_templates: string[];
+    missing_template_count: number;
+  };
+  certifiable: boolean;
+  refusals: string[];
+  warnings: string[];
+}
+
 export interface ProofView {
   baseline: ArmView;
   candidate: ArmView;
@@ -376,6 +410,7 @@ export interface Report {
   judged: JudgedView;
   calibration: CalibrationView;
   contract: ContractView;
+  dataset_provenance: DatasetProvenanceView;
   waterfall: WaterfallStepView[];
   cascade: CascadeView;
   findings: FindingView[];

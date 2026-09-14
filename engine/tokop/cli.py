@@ -40,6 +40,14 @@ def recording_state_cmd(
         raise typer.Exit(1)
 
 
+def _wrote(path: Path) -> str:
+    """ "wrote <path>", relative to the repository when it is inside it and absolute when not."""
+    try:
+        return f"wrote {path.relative_to(repo_root())}"
+    except ValueError:
+        return f"wrote {path}"
+
+
 def _not_yet(name: str, milestone: str) -> None:
     typer.echo(f"`tokop {name}` is not built yet (arrives in {milestone}).", err=True)
     raise typer.Exit(2)
@@ -604,6 +612,193 @@ def report(
         typer.echo(f"\nreport --check FAILED ({failures})", err=True)
         raise typer.Exit(1)
     typer.echo("\nreport --check passed")
+
+
+@app.command()
+def provenance(
+    dataset: str = typer.Option("data/demo/dataset.jsonl", "--dataset"),
+    check: bool = typer.Option(
+        False, "--check", help="Exit nonzero if the provenance block is incomplete."
+    ),
+) -> None:
+    """Say where the task set came from, and whether it can back a certificate (U8).
+
+    Reports; it does not gate. A set that cannot certify is a fact about the set, not a defect
+    in the build, and `--check` fails only when the block itself is missing or does not add up.
+    """
+    from tokop.optimize.report import build_report
+
+    if dataset != "data/demo/dataset.jsonl":
+        typer.echo(
+            f"this build can only read the demo dataset; --dataset {dataset!r} is not supported "
+            "yet (DECISIONS.md D24).",
+            err=True,
+        )
+        raise typer.Exit(2)
+
+    block = build_report()["dataset_provenance"]
+    shape = block["shape"]
+    typer.echo(f"items:      {block['n']}")
+    typer.echo(
+        f"origins:    {block['real_traffic_items']} real traffic, "
+        f"{block['model_generated_items']} model-generated, "
+        f"{block['program_generated_items']} program-generated "
+        f"({block['synthetic_share']:.0%} synthetic)"
+    )
+    typer.echo(
+        f"generators: {', '.join(block['generators']) or 'none declared'}"
+        + (
+            f", decoding budget {block['decoding_budget']}"
+            if block["decoding_budget"]
+            else ", no decoding budget (no model wrote any of it)"
+        )
+    )
+    typer.echo(
+        f"tail:       {shape['templates_present']} of {shape['template_space']} templates "
+        f"present ({shape['tail_coverage']:.0%}), {shape['tail_share']:.1%} of items in "
+        f"rarely-seen templates, concentration {shape['concentration']:.2f}"
+    )
+    typer.echo("")
+    typer.echo(f"CERTIFIABLE: {'yes' if block['certifiable'] else 'no'}")
+    for refusal in block["refusals"]:
+        typer.echo(f"  refused:  {refusal}")
+    for warning in block["warnings"]:
+        typer.echo(f"  warning:  {warning}")
+    for note in block["notes"]:
+        typer.echo(f"  note:     {note}")
+
+    if check and not block["declared"]:
+        typer.echo(
+            "\nthe workload declares no `dataset_provenance:` block, so nothing is known about "
+            "where its tasks came from.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+
+@app.command()
+def certificate(
+    out: str = typer.Option("", "--out", help="Write the certificate JSON here."),
+    margin: float = typer.Option(0.03, "--margin"),
+) -> None:
+    """Issue a certificate: what was proven, what it rests on, and when it stops being true."""
+    from datetime import UTC, datetime
+
+    from tokop.optimize.certificate import issue
+    from tokop.optimize.report import build_report
+
+    payload = build_report(margin=margin)
+    cert = issue(payload, today=datetime.now(UTC).date())
+    typer.echo(f"workload:    {cert.workload}")
+    typer.echo(
+        f"claim:       {cert.candidate_pipeline} against {cert.baseline_pipeline} — {cert.verdict}"
+    )
+    typer.echo(
+        f"delta:       {cert.delta_point * 100:+.1f} points "
+        f"[{cert.delta_low * 100:+.1f}, {cert.delta_high * 100:+.1f}] at a "
+        f"{cert.margin:.0%} margin, n = {cert.n}"
+    )
+    typer.echo(f"grading:     {cert.grading_mode}, calibration {cert.calibration_mode}")
+    for snapshot in cert.model_snapshots:
+        typer.echo(f"  {snapshot.role:9} {snapshot.snapshot}")
+    typer.echo(f"prices:      {cert.price_snapshot_id}")
+    typer.echo(f"issued:      {cert.issued} — expires {cert.expires}")
+    typer.echo(
+        f"canary:      {cert.looks_planned} looks planned, alpha {cert.alpha} spent by "
+        f"{cert.spending} ({', '.join(f'{level:.4f}' for level in cert.levels())})"
+    )
+    typer.echo(f"fingerprint: {cert.fingerprint()}")
+    typer.echo("")
+    typer.echo(f"CERTIFIABLE: {'yes' if cert.certifiable else 'no'}")
+    for refusal in cert.dataset_provenance.get("refusals", []):
+        typer.echo(f"  refused:  {refusal}")
+    if out:
+        path = repo_root() / out
+        cert.write(path)
+        typer.echo(f"\n{_wrote(path)}")
+
+
+@app.command()
+def canary(
+    certificate_path: str = typer.Option(..., "--certificate", help="Path to the certificate."),
+    log: str = typer.Option("", "--log", help="Where the canary log lives. Defaults beside it."),
+    today: str = typer.Option("", "--today", help="ISO date to check as of. Defaults to now."),
+) -> None:
+    """Take one look at a standing certificate (UPGRADE_V3.md U5).
+
+    Exits 0 when the certificate still stands and 1 when the look raised, so a scheduled canary
+    gates a deploy the way `tokop prove` gates a merge.
+    """
+    from datetime import UTC, datetime
+    from datetime import date as _date
+
+    from tokop.optimize.certificate import (
+        CANARY_FRACTION,
+        CanaryLog,
+        Certificate,
+        CertificateError,
+        take_look,
+    )
+    from tokop.optimize.report import build_report, canary_observation, current_identity
+
+    path = repo_root() / certificate_path
+    log_path = repo_root() / log if log else path.with_suffix(".canary.json")
+    as_of = _date.fromisoformat(today) if today else datetime.now(UTC).date()
+
+    try:
+        cert = Certificate.read(path)
+        canary_log = CanaryLog.read(log_path, cert.fingerprint())
+    except CertificateError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+
+    payload = build_report(margin=cert.margin)
+    identity = current_identity(payload)
+    # Drift is only testable against a recording the certificate was *not* issued from.
+    # Re-scoring the same cassettes cannot produce a different answer, and reporting that as a
+    # pass would be reporting a tautology as evidence.
+    same_recording = identity["model_snapshots"] == cert.identity()["model_snapshots"]
+    observed = None
+    subset = 0
+    if not same_recording:
+        subset, delta, standard_error = canary_observation(
+            payload,
+            fraction=CANARY_FRACTION,
+            # Seeded from the certificate so successive looks at the same certificate draw the
+            # same stratified subset in the same order — a canary that re-drew freely could
+            # look again by re-running rather than by spending alpha.
+            seed=int(cert.fingerprint()[:8], 16) + canary_log.taken,
+        )
+        observed = (delta, standard_error)
+
+    try:
+        result = take_look(
+            cert, canary_log, today=as_of, identity=identity, observed=observed, subset_size=subset
+        )
+    except CertificateError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+    canary_log.write(log_path)
+
+    typer.echo(f"certificate: {path.name} ({cert.fingerprint()}), expires {cert.expires}")
+    typer.echo(
+        f"look:        {result.look} of {result.of_looks}, alpha {result.alpha_this_look:.4f}"
+    )
+    if result.drift_tested and result.observed_delta is not None and result.z is not None:
+        typer.echo(
+            f"drift:       {result.observed_delta * 100:+.1f} points on {result.subset_size} "
+            f"stratified tasks against the certificate's {cert.delta_point * 100:+.1f}, "
+            f"z = {result.z:+.2f}"
+        )
+    else:
+        typer.echo(f"drift:       not tested — {result.drift_note}")
+    typer.echo("")
+    if result.raised:
+        typer.echo("CANARY RAISED")
+        for reason in result.reasons:
+            typer.echo(f"  {reason}")
+        raise typer.Exit(1)
+    typer.echo("CANARY CLEAR: the certificate still stands.")
 
 
 @app.command()
