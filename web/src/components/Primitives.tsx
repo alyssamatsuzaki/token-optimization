@@ -231,10 +231,14 @@ export function IntervalPlot({
   interval,
   margin,
   domain,
+  testId = "interval-plot",
 }: {
   interval: Interval;
   margin: number;
   domain?: [number, number];
+  /** Named so a screen that shows two intervals — the gold proof and the gold-free one — can
+   * tell them apart. Two elements under one test id is a test that asserts nothing. */
+  testId?: string;
 }) {
   const [lo, hi] = domain ?? [
     Math.min(interval.low, -margin) * 1.6,
@@ -245,7 +249,7 @@ export function IntervalPlot({
   const clears = interval.low > -margin;
   const colour = clears ? "#1F6F5C" : interval.high < -margin ? "#C0452A" : "#5E6560";
   return (
-    <figure className="mt-3" data-testid="interval-plot">
+    <figure className="mt-3" data-testid={testId}>
       <svg viewBox="0 0 100 26" className="w-full h-16" role="img" aria-label="Accuracy difference against the margin">
         <line x1="0" y1="13" x2="100" y2="13" stroke="#15181A1F" strokeWidth="0.3" />
         <line x1={x(0)} y1="4" x2={x(0)} y2="22" stroke="#15181A33" strokeWidth="0.4" />

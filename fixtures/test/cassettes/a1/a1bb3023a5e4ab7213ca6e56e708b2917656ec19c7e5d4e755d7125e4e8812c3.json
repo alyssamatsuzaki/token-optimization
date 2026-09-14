@@ -1,0 +1,99 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "a1bb3023a5e4ab7213ca6e56e708b2917656ec19c7e5d4e755d7125e4e8812c3",
+  "latency_ms": 444.75,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"correct\": true, \"confidence\": 0.934, \"why\": \"checked against sec-returns-windows\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_a1bb3023a5e4ab72",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 6300,
+      "input_tokens": 213,
+      "output_tokens": 35
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 6300,
+    "input_tokens": 213,
+    "output_tokens": 35
+  },
+  "recorded_at": "2026-09-14T10:21:48.885764+00:00",
+  "request": {
+    "max_tokens": 150,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": {
+              "$blob": "dbdcf7fd585dcea8caab68f76f5ca5764e93b3d65f1263746f35638123a872a2"
+            }
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "ba85e0cb260695f919fed99032ca5576ae676fb845f3c27bd10e94e527c372ff"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"correct\": true, \"confidence\": 0.934, \"why\": \"checked against sec-returns-windows\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 322.25,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 6300,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 213,
+    "output_reasoning": 0,
+    "output_visible": 35,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 6300,
+      "input_tokens": 213,
+      "output_tokens": 35
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

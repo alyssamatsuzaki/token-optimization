@@ -1,0 +1,97 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "378239cc3fddbe5e9dea551863f5d40782c5edf21dc0f2c2f95a0bc6a9594cd5",
+  "latency_ms": 395.67,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"correct\": true, \"confidence\": 0.977, \"why\": \"checked against sec-restocking\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_378239cc3fddbe5e",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 6300,
+      "input_tokens": 123,
+      "output_tokens": 32
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 6300,
+    "input_tokens": 123,
+    "output_tokens": 32
+  },
+  "recorded_at": "2026-09-14T15:05:19.687812+00:00",
+  "request": {
+    "max_tokens": 150,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Customer question: Taking the tier into account, what restocking percentage applies when an Alpine member returns avalanche safety gear?\n\nAnswer under review:\n<<<ANSWER\n{\"answer\": \"0\", \"evidence\": \"It is never charged on a defect return, and never charged to an Alpine member.\", \"section\": \"sec-restocking\", \"derivation\": \"sec-restocking gives the rule; applying it to the values in the question yields 0\"}\nANSWER>>>\n"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "ba85e0cb260695f919fed99032ca5576ae676fb845f3c27bd10e94e527c372ff"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"correct\": true, \"confidence\": 0.977, \"why\": \"checked against sec-restocking\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 283.67,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 6300,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 123,
+    "output_reasoning": 0,
+    "output_visible": 32,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 6300,
+      "input_tokens": 123,
+      "output_tokens": 32
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

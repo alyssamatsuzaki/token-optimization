@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "688ce36c4a76228a3c44a7102909e87a8b33d939f5fc26471cbe4cfa35c489ee",
+  "latency_ms": 1891.57,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"7.95\", \"evidence\": \"The surcharge is added once per order, not once per item.\", \"section\": \"sec-shipping-fees\", \"derivation\": \"sec-shipping-fees gives the rule; applying it to the values in the question yields 7.95\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_688ce36c4a76228a",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8390,
+      "input_tokens": 51,
+      "output_tokens": 103
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 8390,
+    "input_tokens": 51,
+    "output_tokens": 103
+  },
+  "recorded_at": "2026-09-14T15:02:50.449064+00:00",
+  "request": {
+    "max_tokens": 320,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Work out the shipping fee for a 4.5 lb order going to Zone 1 (in-state)."
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "8cb7948632bba9c3390e6aa3e2f4bd016cfc3cb30370890af28bc3b208fa7be9"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"7.95\", \"evidence\": \"The surcharge is added once per order, not once per item.\", \"section\": \"sec-shipping-fees\", \"derivation\": \"sec-shipping-fees gives the rule; applying it to the values in the question yields 7.95\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 758.57,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 8390,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 51,
+    "output_reasoning": 0,
+    "output_visible": 103,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8390,
+      "input_tokens": 51,
+      "output_tokens": 103
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

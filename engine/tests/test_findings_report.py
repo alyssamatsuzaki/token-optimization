@@ -361,3 +361,20 @@ class TestReadmeBlock:
         if report["provenance"]["is_test_data"]:
             assert "simulated" in block
             assert "DECISIONS.md D1" in block
+
+    def test_the_block_names_every_configuration_the_search_compared(self, report) -> None:
+        """UPGRADE_V3.md U6: a configuration measured and left out of the README is one nobody
+        can check. Every row the report compared appears, with what it cost to run."""
+        block = metrics_block(report)
+        for row in report["cascade"]["scorer_comparison"]:
+            assert row["label"] in block
+
+    def test_the_block_names_the_whole_tie_and_not_a_winner(self, report) -> None:
+        """UPGRADE_V3.md U7: the README is where a tie is most tempting to round down to one
+        row, so the block carries every tied configuration and the note saying why."""
+        ties = report["cascade"]["ties"]
+        block = metrics_block(report)
+        for row in ties["tied"]:
+            assert row["label"] in block
+        assert ties["note"] in block
+        assert ties["fallback_reason"] in block

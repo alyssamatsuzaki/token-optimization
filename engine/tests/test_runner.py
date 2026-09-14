@@ -180,9 +180,28 @@ class TestFixtureRuns:
             assert "input_tokens" in cassette.raw_usage
 
     def test_blobs_deduplicate_the_handbook(self, fixture_store) -> None:
-        """The handbook appears in every request; it is stored once."""
-        assert fixture_store.blob_count() < 20
+        """The handbook appears in every request; it is stored once.
+
+        Asserted as the dedup property rather than as a blob count. A blob is any block longer
+        than the threshold, and the judge prompts added by UPGRADE_V3.md U1 carry the answer
+        under review — B0's uncapped answers are essays, and a long *unique* string correctly
+        gets a blob of its own. A cap on the total would have been a cap on how many long
+        strings the fixtures may contain, which is not what this test is about.
+        """
+        from tokop.paths import repo_root
+
+        handbook = (repo_root() / "data/demo/handbook.md").read_text()
+        blobs = [blob.read_text() for blob in fixture_store.blob_dir.glob("*.txt")]
+        carrying = [text for text in blobs if handbook in text]
+        # One per distinct wrapper: B0 opens "Here is the handbook material…" and the others
+        # open "Handbook:". Anything more means the same text is being stored per call.
+        assert 1 <= len(carrying) <= 3, (
+            f"the handbook is stored in {len(carrying)} distinct blobs across "
+            f"{len(fixture_store)} calls"
+        )
         assert len(fixture_store) > 1000
+        # Still far fewer blobs than calls: the big shared prefix really is shared.
+        assert fixture_store.blob_count() < len(fixture_store) / 10
 
     def test_a_cassette_rehydrates_to_its_full_request(self, fixture_store) -> None:
         """B0 carries the handbook in the user message and B1/B2 in the system prompt; both
@@ -322,9 +341,16 @@ class TestProviderPolicy:
 
 class TestWorkloadSpec:
     def test_pipelines_and_cascade_load(self, workload) -> None:
-        assert sorted(workload.pipelines) == ["B0", "B1", "B2"]
+        # B2c is the checkable-contract lever (UPGRADE_V3.md U4): a pipeline like any other,
+        # priced like any other, and a waterfall row between the rewrite and the cascade.
+        assert sorted(workload.pipelines) == ["B0", "B1", "B2", "B2c"]
         assert workload.cascade("B3").tiers == ["cheap", "mid", "frontier"]
         assert workload.cascade("B3").base_pipeline == "B2"
+
+    def test_exactly_one_pipeline_asks_for_a_checkable_answer(self, workload) -> None:
+        checkable = [p for p, spec in workload.pipelines.items() if spec.checkable]
+        assert checkable == ["B2c"]
+        assert "derivation" in "".join(b.text for b in workload.pipeline("B2c").system)
 
     def test_b0_declares_its_antipatterns(self, workload) -> None:
         b0 = workload.pipeline("B0")

@@ -31,6 +31,50 @@ def _comparable(text: str) -> str:
     return _TIMING.sub("evaluated in <wall clock> seconds", text)
 
 
+def _judged_variables(payload: object) -> dict[str, object]:
+    """Numbers for the gold-free beat, or a stand-in saying why there are none.
+
+    The demo script is generated so it cannot quote a stale figure; that applies to a section
+    the fixtures may not be able to support at all, so the absence is generated too.
+    """
+    judged = payload["judged"]  # type: ignore[index]
+    if not judged.get("available"):
+        reason = judged.get("reason", "no reason given")
+        return {
+            "judged_model": "no judge",
+            "judged_annotated": 0,
+            "judged_share": 0.0,
+            "judge_only_point": 0.0,
+            "judged_point": 0.0,
+            "judged_low": 0.0,
+            "judged_high": 0.0,
+            "judge_bias": 0.0,
+            "cost_optimal_rate": 0.0,
+            "coverage_line": f"This build has no gold-free estimate to show: {reason}",
+        }
+    annotation = judged["annotation"]
+    coverage = judged.get("coverage_check") or {}
+    covers = coverage.get("judged_interval_covers_gold")
+    coverage_line = (
+        "This demo happens to have gold answers, so we can check: the gold-graded difference is "
+        f"{coverage.get('gold_delta_accuracy', 0.0) * 100:+.1f} points, and the gold-free "
+        f"interval {'covers it' if covers else 'does NOT cover it'}. A real unlabelled workload "
+        "never gets to run that check, which is exactly why it is run here."
+    )
+    return {
+        "judged_model": judged["judge"]["model_id"],
+        "judged_annotated": annotation["n_annotated"],
+        "judged_share": annotation["annotated_share"] * 100,
+        "judge_only_point": judged["judge_only"]["delta_accuracy"]["point"] * 100,
+        "judged_point": judged["delta_accuracy"]["point"] * 100,
+        "judged_low": judged["delta_accuracy"]["low"] * 100,
+        "judged_high": judged["delta_accuracy"]["high"] * 100,
+        "judge_bias": judged["judge_only"]["bias_vs_corrected"] * 100,
+        "cost_optimal_rate": annotation["cost_optimal_rate"] * 100,
+        "coverage_line": coverage_line,
+    }
+
+
 def main(*, check: bool = False) -> Path:
     report = build_report()
     proof = report["proof"]
@@ -50,6 +94,17 @@ def main(*, check: bool = False) -> Path:
         key=lambda b: b["candidate_accuracy"] - b["baseline_accuracy"],
     )
     wf = {s["pipeline"]: s for s in report["waterfall"]}
+    judged_vars = _judged_variables(report)
+    judged_model = judged_vars["judged_model"]
+    judged_annotated = judged_vars["judged_annotated"]
+    judged_share = judged_vars["judged_share"]
+    judge_only_point = judged_vars["judge_only_point"]
+    judged_point = judged_vars["judged_point"]
+    judged_low = judged_vars["judged_low"]
+    judged_high = judged_vars["judged_high"]
+    judge_bias = judged_vars["judge_bias"]
+    cost_optimal_rate = judged_vars["cost_optimal_rate"]
+    coverage_line = judged_vars["coverage_line"]
 
     rows = ""
     for pipeline_id in ("B0", "B1", "B2", "B3"):
@@ -155,6 +210,28 @@ Close with the honest part:
 
 ---
 
+## 1:30 — The part that makes it usable on a real workload (20 s)
+
+Scroll to **Without the answer key**.
+
+> "Everything above rests on 200 tasks with known answers. Almost nobody has that. So: a cheap
+> judge — {judged_model} — grades every task, and a strong grader re-grades
+> **{judged_annotated} of them ({judged_share:.0f}%)**, chosen where a strong label buys the most
+> interval. The judge on its own says **{judge_only_point:+.1f} points**. Corrected, it says
+> **{judged_point:+.1f} points**, interval **{judged_low:+.1f} to {judged_high:+.1f}**. The gap
+> between those two — **{judge_bias:+.1f} points** — is the judge's bias, and Tokop measured it
+> rather than assuming it away."
+
+> "{coverage_line}"
+
+> "The estimator is unbiased for the strong grader's mean no matter how bad the cheap judge is.
+> A bad judge costs interval width, never correctness. That is the whole argument, and it is why
+> the wide interval here is honest rather than embarrassing: on this workload the judge is wrong
+> often enough that the cost-optimal sampling rate is {cost_optimal_rate:.0f}%, and the report
+> says so instead of selling a saving that is not there."
+
+---
+
 ## If you have 30 seconds more
 
 - **Inspect** — paste any prompt, see cost per 1,000 calls across the registry, press **Apply
@@ -180,6 +257,12 @@ is **{worst["question_type"].replace("_", " ")}**, at
 {worst["candidate_accuracy"] * 100:.0f}% against the baseline's
 {worst["baseline_accuracy"] * 100:.0f}% over {worst["n"]} tasks. That gap is visible on the
 screen rather than averaged away.
+
+**"Your judge is an LLM. Why should I trust it?"**
+You should not, and the design does not. Run the adversarial judge test: it injects a judge that
+marks 20% of one class of correct answers wrong. The naive judge-only interval stops covering the
+true accuracy; the corrected interval still covers it, at every committed seed. That test is a
+release blocker — `make verify` runs it by name.
 
 **"Why is the verdict inconclusive rather than a pass?"**
 Because the interval straddles the margin by a fraction of a point. Reporting that as a pass is

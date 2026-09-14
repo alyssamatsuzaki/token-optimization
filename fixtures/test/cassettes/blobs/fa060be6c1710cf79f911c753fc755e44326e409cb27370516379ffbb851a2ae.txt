@@ -1,0 +1,16 @@
+Customer question: How many days after delivery can a defect on a final-sale item still be raised?
+
+Answer under review:
+<<<ANSWER
+Great question, and I can see why this one is confusing.
+
+The policy here has changed since earlier versions circulated, so let me quote the current wording rather than working from memory.
+
+The handbook says: "**opened-electronics** — applies to Navigation electronics."
+
+Applying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. I've double-checked the arithmetic, but if your order details differ from what I have in front of me the figure may move.
+
+I hope that's clear, and thank you again for your patience.
+
+Final answer: 7
+ANSWER>>>

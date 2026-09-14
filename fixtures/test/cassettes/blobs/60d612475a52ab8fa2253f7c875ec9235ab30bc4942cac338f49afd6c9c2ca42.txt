@@ -1,0 +1,16 @@
+Customer question: Summit tier, camp stoves and cookware, $560.00 paid, not defective. Restocking fee in dollars?
+
+Answer under review:
+<<<ANSWER
+Thanks for reaching out, and I'm happy to help you get to the bottom of this.
+
+There are really two things going on in your question, and it helps to separate them before putting them back together, because the handbook treats them in different places.
+
+The handbook says: "A refund is therefore the price paid minus the restocking fee."
+
+Applying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. I've double-checked the arithmetic, but if your order details differ from what I have in front of me the figure may move.
+
+I hope that's clear, and thank you again for your patience.
+
+Final answer: 56.00
+ANSWER>>>

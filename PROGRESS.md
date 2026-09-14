@@ -13,12 +13,217 @@
 | M6 Remaining screens | **done** | Inspect+Brief, Compare, Spend, Settings, New experiment; 38 e2e pass |
 | M7 Finish | **done** | README, DEMO, ARCHITECTURE, Dockerfile, critique, spec review, CI gate |
 | M8 Pluggable scorers | **done** | scorer registry, `self-consistency-v1`, sampling charged, comparison |
+| M9 Proof without gold | **done** | `grading: judged`, `tokop annotate`, cost-optimal allocation, adversarial judge test |
+| M10 Label-free calibration, priced checkability | **done** | `penalized-v1` pseudo-labels, B2c contract lever, negative-delta disclosure |
+| M11 Expiry and provenance | **done** | certificates with a canary and alpha spending, dataset provenance that refuses |
+| M12 Meaning and ties | **done** | `semantic-entropy-v1` with effective-k, `sep-v1` refuses, the report names every tie |
 
 ## Next
 
-A live recording of a small split. It is now the blocker for two separate things rather than
-one: every number turns from simulated to recorded, *and* the scorer comparison in D27 becomes
-a real comparison instead of a statement about the simulator's noise model.
+**M13: U9**, and only if a self-hosted tier is actually in scope — a serving-cost basis that
+prices a hosted tier in GPU-hours over achieved throughput, so a cascade can mix an API tier with
+a hosted one honestly. Nothing in this build has a self-hosted tier, so the milestone is not
+started and would be a fake column if it were.
+
+Still outstanding, and still the blocker for the same two things: **a live recording of a small
+split**. Every number turns from simulated to recorded, and the scorer comparison in D27 becomes
+a real comparison instead of a statement about the simulator's noise model. M9 adds a third: the
+judge's error rates are invented parameters, and only a recording can say what a real cheap judge
+costs in interval width.
+
+## Proving the demo without its answer key (M9, UPGRADE_V3.md U1 and U2)
+
+`grading: judged` is now a thing a workload can declare. The demo keeps its answer key and gains
+a judge, so the two estimates sit side by side and the interesting number is the relationship
+between them:
+
+| Estimate | Accuracy difference | 95% CI | What it cost |
+| --- | --- | --- | --- |
+| The cheap judge alone (`claude-haiku-4-5`, 400 answers) | +5.5 pt | [-1.5, +12.5] | $0.3907 |
+| Corrected by 44 strong-graded tasks (22%) | -3.5 pt | [-12.5, +5.6] | $0.6008 |
+| The gold answers, for comparison | +0.5 pt | [-3.0, +4.0] | not available to a real workload |
+
+The judge is biased by **+9.0 points** on this split, measured rather than assumed away, and the
+judge-only *accuracy* is 12 points low on the baseline arm. The corrected interval covers the
+gold-graded difference; `tokop report --check` fails if it stops doing so.
+
+**The uncomfortable number, reported rather than buried.** On this workload the cheap judge
+disagrees with the strong grader often enough — mean square error 0.239 against a strong-grader
+variance of 0.105 — that the cost-optimal sampling rate is **1.0**: grading everything is the
+cheapest route to a given interval width, and strong-only grading would have reached the same
+width with 50 items at $0.62 against the $0.60 spent here. The mixed design does not pay at this
+judge quality. Tokop says so and names the lever that would change it (U4's checkable output
+contract), rather than selling a saving that is not there.
+
+What does pay is **where** the budget goes: the cost-optimal policy cuts the estimator's variance
+by 64% against uniform sampling at the same expected spend, computed exactly rather than from a
+draw. The squared correction term averages 0.81 on pairs the two arms disagree about against 0.02
+on pairs they agree on, which is the whole reason the policy samples discordant pairs hard.
+
+**The release blocker.** `tests/test_judged_proof.py::TestTheAdversarialJudge` injects a judge
+that marks 20% of one class of correct answers wrong. The naive judge-only interval stops
+covering the true accuracy; the corrected interval still covers it at every committed seed. Two
+stronger versions run beside it: a judge that is wrong about *everything* (`G = 1 - H`) is still
+corrected to an unbiased estimate over 3,000 draws, and a judge whose error hits one arm only
+biases the naive delta by more than five points while the corrected interval holds. `make verify`
+runs the check by name. D30 records why the corrupted class is `number` rather than `yes_no`.
+
+Fixtures grew from 4,914 cassettes to 5,450: 400 cheap-judge calls, 88 strong-grader calls, and
+their pre-warming. `fixtures/test/annotations.json` records every rate, every draw, every verdict
+and every dollar, and `tokop fixtures-check` replays all 488 verdicts through the parser and
+fails if one disagrees with the call it came from.
+
+Two bugs the acceptance tests found, both real: `uncertainty_proportional_rates` did not produce
+the mean rate it promised once the floor clipped (D32), and the strong grader's price projection
+was 38% low because it carried the cheap model's token counts across a tokenizer-generation
+boundary (D29.6).
+
+## Calibrating without labels, and pricing checkability (M10, UPGRADE_V3.md U3 and U4)
+
+**U3.** `optimize/pseudolabels.py` stands in for an answer key on the calibration split, with two
+registered kinds so the comparison is always in front of you: `majority-vote`, implemented
+honestly rather than as a straw man, and `penalized-v1`, which borrows RESTRAIN's mechanism — a
+tier does not vote on its own label, a distribution with no clear winner is excluded and counted,
+and confident disagreement with the consensus is weighted **up** rather than softened.
+`tokop prove --calibration penalized-v1` runs the whole proof on a label-free operating point.
+
+**And the demo's fixtures cannot say whether it works.** Every pseudo-label on the calibration
+split agrees with the answer key, under *both* kinds. That is a fact about the noise model, not
+about the method: the simulated provider draws wrong answers independently and each is a
+different perturbation, so the correct answer is the unique plurality almost every time and a
+majority vote cannot go wrong here. The report computes that diagnosis rather than asserting it,
+and prints it on the screen and in the CLI.
+
+So the acceptance check is a constructed calibration set, built around the failure rather than
+around the result: a cheap tier whose mistakes *repeat* — the same confusable answer five draws
+out of five, on 60% of the tasks it gets wrong, with the mid tier sharing it. At every committed
+seed the naive vote reads that repetition as correctness and the search routes **everything** to
+the cheap tier (threshold 0.00 against gold's 0.78–0.98), with an accuracy floor 21 to 31 points
+too low. The penalized version excludes those tasks, agrees with the answer key on what survives,
+and lands within 0.012 of the gold accuracy floor. Three earlier fixtures were tried and rejected
+for measuring noise; D34 records why.
+
+**U4.** B2c is B2's prompt plus one line showing how the quoted rule produces the answer — a new
+waterfall row between the rewrite and the cascade, found from the spec rather than hardcoded.
+`tokop annotate --contract` judges the B2/B2c pair with the same judge, the same prompt and the
+same prices as the proof's own annotation run, so the agreement figures are one comparison rather
+than two experiments.
+
+| Pipeline | Judge agrees with the strong grader | Strong labels needed | Annotation | Accuracy | Generation |
+| --- | --- | --- | --- | --- | --- |
+| B2 CLEAR rewrite | 83.7% | 89% of tasks | $1.2412 | 97.0% | $1.2567 |
+| B2c Checkable contract | 93.0% | 78% of tasks | $1.1064 | 94.5% | $1.4521 |
+
+Both priced at the same stated target: a standard error of one accuracy point. The contract buys
+$0.1347 of annotation. It costs 7,406 extra output tokens ($0.1955) and **2.5 accuracy points**.
+Net on the evaluation split: **−$0.0607. It does not pay here.**
+
+That is the headline, and the machinery exists to make sure it stays the headline. The accuracy
+delta is rendered with its sign on the screen, in the CLI and in the README's generated block,
+and `make verify` runs the disclosure check by name. The saving and the premium are reported
+apart rather than netted: the annotation saving is paid once per evaluation, the generation
+premium on every task the pipeline ever runs.
+
+The proof cost moved from $15.10 to $16.61, repaying after 367 tasks instead of 334, because
+B2c's test run is money spent exploring the waterfall and lands where B1's always has.
+
+## Certificates expire, and this task set cannot back one (M11, UPGRADE_V3.md U5 and U8)
+
+**U5.** `tokop certificate` issues what was proven, what it rests on — model snapshot identifiers,
+the price hash, the grading mode, the calibration mode, the dataset's provenance — and when it
+stops being true. Thirty days, four weekly looks, and `tokop canary` takes them.
+
+Looking repeatedly is the part that needs care, so the correction is measured rather than argued:
+four unadjusted looks at the 5% level raise on more than 15% of workloads where nothing happened,
+and the spent schedule holds the family-wise rate at 0.05 over 40,000 simulated certificate
+lifetimes. The looks are independent draws, not accumulating data, so the exact correction is
+`alpha_k = 1 - (1 - S_k)/(1 - S_{k-1})` rather than a group-sequential boundary — D38.2 says why
+the difference matters.
+
+A swapped snapshot identifier raises immediately and is not a statistical question: the
+certificate is about a model that is no longer there. `tokop canary` exits 1 on that, on an
+expired certificate, and on a moved interval, so a scheduled canary gates a deploy the way
+`tokop prove` gates a merge.
+
+And a canary in replay has nothing to find: re-scoring the cassettes the certificate was issued
+from cannot produce a different answer, so the drift test reports *not tested* with that reason
+rather than a reassuring pass.
+
+**U8.** Every certificate now carries a `dataset_provenance` block, and the demo's own dataset is
+**refused**:
+
+    items:      300
+    origins:    0 real traffic, 0 model-generated, 300 program-generated (100% synthetic)
+    tail:       28 of 28 templates present (100%), concentration 0.21
+
+    CERTIFIABLE: no
+      refused:  the set contains no real recorded traffic, so it cannot certify behaviour on a
+                distribution nobody has observed.
+
+That is the right answer, not an inconvenience. Everything measured on this set is true about the
+set; none of it is yet evidence about anybody's production traffic. The certificate is still
+issued and carries the refusal, and `tokop provenance` reports without gating — a set that cannot
+certify is a fact about the set, not a defect in the build.
+
+Program-generated and model-generated items are counted apart, because the collapse literature is
+about a model sampling from its own output and a program templating from a policy file is not in
+that loop. The acceptance fixture is: the same number of items piled onto 4 of 20 templates,
+refused with the 16 that are missing named. The failure it guards against is specific — a cascade
+earns its savings on easy tasks and its risk lives in the tail, so a thinned tail certifies a
+router that fails in production while every number above it looks fine.
+
+The machine-generated-text detector is **not built and refuses**: it needs a model, this build has
+none, and one that guessed would importance-resample a set towards its own guess. The resampling
+mathematics is implemented and tested for a caller who has a real detector.
+
+## Meaning, effective k, and the tie (M12, UPGRADE_V3.md U6 and U7)
+
+**U6.** `semantic-entropy-v1` clusters k samples by **bidirectional entailment** judged by a cheap
+model — two directed calls per candidate pair, because entailment is not symmetric — and routes
+on the entropy of the meaning clusters. The calls are recorded, replayed from cassettes, and
+charged to the scorer through a new `extra_cost` on the `Scorer` protocol: a scorer that spends
+money the cascade is not charged for is how a comparison stops meaning anything, and D27 learned
+that once already. Identical answers are never sent, which is why 830 judgements cover the whole
+matrix at depth 5.
+
+**And on this workload it costs money and buys nothing.** Same accuracy, same AUROC, same routing
+as the exact-match scorer at every k, and $0.000223 more per successful task at k=3:
+
+| Configuration | calls/task | accuracy | $/success | effective k |
+| --- | --- | --- | --- | --- |
+| `logistic-v1` (operating point) | 1 | 96.0% | $0.004253 | — |
+| `self-consistency-v1` k=3 | 3 | 96.0% | $0.003577 | 2.94 |
+| `self-consistency-v1` k=5 | 5 | 97.0% | $0.004987 | 4.27 |
+| `semantic-entropy-v1` k=3 | 9 | 96.0% | $0.003800 | 2.94 |
+| `semantic-entropy-v1` k=5 | 25 | 97.0% | $0.005442 | 4.27 |
+
+The demo's answers are numbers, enums and yes/no, and the grader's exact-match relation already
+merges a currency symbol, a trailing percent and a hedge before a yes or no. What it misses is a
+unit word after a number — "60" against "60 days" — and the fixtures contain none of those. That
+is a property of this question mix, not of the method, and a test pins it so it cannot quietly
+stop being reported. The paraphrase merging the method exists for is tested against explicit
+pairs; three of the four I first wrote down turned out to be cases the grader already handled,
+and claiming them would have overstated what entailment adds.
+
+**Effective k turns D27's caveat into a number.** The intraclass correlation of within-task
+agreement and the design effect `k / (1 + (k-1) rho)`: rho runs 0.000 to 0.043 here, so k samples
+really are worth about k. That is a fact about the simulator's independent draws, and it is
+exactly why the scorer comparison is still measured and not adopted. A real recording would show
+a much lower effective k, and the column would say so without anyone writing a paragraph.
+
+**`sep-v1` is registered and refuses.** It reads hidden states, no provider API returns them, and
+the registry now carries a `hidden_states` flag so the refusal points at something real. D27.4
+unchanged: not a "not yet", a consequence of non-negotiable 6.
+
+**U7.** Three configurations' cost intervals overlap, so the report lists all three ordered by
+dollars and `single_winner` **raises** rather than returning one. The cheapest of them is one this
+workload does not let the search adopt, so the tie says that too — and there is consequently no
+fallback, which the report states rather than designating the operating point as its own. A
+fallback that shares the constraint it is meant to survive is not a fallback.
+
+Both land in the README's generated block — the comparison with its effective-sample column, and
+the tie with its note and its missing fallback — so no M12 number in the README is typed by hand
+(non-negotiable 1), and `tokop report --check` fails the build when one moves.
 
 ## Demo result (simulated test fixtures, 200-task test split)
 
@@ -28,13 +233,23 @@ task, B3 $0.00425 — a 91.8% reduction, accuracy +0.5 points with 95% CI [-3.0,
 would settle it. The cascade answers 34.5% of tasks at the cheap tier, 42.5% at the mid tier and
 23.0% at the frontier — but those are not its spend: because an escalated task pays for every
 attempt it made, the cheap tier is 23.4% of the money and the frontier 36.1%. The proof itself
-cost $15.10 and repays after 334 tasks.
+cost $16.61 and repays after 367 tasks.
 
 These are simulated, not recorded (DECISIONS.md D1).
 
 ## Known issues
 
-- `make verify` runs all 12 checks with none skipped.
+- `make verify` runs all 21 checks with none skipped.
+- **The demo's own calibration is still gold, by choice.** `--calibration penalized-v1` runs the
+  label-free path end to end, and the demo reports what it would have chosen; the shipped
+  operating point stays gold because the fixtures cannot show whether the label-free one is any
+  good (D34.3). One flag switches it.
+- **The legibility tax and the checkability bonus are invented parameters.** The mechanism runs
+  end to end over recorded calls; their sizes come from `workloads/demo/`, and every surface that
+  shows a number derived from them labels it simulated.
+- **A judged proof needs one sample per task.** The judge reviews the answer the cascade
+  returned, and only the first generation of each task has been judged, so `tokop annotate`
+  refuses an operating point that draws more. The demo's is `logistic-v1` at k=1.
 - The Dockerfile has never been built: Docker is unavailable in this environment (D22).
 - The GitHub workflows run green on GitHub Actions: `verify`'s run 6 passes all twelve checks on
   `ubuntu-latest` in 3m33s, and `proof gate` exits 1 on the inconclusive verdict as designed
@@ -97,7 +312,8 @@ everything around it.
   Playwright's own resolution when that path is absent, which is everywhere but here.
 
 438 engine tests, 39 Playwright tests, 91% line coverage on `core/` and `optimize/`.
-`make verify`: 12 checks, none skipped, green.
+`make verify`: 12 checks, none skipped, green. (At M12: 709 engine tests, 45 Playwright tests,
+91% coverage, 21 checks.)
 
 ## The tokenizer divergence (D26)
 
@@ -177,3 +393,8 @@ with its sampling charged honestly, and a documented reason not to believe its r
 
 Fixtures rebuilt at sample depth 5: 1,314 cassettes became 4,914, with all 1,314 originals
 byte-identical. 466 engine tests, 91% line coverage, `make verify` green on all 12 checks.
+
+## Where the build stands
+
+709 engine tests, 45 Playwright tests, 91% line coverage on `core/` and `optimize/`.
+`make verify`: 21 checks, none skipped, green.

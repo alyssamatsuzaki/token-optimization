@@ -362,6 +362,26 @@ class TestUncertaintyProportionalRates:
         rates = uncertainty_proportional_rates([0.0, 0.0, 0.0], 0.25)
         assert list(rates) == [0.25, 0.25, 0.25]
 
+    def test_the_mean_survives_the_floor_and_the_cap(self) -> None:
+        """Scaling and then clipping gives a mean above the target: the floor lifts the bottom
+        of the distribution and nothing gives it back. The caller's target is a budget, so a
+        drifted mean is money quietly overspent."""
+        u = [0.0, 0.0, 0.0, 0.0, 1.0, 2.0, 3.0]
+        rates = uncertainty_proportional_rates(u, 0.3, floor=0.05)
+        assert float(rates.mean()) == pytest.approx(0.3, abs=1e-9)
+        assert rates.min() >= 0.05
+        assert rates.max() <= 1.0
+
+    def test_the_mean_survives_the_cap_alone(self) -> None:
+        u = [0.01, 0.01, 50.0]
+        rates = uncertainty_proportional_rates(u, 0.6, floor=0.05)
+        assert float(rates.mean()) == pytest.approx(0.6, abs=1e-9)
+        assert rates.max() <= 1.0
+
+    def test_a_target_below_the_floor_is_impossible_and_says_so(self) -> None:
+        with pytest.raises(StatsError, match="impossible with a floor"):
+            uncertainty_proportional_rates([1.0, 2.0], 0.01, floor=0.05)
+
     def test_rejects_nonsense(self) -> None:
         with pytest.raises(StatsError, match="at least one item"):
             uncertainty_proportional_rates([], 0.2)

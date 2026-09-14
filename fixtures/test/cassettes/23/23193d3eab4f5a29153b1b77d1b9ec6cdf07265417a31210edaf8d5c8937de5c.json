@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "23193d3eab4f5a29153b1b77d1b9ec6cdf07265417a31210edaf8d5c8937de5c",
+  "latency_ms": 1993.08,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"1\", \"evidence\": \"A warranty claim outside the return window is still valid; a return request outside the return window is not, even if the item is under warranty.\", \"section\": \"sec-warranty\", \"derivation\": \"sec-warranty gives the rule; applying it to the values in the question yields 1\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_23193d3eab4f5a29",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8390,
+      "input_tokens": 34,
+      "output_tokens": 118
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 8390,
+    "input_tokens": 34,
+    "output_tokens": 118
+  },
+  "recorded_at": "2026-09-14T15:02:50.094074+00:00",
+  "request": {
+    "max_tokens": 320,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Warranty length for climbing rope in years?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "8cb7948632bba9c3390e6aa3e2f4bd016cfc3cb30370890af28bc3b208fa7be9"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"1\", \"evidence\": \"A warranty claim outside the return window is still valid; a return request outside the return window is not, even if the item is under warranty.\", \"section\": \"sec-warranty\", \"derivation\": \"sec-warranty gives the rule; applying it to the values in the question yields 1\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 695.08,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 8390,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 34,
+    "output_reasoning": 0,
+    "output_visible": 118,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8390,
+      "input_tokens": 34,
+      "output_tokens": 118
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

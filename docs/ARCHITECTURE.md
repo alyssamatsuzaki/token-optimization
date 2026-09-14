@@ -131,9 +131,16 @@ circular, so `TaskView` has no field that could carry one and
 **Which scorer runs is named in the pipeline spec.** `optimize/scorers.py` holds a `Scorer`
 protocol and a registry; `CascadeSpec` names a kind and a sample count, and the calibration
 search chooses between the kinds a workload allows alongside the thresholds — all before any
-test result is computed. Two are registered: `logistic-v1`, the per-tier logistic regression over
-deterministic features, and `self-consistency-v1`, which draws k samples and routes on how much
-a tier agrees with itself.
+test result is computed. Three are registered and a fourth refuses: `logistic-v1`, the per-tier
+logistic regression over deterministic features; `self-consistency-v1`, which draws k samples and
+routes on how much a tier agrees with itself under exact match; `semantic-entropy-v1`, which
+groups the same samples by model-judged meaning instead (`optimize/entailment.py`); and `sep-v1`,
+which reads hidden states and therefore raises, because no provider API returns them.
+
+A scorer that spends money declares it. The protocol carries `extra_cost`, so the entailment
+calls `semantic-entropy-v1` makes are billed to the scorer that made them and land in the same
+per-task accounting, waterfall and repayment figure as generation — a scorer whose spending is
+invisible makes the comparison meaningless, which is the lesson `DECISIONS.md` D27 paid for once.
 
 The isolation survives the second one by injection rather than import. A sampling scorer needs
 to know when two answers mean the same thing, and the obvious source for that is the grader —
@@ -147,6 +154,26 @@ A scorer that samples is charged for every sample it draws, through the same per
 accounting as everything else, and the answer graded is the one it returned rather than the
 first one drawn. `DECISIONS.md` D27 records why the demo measures the sampling scorer but does
 not adopt it.
+
+**`provenance.py` asks where the task set came from**, and refuses to certify on the answer. The
+declared origins are a claim the workload makes; the tail coverage, the share of items in
+rarely-seen templates and the concentration across templates are computed from the items. The
+detector that would resample a set towards human-written text is deliberately absent — it needs a
+model, and one that guessed would resample towards its own guess.
+
+**`verification.py` is the gold-free half of `grading.py`,** and the same isolation applies for a
+stronger reason. A *verifier* reads the question, the grounding document and the answer, and
+returns a verdict; it never sees gold, because a judge that could reach the answer key would make
+the entire label-free proof circular. `AnswerView` has no field that could carry one, and
+`tests/test_judge_isolation.py` checks it structurally, at the source level, and through the
+prompt itself — the four variables a judge prompt may render are asserted, so a workload cannot
+smuggle an answer key in through a template. The allocation policy in `optimize/annotation.py` is
+held to the same rule, because it decides *which* items get a strong label and would otherwise be
+choosing the ones it already knew the answer to.
+
+A judge is a model call like any other: the same `Runner`, the same pre-warming, the same
+cassettes, the same price snapshot. That is what makes a judge verdict a number computed over a
+trace rather than a number a function made up.
 
 ### `optimize/` — the analysis
 
@@ -162,7 +189,54 @@ deliberately naive `brute_force` implementation used only to check the first —
 agrees only with itself proves nothing.
 
 `proof.py` pairs the two arms over the same tasks and refuses to compare arms that answered
-different task sets rather than approximating.
+different task sets rather than approximating. It carries two comparisons: the gold one, and —
+when an annotation set exists — the same comparison with the answer key withheld, built on
+`core/stats.py`'s active-evaluation estimator.
+
+`annotation.py` decides where the annotation budget goes (UPGRADE_V3.md U2). The sampling rate is
+proportional to the judge's uncertainty on both arms plus a boost for pairs the arms disagree
+about, which is a proxy for how large the correction on that item will be; the budget fixes the
+mean rate and a floor keeps every item samplable, because at a rate of zero the inverse weight is
+infinite and the estimator's unbiasedness is gone. It also owns `annotations.json`, the committed
+record of what was drawn, what was spent and what every verdict was —
+`tokop fixtures-check` replays each of those verdicts through the parser and fails if one
+disagrees with the call it came from.
+
+`../annotate.py` is the driver, a sibling of `recorder.py`, and a separate command for a reason
+that is not organisational: the allocation reads disagreement between the two arms, and the
+candidate arm is a cascade whose per-task tier is only known once calibration has chosen an
+operating point. `DECISIONS.md` D29 records the rest.
+
+`certificate.py` turns a report into something with an expiry, and takes the looks that keep it
+honest. Alpha is spent across the looks a certificate plans — the looks are independent samples,
+not accumulating data, so the exact correction is a product over `(1 - alpha_k)` rather than a
+group-sequential boundary — and a changed model snapshot raises before any statistics are
+computed, because a certificate about a model that is no longer there is not a certificate.
+
+`pseudolabels.py` stands in for an answer key on the **calibration** split, for the other half of
+the same problem: thresholds have to be fitted somehow, and a workload with no labels has none
+there either. Two kinds are registered so the comparison is always available — a plain majority
+vote over pooled generations, and `penalized-v1`, which will not let a tier vote on its own
+label, excludes and counts distributions with no clear winner, and weights confident disagreement
+up rather than down. A tier's own repetition is the failure it is built for: a cheap model whose
+mistakes repeat looks, to a majority vote, exactly like a cheap model that is right.
+
+`entailment.py` is the meaning half of the sampling scorers (UPGRADE_V3.md U6). It clusters k
+answers by **bidirectional** entailment — both directions, because entailment is not symmetric,
+and the second direction is only asked when the first says yes — skipping identical strings,
+which on a workload of numbers is most of the matrix, and never comparing an answer it could not
+read. Model-judged entailment is not transitive, so the clustering is first-fit and reproducible
+from the recording's order rather than canonical, and it says so rather than implying a canonical
+grouping exists. The same module measures `effective_k`: the intraclass correlation of within-task
+agreement and the cluster-sampling design effect `k / (1 + (k-1) rho)`, which is what turns "real
+samples are correlated" from a caveat into a column.
+
+`ties.py` refuses to name a winner the data cannot support (UPGRADE_V3.md U7). Configurations
+whose cost-per-successful-task intervals overlap the cheapest are tied; the report lists them all,
+`single_winner` raises instead of picking, the fallback is chosen by scarce-model share among
+*adoptable* alternatives to what is running — a fallback sharing the constraint it exists to
+survive is not one — and the exploration weights over a tie are uniform, because greedy selection
+amplifies whichever option won the last sample.
 
 ## Modes
 
@@ -197,9 +271,9 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
 
 ## Testing
 
-- **466 engine tests**, 91% line coverage on `core/` and `optimize/`
+- **709 engine tests**, 91% line coverage on `core/` and `optimize/`
   (`pytest --cov=tokop/core --cov=tokop/optimize`).
-- **39 Playwright tests** against the production build in replay mode.
+- **45 Playwright tests** against the production build in replay mode.
 - **Exit-code tests for `tokop prove`** run through a subprocess, because an exit code asserted
   in-process is not the thing CI observes. They pin the case that matters: an *inconclusive*
   verdict fails the build.
@@ -207,9 +281,24 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
   unbiasedness over 2,000 trials against known ground truth with a deliberately biased cheap
   rater, to prove the correction is doing the work.
 - A **resume test** that hard-kills a recorder mid-run in a subprocess.
-- A **scorer-isolation test** that fails if a scorer can reach a gold answer.
-- `make verify` runs all eleven checks in SPEC.md section 10, in order, and prints
-  `VERIFY PASSED (11 checks)`.
+- A **scorer-isolation test** that fails if a scorer can reach a gold answer, and a
+  **judge-isolation test** that does the same for the verifier and the allocation policy.
+- An **adversarial judge test**, which is a release blocker: a judge that marks 20% of one class
+  of correct answers wrong must break the naive estimate and not the corrected one.
+- A **label-free calibration test** over a constructed set where a cheap tier's mistakes repeat,
+  and a **negative-delta disclosure test** that fails if the checkable-contract row ever reports
+  the money it saved without the accuracy it cost.
+- An **alpha-spending simulation** over 40,000 certificate lifetimes, which also measures what
+  *uncorrected* weekly looking would have cost, and a **collapse-refusal test** over a set piled
+  onto a fifth of its template space.
+- A **variance-reduction test** that compares the allocation policy against uniform sampling at
+  the same budget by evaluating the estimator's variance exactly, rather than by drawing once
+  and eyeballing the interval.
+- A **meaning-clustering test** over paraphrase pairs each verified to be a case exact match
+  actually misses, a **refusal test** for `sep-v1`, and a **tie test** that fails if the report
+  ever ranks configurations whose cost intervals overlap.
+- `make verify` runs all twenty-one checks in SPEC.md section 10 plus the UPGRADE_V3.md
+  acceptance checks, in order, and prints `VERIFY PASSED (21 checks)`.
 
 ## What is simulated in this build
 
@@ -220,6 +309,11 @@ model's minimum — and emits Anthropic-shaped usage payloads so the real normal
 them.
 
 What it cannot simulate is whether a model is actually right; answer quality comes from a
-responder with a per-tier, per-difficulty accuracy model. Everything downstream is real code over
-those traces, and every surface that displays a number derived from them labels it simulated.
-`DECISIONS.md` D1 records the whole arrangement.
+responder with a per-tier, per-difficulty accuracy model, plus a legibility tax when a pipeline
+asks for a checkable answer. A second responder invents how often a *judge* is wrong, with
+sensitivity and specificity given separately because the characteristic LLM-judge failure is
+leniency rather than error, and a third invents how often an *entailment* model mistakes one
+meaning for another. Everything downstream is real code over those traces, and every surface
+that displays a number derived from them labels it simulated.
+`DECISIONS.md` D1 records the whole arrangement, and D29 records why the guarantee U1 rests on is
+tested against an *injected* judge rather than against that table.

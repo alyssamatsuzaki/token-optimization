@@ -76,6 +76,193 @@ export interface DisagreementView {
   candidate_cost_usd: string;
 }
 
+/**
+ * The same comparison with the answer key withheld (UPGRADE_V3.md U1).
+ *
+ * `available: false` is a real state and carries its reason: an annotation set can be missing,
+ * or drawn against an operating point this report no longer uses. The screen shows the reason
+ * rather than an empty panel, because "we did not measure this" and "we measured nothing" look
+ * identical otherwise.
+ */
+export interface JudgedView {
+  available: boolean;
+  reason?: string;
+  stale?: boolean;
+  delta_accuracy: Interval;
+  verdict: VerdictView;
+  baseline_accuracy: Interval;
+  candidate_accuracy: Interval;
+  judge_only: {
+    delta_accuracy: Interval;
+    baseline_accuracy: number;
+    candidate_accuracy: number;
+    bias_vs_corrected: number;
+  };
+  annotation: {
+    n: number;
+    n_sampled: number;
+    n_annotated: number;
+    annotated_share: number;
+    failed_annotations: number;
+    annotation_cost_usd: string;
+    judge_cost_usd: string;
+    total_cost_usd: string;
+    policy: Record<string, unknown>;
+    strong_only_items_for_same_width: number | null;
+    strong_only_cost_usd: string | null;
+    variance_of_strong_delta: number;
+    standard_error: number;
+    judge_mean_square_error: number;
+    cost_optimal_rate: number;
+    cheap_cost_per_item_usd: string;
+    strong_cost_per_item_usd: string;
+    cost_optimal_rate_note: string;
+    method: string;
+  };
+  judge: { kind: string; model_id: string; method: string; calls: number; contract: string };
+  strong_grader: { source: string; model_id: string | null; method: string };
+  coverage_check?: {
+    gold_delta_accuracy: number;
+    judged_interval_covers_gold: boolean;
+    judge_only_interval_covers_gold: boolean;
+    gold_delta_minus_judged: number;
+    note: string;
+  };
+  caveats: string[];
+}
+
+/**
+ * What a checkable output contract costs and what it buys (UPGRADE_V3.md U4).
+ *
+ * `accuracy_delta` is allowed to be negative — a contract that makes an answer easy to check
+ * can make it harder to get right — and the screen renders it with its sign either way.
+ */
+export interface ContractView {
+  available: boolean;
+  reason?: string;
+  baseline_pipeline: string;
+  candidate_pipeline: string;
+  target_standard_error: number;
+  n: number;
+  annotated: number;
+  judge: { kind: string; model_id: string; method: string };
+  strong_grader: { source: string; model_id: string | null };
+  arms: {
+    pipeline: string;
+    label: string;
+    checkable: boolean;
+    judge_agreement_with_strong_grader: number;
+    judge_mean_square_error: number;
+    sampling_rate_for_target: number;
+    annotation_cost_for_target_usd: string;
+    accuracy: number;
+    generation_cost_usd: string;
+    output_tokens: number;
+  }[];
+  accuracy_delta: number;
+  agreement_delta: number;
+  annotation_saving_usd: string;
+  generation_premium_usd: string;
+  net_on_evaluation_split_usd: string;
+  pays_for_itself: boolean;
+  note: string;
+  origin: string;
+}
+
+/** Where the cascade's calibration labels came from (UPGRADE_V3.md U3). */
+export interface CalibrationView {
+  mode: string;
+  description: string;
+  thresholds: number[];
+  accuracy_floor: number;
+  excluded: number;
+  n: number;
+  alternatives: {
+    kind: string;
+    description: string;
+    thresholds: number[];
+    max_threshold_gap: number;
+    excluded: number;
+    excluded_share: number;
+    kept: number;
+    label_agreement_with_gold: Record<string, number | null>;
+    test_accuracy: number;
+    test_cost_per_task_usd: string;
+  }[];
+  note: string;
+  limits: string;
+  fixtures_can_exercise_this: {
+    answer: boolean;
+    reason: string;
+    min_label_agreement_with_gold: number | null;
+  };
+}
+
+/**
+ * Where the task set came from, and whether it can back a certificate (UPGRADE_V3.md U8).
+ *
+ * `certifiable: false` is a fact about the dataset, not a failure of the build: a set nobody
+ * has observed in production cannot certify production, however good its numbers are.
+ */
+export interface DatasetProvenanceView {
+  n: number;
+  declared: boolean;
+  real_traffic_items: number;
+  model_generated_items: number;
+  program_generated_items: number;
+  real_traffic_share: number;
+  model_generated_share: number;
+  synthetic_share: number;
+  generators: string[];
+  decoding_budget: string | null;
+  relabelled_by_frozen_reference: boolean;
+  real_traffic_accumulating: boolean;
+  notes: string[];
+  shape: {
+    template_space: number;
+    templates_present: number;
+    tail_coverage: number;
+    tail_share: number;
+    concentration: number;
+    missing_templates: string[];
+    missing_template_count: number;
+  };
+  certifiable: boolean;
+  refusals: string[];
+  warnings: string[];
+}
+
+/**
+ * Every configuration statistically tied for cheapest (UPGRADE_V3.md U7).
+ *
+ * When the cost intervals overlap the ordering between them is the bootstrap's noise, so the
+ * screen shows all of them rather than a winner — which also happens to be what a buyer needs
+ * before signing a single-vendor dependency.
+ */
+export interface TiesView {
+  is_tie: boolean;
+  cheapest: string;
+  tied: {
+    label: string;
+    cost_per_successful_task: number;
+    cost_low: number;
+    cost_high: number;
+    accuracy: number;
+    scarce_share: number;
+    adoptable: boolean;
+    is_cheapest: boolean;
+    is_fallback: boolean;
+    is_operating_point?: boolean;
+    scorer?: string;
+    k?: number;
+    verdict?: string;
+  }[];
+  fallback: string | null;
+  fallback_reason: string;
+  exploration_weights: Record<string, number>;
+  note: string;
+}
+
 export interface ProofView {
   baseline: ArmView;
   candidate: ArmView;
@@ -180,6 +367,7 @@ export interface CascadeView {
     >;
     warnings: { tier: string; message: string }[];
   };
+  ties: TiesView | null;
   frontier_chart: FrontierPointView[];
   pareto: { thresholds: number[]; accuracy: number; cost_per_task_usd: string }[];
 }
@@ -251,6 +439,10 @@ export interface Report {
   };
   provenance: ProvenanceView;
   proof: ProofView;
+  judged: JudgedView;
+  calibration: CalibrationView;
+  contract: ContractView;
+  dataset_provenance: DatasetProvenanceView;
   waterfall: WaterfallStepView[];
   cascade: CascadeView;
   findings: FindingView[];

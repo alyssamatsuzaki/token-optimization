@@ -58,8 +58,41 @@ fi
 if have engine/.venv/bin/pytest && [ -n "$(find engine/tests -name 'test_*.py' 2>/dev/null)" ]; then
   run "pytest + coverage" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
       --cov=tokop/core --cov=tokop/optimize --cov-report=term-missing --cov-fail-under=85"
+  # Named separately from the suite above even though the suite already ran them. Both are
+  # acceptance checks for UPGRADE_V3.md, and a release blocker that fails inside a count of
+  # "N tests failed" is a release blocker nobody reads (U1, U2).
+  run "adversarial judge (U1)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
+      tests/test_judged_proof.py::TestTheAdversarialJudge"
+  run "variance reduction (U2)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
+      tests/test_annotation.py::TestVarianceReduction \
+      tests/test_judged_proof.py::TestThePolicyOnRecordedVerdicts"
+  run "judge sees no gold (U1)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
+      tests/test_judge_isolation.py"
+  run "label-free calibration (U3)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
+      tests/test_pseudolabels.py::TestTheAcceptanceCheck"
+  run "negative-delta disclosure (U4)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
+      tests/test_contract.py::TestItNeverSuppressesANegativeAccuracyDelta"
+  run "alpha spending (U5)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
+      tests/test_certificate.py::TestAlphaSpending \
+      tests/test_certificate.py::TestTheCanaryRaises"
+  run "collapse refusal (U8)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
+      tests/test_provenance.py::TestTheCollapsedFixture"
+  run "meaning clustering (U6)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
+      tests/test_entailment.py::TestTheAcceptanceCheck \
+      tests/test_entailment.py::TestSepRefuses"
+  run "no greedy pick on a tie (U7)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
+      tests/test_ties.py::TestTheAcceptanceCheck"
 else
   skip "pytest + coverage" "no tests yet"
+  skip "adversarial judge (U1)" "no tests yet"
+  skip "variance reduction (U2)" "no tests yet"
+  skip "judge sees no gold (U1)" "no tests yet"
+  skip "label-free calibration (U3)" "no tests yet"
+  skip "negative-delta disclosure (U4)" "no tests yet"
+  skip "alpha spending (U5)" "no tests yet"
+  skip "collapse refusal (U8)" "no tests yet"
+  skip "meaning clustering (U6)" "no tests yet"
+  skip "no greedy pick on a tie (U7)" "no tests yet"
 fi
 
 # ---------------------------------------------------------------- 3. web build

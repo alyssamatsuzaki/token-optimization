@@ -119,6 +119,142 @@ test("build candidate, run proof, and read the verdict", async ({ page }) => {
   }
 });
 
+test("configurations the data cannot separate are all shown, not ranked", async ({ page }) => {
+  await openOptimize(page);
+  await page.getByTestId("build-candidate").click();
+  await page.getByTestId("run-proof").click();
+
+  const ties = report.cascade.ties;
+  test.skip(!ties, "this report evaluated one configuration");
+  const table = page.getByTestId("ties-table");
+  for (const row of ties.tied as { label: string }[]) {
+    await expect(table).toContainText(row.label);
+  }
+  await expect(page.getByTestId("ties-note")).toContainText(ties.note.slice(0, 60));
+  await expect(page.getByTestId("ties-fallback")).toContainText(
+    ties.fallback_reason.slice(0, 50),
+  );
+});
+
+test("the screen says where the tasks came from and whether that can certify", async ({
+  page,
+}) => {
+  await openOptimize(page);
+  await page.getByTestId("build-candidate").click();
+  await page.getByTestId("run-proof").click();
+
+  const provenance = report.dataset_provenance;
+  await expect(page.getByTestId("provenance-tail")).toContainText(
+    `${provenance.shape.templates_present} of ${provenance.shape.template_space}`,
+  );
+  // A set that cannot certify says why, in the words the engine chose.
+  if (provenance.refusals.length > 0) {
+    const refusals = page.getByTestId("provenance-refusals");
+    for (const refusal of provenance.refusals as string[]) {
+      await expect(refusals).toContainText(refusal.slice(0, 60));
+    }
+  }
+});
+
+test("the screen says where the cascade's thresholds came from", async ({ page }) => {
+  await openOptimize(page);
+  await page.getByTestId("build-candidate").click();
+  await page.getByTestId("run-proof").click();
+
+  const calibration = report.calibration;
+  await expect(page.getByTestId("calibration-thresholds")).toContainText(
+    calibration.thresholds[0].toFixed(2),
+  );
+  // A label-free calibration is measured beside the labelled one, and when these fixtures
+  // cannot exercise the difference the screen says so rather than implying a result.
+  if (calibration.alternatives.length > 0 && !calibration.fixtures_can_exercise_this.answer) {
+    await expect(page.getByTestId("calibration-limits")).toContainText(
+      calibration.fixtures_can_exercise_this.reason.slice(0, 60),
+    );
+  }
+});
+
+test("the checkability row shows the accuracy it cost, not just the money it saved", async ({
+  page,
+}) => {
+  await openOptimize(page);
+  await page.getByTestId("build-candidate").click();
+  await page.getByTestId("run-proof").click();
+
+  const contract = report.contract;
+  if (!contract.available) {
+    await expect(page.getByTestId("contract-unavailable")).toContainText(contract.reason);
+    return;
+  }
+
+  // UPGRADE_V3.md U4: the row is allowed to show a negative accuracy delta, and must.
+  const delta = page.getByTestId("contract-accuracy-delta");
+  const sign = contract.accuracy_delta >= 0 ? "+" : "-";
+  await expect(delta).toHaveText(
+    `${sign}${Math.abs(contract.accuracy_delta * 100).toFixed(1)}`,
+  );
+
+  const table = page.getByTestId("contract-table");
+  for (const arm of contract.arms as { pipeline: string }[]) {
+    await expect(table).toContainText(arm.pipeline);
+  }
+  await expect(page.getByTestId("contract-verdict")).toContainText("net ");
+});
+
+test("the proof without the answer key shows what the judge alone would have said", async ({
+  page,
+}) => {
+  await openOptimize(page);
+  await page.getByTestId("build-candidate").click();
+  await page.getByTestId("run-proof").click();
+
+  const judged = report.judged;
+  if (!judged.available) {
+    // A missing or stale annotation set is a real state and must say which. `tokop report
+    // --check` fails on it, so this branch is the screen behaving correctly while CI is red.
+    await expect(page.getByTestId("judged-unavailable")).toContainText(judged.reason);
+    return;
+  }
+
+  await expect(page.getByTestId("judged-sentence")).toHaveText(judged.verdict.sentence);
+  await expect(page.getByTestId("judged-interval-plot")).toBeVisible();
+
+  // The row the whole upgrade exists for: the judge's bias, measured rather than assumed away.
+  const bias = page.getByTestId("judge-bias");
+  await expect(bias).toContainText("judge bias");
+  await expect(bias).toContainText(
+    `${judged.judge_only.bias_vs_corrected >= 0 ? "+" : "-"}${Math.abs(
+      judged.judge_only.bias_vs_corrected * 100,
+    ).toFixed(1)}`,
+  );
+
+  // UPGRADE_V3.md U1: the report states what the annotation cost and what strong-only grading
+  // would have cost for the same interval width.
+  const annotation = page.getByTestId("annotation-row");
+  await expect(annotation).toContainText(`${judged.annotation.n_annotated} of ${judged.annotation.n} items`);
+  await expect(annotation).toContainText("strong-only grading needs");
+
+  // Every caveat the engine attached is rendered, not summarised away.
+  const panel = page.locator("#judged");
+  for (const caveat of judged.caveats as string[]) {
+    await expect(panel).toContainText(caveat.slice(0, 60));
+  }
+});
+
+test("the gold-free estimate is checked against the answer key the demo happens to have", async ({
+  page,
+}) => {
+  await openOptimize(page);
+  await page.getByTestId("build-candidate").click();
+  await page.getByTestId("run-proof").click();
+  const judged = report.judged;
+  test.skip(!judged.available, "no annotation set to check");
+  const coverage = page.getByTestId("judged-coverage");
+  await expect(coverage).toContainText(
+    judged.coverage_check.judged_interval_covers_gold ? "inside" : "outside",
+  );
+});
+
 test("the savings waterfall lists every pipeline with its interval and verdict", async ({ page }) => {
   await openOptimize(page);
   await page.getByTestId("build-candidate").click();

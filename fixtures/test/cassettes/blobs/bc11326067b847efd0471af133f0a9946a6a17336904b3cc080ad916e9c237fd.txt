@@ -1,0 +1,16 @@
+Customer question: For Zone 5 (international), how many business days should we quote for transit?
+
+Answer under review:
+<<<ANSWER
+Thanks for reaching out, and I'm happy to help you get to the bottom of this.
+
+Looking at the handbook material provided, the relevant rule is in the section that governs this situation, and it is worth reading carefully because there are a few interacting pieces here.
+
+The handbook says: "A Zone 3 order placed on a Monday therefore arrives on the following Monday, not the preceding Friday."
+
+Applying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. I've double-checked the arithmetic, but if your order details differ from what I have in front of me the figure may move.
+
+I hope that's clear, and thank you again for your patience.
+
+Final answer: 14
+ANSWER>>>

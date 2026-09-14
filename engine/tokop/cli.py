@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import typer
 
@@ -37,6 +38,14 @@ def recording_state_cmd(
     if check and state.state not in known:
         typer.echo(f"unknown recording state: {state.state}", err=True)
         raise typer.Exit(1)
+
+
+def _wrote(path: Path) -> str:
+    """ "wrote <path>", relative to the repository when it is inside it and absolute when not."""
+    try:
+        return f"wrote {path.relative_to(repo_root())}"
+    except ValueError:
+        return f"wrote {path}"
 
 
 def _not_yet(name: str, milestone: str) -> None:
@@ -129,20 +138,266 @@ def record(
 
 
 @app.command()
+def annotate(
+    workload: str = typer.Option("data/demo/workload.yaml", "--workload"),
+    budget: float = typer.Option(
+        -1.0, "--budget", help="Override the workload's annotation budget, in dollars."
+    ),
+    policy: str = typer.Option("", "--policy", help="cost-optimal or uniform."),
+    strong_grader: str = typer.Option("", "--strong-grader", help="frontier or human."),
+    queue: bool = typer.Option(
+        False, "--queue", help="Write a human review queue instead of calling a strong grader."
+    ),
+    queue_results: str = typer.Option(
+        "", "--queue-results", help="Fold a completed review queue back into the annotation set."
+    ),
+    contract: bool = typer.Option(
+        False,
+        "--contract",
+        help="Judge the checkable-contract pair instead of the proof's two arms (U4).",
+    ),
+) -> None:
+    """Buy the strong labels the judged proof corrects a cheap judge with (UPGRADE_V3.md U1).
+
+    Runs the cheap judge over every answer in both arms, allocates the annotation budget across
+    tasks by the workload's policy, draws, and grades the drawn items with the strong grader.
+    Writes ``annotations.json`` next to the fixtures.
+    """
+    from decimal import Decimal as _Decimal
+
+    from tokop.annotate import AnnotationStopped, build_demo_annotations, merge_queue_results
+    from tokop.optimize.annotation import AnnotationError, AnnotationSet, annotations_path
+    from tokop.paths import fixtures_dir
+    from tokop.recording_state import describe
+
+    if workload != "data/demo/workload.yaml":
+        typer.echo(
+            f"this build can only annotate the demo workload; --workload {workload!r} is not "
+            "supported yet (DECISIONS.md D24).",
+            err=True,
+        )
+        raise typer.Exit(2)
+
+    root = fixtures_dir() / describe().fixture_source
+    if queue_results:
+        source = repo_root() / queue_results
+        if not source.exists():
+            typer.echo(f"no review queue at {source}", err=True)
+            raise typer.Exit(2)
+        try:
+            existing = AnnotationSet.read(annotations_path(root, contract=contract))
+            merged, filled = merge_queue_results(existing, source.read_text())
+        except AnnotationError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(2) from exc
+        target = annotations_path(root, contract=contract)
+        merged.write(target)
+        typer.echo(f"folded {filled} reviewed items into {target.name}")
+        return
+
+    try:
+        run = build_demo_annotations(
+            budget_usd=None if budget < 0 else _Decimal(str(budget)),
+            policy=policy or None,
+            strong_grader=("human" if queue else (strong_grader or None)),
+            contract=contract,
+        )
+    except (AnnotationStopped, AnnotationError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+
+    for step in run.steps:
+        typer.echo("  " + step)
+    if run.queue is not None:
+        typer.echo(f"\n{run.queue.reason}")
+        typer.echo(f"wrote {run.queue.path} ({run.queue.entries} answers to review)")
+    if run.annotations is not None and run.path is not None:
+        annotations = run.annotations
+        typer.echo(
+            f"\n{annotations.n_annotated} of {annotations.n} items strong-graded "
+            f"({annotations.n_annotated / annotations.n:.0%}), "
+            f"${annotations.cost['total_usd']} spent in total "
+            f"(judge ${annotations.cost['judge_usd']}, "
+            f"strong ${annotations.cost['strong_usd']}). "
+            f"Grading every item would have cost ${annotations.cost['grading_everything_usd']}."
+        )
+        typer.echo(f"wrote {run.path.relative_to(repo_root())}")
+        if annotations.origin != "recorded":
+            typer.echo("\nNOTE: simulated verdicts, not a recording (DECISIONS.md D1).", err=True)
+
+
+def _echo_calibration(calibration: dict[str, Any]) -> None:
+    """Where the operating point's labels came from, and what a label-free one would pick."""
+    typer.echo("")
+    typer.echo(
+        f"CALIBRATION:   {calibration['mode']} — "
+        f"{', '.join(f'{t:.2f}' for t in calibration['thresholds'][:-1])} at a "
+        f"{calibration['accuracy_floor']:.1%} accuracy floor"
+        + (
+            f", {calibration['excluded']} of {calibration['n']} tasks excluded"
+            if calibration["excluded"]
+            else ""
+        )
+    )
+    for alternative in calibration["alternatives"]:
+        agreement = [
+            value
+            for value in alternative["label_agreement_with_gold"].values()
+            if value is not None
+        ]
+        typer.echo(
+            f"  {alternative['kind']:15} "
+            f"{', '.join(f'{t:.2f}' for t in alternative['thresholds'][:-1])}  "
+            f"(gap {alternative['max_threshold_gap']:.2f}, "
+            f"{alternative['excluded']} excluded"
+            + (
+                f", labels agree {min(agreement):.0%}"
+                if agreement
+                else ", agreement not computable"
+            )
+            + ")"
+        )
+    exercise = calibration["fixtures_can_exercise_this"]
+    if calibration["alternatives"] and not exercise["answer"]:
+        typer.echo(f"  {exercise['reason']}")
+
+
+def _echo_contract(contract: dict[str, Any]) -> None:
+    """What the checkable output contract costs and what it buys (UPGRADE_V3.md U4)."""
+    typer.echo("")
+    if not contract.get("available"):
+        typer.echo(f"CHECKABILITY:  not priced — {contract.get('reason', 'no reason given')}")
+        return
+    typer.echo(
+        f"CHECKABILITY:  {contract['candidate_pipeline']} against "
+        f"{contract['baseline_pipeline']}, judged by {contract['judge']['model_id']} and "
+        f"corrected by {contract['annotated']} of {contract['n']} strong-graded tasks"
+    )
+    header = (
+        f"  {'pipeline':10}{'judge agrees':>14}{'sample rate':>13}"
+        f"{'annotation $':>14}{'accuracy':>10}{'generation $':>14}"
+    )
+    typer.echo(header)
+    typer.echo("  " + "-" * (len(header) - 2))
+    for arm in contract["arms"]:
+        typer.echo(
+            f"  {arm['pipeline']:10}"
+            f"{arm['judge_agreement_with_strong_grader']:>13.1%}"
+            f"{arm['sampling_rate_for_target']:>13.1%}"
+            f"{float(arm['annotation_cost_for_target_usd']):>14.4f}"
+            f"{arm['accuracy']:>10.1%}"
+            f"{float(arm['generation_cost_usd']):>14.4f}"
+        )
+    typer.echo(
+        f"  the contract moves judge agreement {contract['agreement_delta'] * 100:+.1f} points "
+        f"and accuracy {contract['accuracy_delta'] * 100:+.1f} points"
+    )
+    typer.echo(
+        f"  annotation saving ${contract['annotation_saving_usd']} against a generation premium "
+        f"of ${contract['generation_premium_usd']}: "
+        + (
+            "it pays for itself on this split"
+            if contract["pays_for_itself"]
+            else f"net ${contract['net_on_evaluation_split_usd']} — it does not pay here"
+        )
+        + f" (target standard error {contract['target_standard_error']:.2f})"
+    )
+    typer.echo(f"  {contract['note']}")
+
+
+def _echo_judged(judged: dict[str, Any]) -> None:
+    """Print the same comparison with the answer key withheld."""
+    typer.echo("")
+    if not judged.get("available"):
+        typer.echo(f"WITHOUT GOLD: unavailable — {judged.get('reason', 'no reason given')}")
+        return
+    annotation = judged["annotation"]
+    judge_only = judged["judge_only"]
+    typer.echo(f"WITHOUT GOLD:  {judged['verdict']['display']}")
+    typer.echo(f"               {judged['verdict']['sentence']}")
+    typer.echo(
+        f"  judge alone: {judge_only['delta_accuracy']['point'] * 100:+.1f} points "
+        f"[{judge_only['delta_accuracy']['low'] * 100:+.1f}, "
+        f"{judge_only['delta_accuracy']['high'] * 100:+.1f}] — "
+        f"{judge_only['bias_vs_corrected'] * 100:+.1f} points of judge bias, measured"
+    )
+    typer.echo(
+        f"  annotation:  {annotation['n_annotated']} of {annotation['n']} items "
+        f"({annotation['annotated_share']:.0%}) at ${annotation['annotation_cost_usd']}; "
+        f"strong-only grading needs {annotation['strong_only_items_for_same_width']} items "
+        f"at ${annotation['strong_only_cost_usd']} for the same interval width"
+    )
+    typer.echo(f"  {annotation['cost_optimal_rate_note']}")
+    coverage = judged.get("coverage_check")
+    if coverage:
+        covers = "covers" if coverage["judged_interval_covers_gold"] else "MISSES"
+        typer.echo(
+            f"  check:       the gold-graded delta is "
+            f"{coverage['gold_delta_accuracy'] * 100:+.1f} points; the gold-free interval "
+            f"{covers} it"
+        )
+    for caveat in judged.get("caveats", []):
+        typer.echo(f"  - {caveat}")
+
+
+@app.command()
 def prove(
     workload: str = typer.Option("data/demo/workload.yaml", "--workload"),
     baseline: str = typer.Option("B0", "--baseline"),
     candidate: str = typer.Option("B3", "--candidate"),
     margin: float = typer.Option(0.03, "--margin"),
+    grading: str = typer.Option(
+        "gold",
+        "--grading",
+        help="gold reads the dataset's answer key; judged withholds it and uses the judge.",
+    ),
+    annotation_budget: float = typer.Option(
+        -1.0,
+        "--annotation-budget",
+        help="Replay the judged estimate at a smaller annotation budget, in dollars.",
+    ),
+    calibration: str = typer.Option(
+        "",
+        "--calibration",
+        help=(
+            "Where calibration labels come from: gold, penalized-v1 or majority-vote. "
+            "Defaults to the workload's grading mode."
+        ),
+    ),
 ) -> None:
     """Run the proof for a candidate pipeline against a baseline.
 
-    Exits 0 when the verdict is non-inferior and 1 otherwise, so it can gate CI.
+    Exits 0 when the verdict is non-inferior and 1 otherwise, so it can gate CI. With
+    ``--grading judged`` the verdict comes from the gold-free estimate instead, which is what a
+    workload that arrives without labels gets.
     """
+    from decimal import Decimal as _Decimal
+
     from tokop.optimize.report import build_report
 
+    if grading not in ("gold", "judged"):
+        typer.echo(
+            f"--grading must be `gold` or `judged`, not {grading!r}.",
+            err=True,
+        )
+        raise typer.Exit(2)
+
     # The margin is applied, not echoed: the verdict below is computed against this number.
-    payload = build_report(margin=margin)
+    from tokop.optimize.pseudolabels import GOLD, PSEUDO_LABEL_REGISTRY
+
+    if calibration and calibration not in {GOLD, *PSEUDO_LABEL_REGISTRY}:
+        typer.echo(
+            f"--calibration must be one of {', '.join([GOLD, *sorted(PSEUDO_LABEL_REGISTRY)])}, "
+            f"not {calibration!r}.",
+            err=True,
+        )
+        raise typer.Exit(2)
+
+    payload = build_report(
+        margin=margin,
+        annotation_budget=None if annotation_budget < 0 else _Decimal(str(annotation_budget)),
+        calibration=calibration or None,
+    )
     proof = payload["proof"]
     if workload != "data/demo/workload.yaml":
         typer.echo(
@@ -176,11 +431,34 @@ def prove(
         typer.echo(f", repaid after {proof['repayment_tasks']:,} tasks")
     else:
         typer.echo("")
+    _echo_calibration(payload["calibration"])
+    _echo_contract(payload["contract"])
+    judged = payload["judged"]
+    if workload_has_judge(payload):
+        _echo_judged(judged)
     if payload["provenance"]["is_test_data"]:
         typer.echo("")
         typer.echo("NOTE: computed over simulated test data, not a recording.", err=True)
+
+    if grading == "judged":
+        if not judged.get("available"):
+            typer.echo(
+                f"\n--grading judged, but there is no usable judged estimate: "
+                f"{judged.get('reason', 'no reason given')}",
+                err=True,
+            )
+            raise typer.Exit(2)
+        # The gate reads the judged verdict, which is the one a workload without labels gets.
+        if judged["verdict"]["label"] != "non_inferior":
+            raise typer.Exit(1)
+        return
     if proof["verdict"]["label"] != "non_inferior":
         raise typer.Exit(1)
+
+
+def workload_has_judge(payload: ReportPayload) -> bool:
+    """Whether this report has anything to say about grading without gold."""
+    return bool(payload["judged"])
 
 
 def _echo_scorer_comparison(payload: ReportPayload) -> None:
@@ -200,19 +478,26 @@ def _echo_scorer_comparison(payload: ReportPayload) -> None:
     typer.echo("  scorers evaluated on the calibration split")
     header = (
         f"  {'configuration':26}{'calls':>6}{'accuracy':>10}{'$/success':>12}"
-        f"{'scarce':>8}{'sampling $':>12}{'repays':>8}  verdict"
+        f"{'scarce':>8}{'sampling $':>12}{'eff. k':>8}{'repays':>8}  verdict"
     )
     typer.echo(header)
     typer.echo("  " + "-" * (len(header) - 2))
     for row in rows:
         accuracy = row["accuracy"]
         marker = " *" if row["is_chosen"] else "  "
+        correlation = row.get("sample_correlation")
+        # The worst tier's effective k: how many independent draws this configuration's k
+        # repeats were actually worth (UPGRADE_V3.md U6). "—" for a scorer that reads one call.
+        effective = (
+            f"{min(v['effective_k'] for v in correlation.values()):.2f}" if correlation else "—"
+        )
         typer.echo(
             f"  {row['label'][:24]:24}{marker}{row['calls_per_scored_task']:>4}"
             f"{accuracy['point']:>10.1%}"
             f"{row['cost_per_successful_task']['point']:>12.6f}"
             f"{row['scarce_share']:>8.1%}"
             f"{float(row['sampling_cost_usd']):>12.4f}"
+            f"{effective:>8}"
             f"{row['repayment_tasks']!s:>8}  {row['verdict']['label']}"
         )
     typer.echo(f"  * the operating point, chosen on {choice['chosen_on']}")
@@ -227,6 +512,33 @@ def _echo_scorer_comparison(payload: ReportPayload) -> None:
         f"  recording the repeats this table needed cost "
         f"${choice['search_recording_cost_usd']}, which is not part of the proof cost above."
     )
+    if any(row.get("sample_correlation") for row in rows):
+        typer.echo(
+            "  eff. k is how many *independent* draws each configuration's k repeats were worth,"
+            "\n  measured from within-task agreement. Close to k means the samples really are "
+            "independent,\n  which on these fixtures is a fact about the simulator (DECISIONS.md "
+            "D27)."
+        )
+
+    ties = cascade.get("ties")
+    if ties and ties["is_tie"]:
+        typer.echo("")
+        typer.echo("  statistically tied for cheapest, ordered by dollars")
+        for row in ties["tied"]:
+            marks = []
+            if row["is_operating_point"]:
+                marks.append("operating point")
+            if row["is_fallback"]:
+                marks.append("fallback")
+            if not row["adoptable"]:
+                marks.append("not adoptable here")
+            typer.echo(
+                f"  {row['label'][:34]:34}{row['cost_per_successful_task']:>12.6f}"
+                f"  [{row['cost_low']:.6f}, {row['cost_high']:.6f}]"
+                + (f"  ({', '.join(marks)})" if marks else "")
+            )
+        typer.echo(f"  {ties['note']}")
+        typer.echo(f"  {ties['fallback_reason']}")
 
 
 @app.command()
@@ -311,10 +623,216 @@ def report(
     typer.echo(f"  {'ok  ' if current else 'FAIL'}  {message}")
     failures += 0 if current else 1
 
+    # 4. The gold-free estimate is available, and it lands where the labelled one does.
+    #    An annotation set drawn against a different operating point judges answers this
+    #    cascade did not give, so "unavailable" is a failure here rather than a note.
+    judged = payload["judged"]
+    if not judged.get("available"):
+        typer.echo(f"  FAIL  the judged estimate is unavailable: {judged.get('reason')}", err=True)
+        failures += 1
+    else:
+        coverage = judged["coverage_check"]
+        covers = coverage["judged_interval_covers_gold"]
+        typer.echo(
+            f"  {'ok  ' if covers else 'FAIL'}  the gold-free interval "
+            f"[{judged['delta_accuracy']['low'] * 100:+.1f}, "
+            f"{judged['delta_accuracy']['high'] * 100:+.1f}] "
+            f"{'covers' if covers else 'MISSES'} the gold-graded delta "
+            f"{coverage['gold_delta_accuracy'] * 100:+.1f}"
+        )
+        failures += 0 if covers else 1
+
     if failures:
         typer.echo(f"\nreport --check FAILED ({failures})", err=True)
         raise typer.Exit(1)
     typer.echo("\nreport --check passed")
+
+
+@app.command()
+def provenance(
+    dataset: str = typer.Option("data/demo/dataset.jsonl", "--dataset"),
+    check: bool = typer.Option(
+        False, "--check", help="Exit nonzero if the provenance block is incomplete."
+    ),
+) -> None:
+    """Say where the task set came from, and whether it can back a certificate (U8).
+
+    Reports; it does not gate. A set that cannot certify is a fact about the set, not a defect
+    in the build, and `--check` fails only when the block itself is missing or does not add up.
+    """
+    from tokop.optimize.report import build_report
+
+    if dataset != "data/demo/dataset.jsonl":
+        typer.echo(
+            f"this build can only read the demo dataset; --dataset {dataset!r} is not supported "
+            "yet (DECISIONS.md D24).",
+            err=True,
+        )
+        raise typer.Exit(2)
+
+    block = build_report()["dataset_provenance"]
+    shape = block["shape"]
+    typer.echo(f"items:      {block['n']}")
+    typer.echo(
+        f"origins:    {block['real_traffic_items']} real traffic, "
+        f"{block['model_generated_items']} model-generated, "
+        f"{block['program_generated_items']} program-generated "
+        f"({block['synthetic_share']:.0%} synthetic)"
+    )
+    typer.echo(
+        f"generators: {', '.join(block['generators']) or 'none declared'}"
+        + (
+            f", decoding budget {block['decoding_budget']}"
+            if block["decoding_budget"]
+            else ", no decoding budget (no model wrote any of it)"
+        )
+    )
+    typer.echo(
+        f"tail:       {shape['templates_present']} of {shape['template_space']} templates "
+        f"present ({shape['tail_coverage']:.0%}), {shape['tail_share']:.1%} of items in "
+        f"rarely-seen templates, concentration {shape['concentration']:.2f}"
+    )
+    typer.echo("")
+    typer.echo(f"CERTIFIABLE: {'yes' if block['certifiable'] else 'no'}")
+    for refusal in block["refusals"]:
+        typer.echo(f"  refused:  {refusal}")
+    for warning in block["warnings"]:
+        typer.echo(f"  warning:  {warning}")
+    for note in block["notes"]:
+        typer.echo(f"  note:     {note}")
+
+    if check and not block["declared"]:
+        typer.echo(
+            "\nthe workload declares no `dataset_provenance:` block, so nothing is known about "
+            "where its tasks came from.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+
+@app.command()
+def certificate(
+    out: str = typer.Option("", "--out", help="Write the certificate JSON here."),
+    margin: float = typer.Option(0.03, "--margin"),
+) -> None:
+    """Issue a certificate: what was proven, what it rests on, and when it stops being true."""
+    from datetime import UTC, datetime
+
+    from tokop.optimize.certificate import issue
+    from tokop.optimize.report import build_report
+
+    payload = build_report(margin=margin)
+    cert = issue(payload, today=datetime.now(UTC).date())
+    typer.echo(f"workload:    {cert.workload}")
+    typer.echo(
+        f"claim:       {cert.candidate_pipeline} against {cert.baseline_pipeline} — {cert.verdict}"
+    )
+    typer.echo(
+        f"delta:       {cert.delta_point * 100:+.1f} points "
+        f"[{cert.delta_low * 100:+.1f}, {cert.delta_high * 100:+.1f}] at a "
+        f"{cert.margin:.0%} margin, n = {cert.n}"
+    )
+    typer.echo(f"grading:     {cert.grading_mode}, calibration {cert.calibration_mode}")
+    for snapshot in cert.model_snapshots:
+        typer.echo(f"  {snapshot.role:9} {snapshot.snapshot}")
+    typer.echo(f"prices:      {cert.price_snapshot_id}")
+    typer.echo(f"issued:      {cert.issued} — expires {cert.expires}")
+    typer.echo(
+        f"canary:      {cert.looks_planned} looks planned, alpha {cert.alpha} spent by "
+        f"{cert.spending} ({', '.join(f'{level:.4f}' for level in cert.levels())})"
+    )
+    typer.echo(f"fingerprint: {cert.fingerprint()}")
+    typer.echo("")
+    typer.echo(f"CERTIFIABLE: {'yes' if cert.certifiable else 'no'}")
+    for refusal in cert.dataset_provenance.get("refusals", []):
+        typer.echo(f"  refused:  {refusal}")
+    if out:
+        path = repo_root() / out
+        cert.write(path)
+        typer.echo(f"\n{_wrote(path)}")
+
+
+@app.command()
+def canary(
+    certificate_path: str = typer.Option(..., "--certificate", help="Path to the certificate."),
+    log: str = typer.Option("", "--log", help="Where the canary log lives. Defaults beside it."),
+    today: str = typer.Option("", "--today", help="ISO date to check as of. Defaults to now."),
+) -> None:
+    """Take one look at a standing certificate (UPGRADE_V3.md U5).
+
+    Exits 0 when the certificate still stands and 1 when the look raised, so a scheduled canary
+    gates a deploy the way `tokop prove` gates a merge.
+    """
+    from datetime import UTC, datetime
+    from datetime import date as _date
+
+    from tokop.optimize.certificate import (
+        CANARY_FRACTION,
+        CanaryLog,
+        Certificate,
+        CertificateError,
+        take_look,
+    )
+    from tokop.optimize.report import build_report, canary_observation, current_identity
+
+    path = repo_root() / certificate_path
+    log_path = repo_root() / log if log else path.with_suffix(".canary.json")
+    as_of = _date.fromisoformat(today) if today else datetime.now(UTC).date()
+
+    try:
+        cert = Certificate.read(path)
+        canary_log = CanaryLog.read(log_path, cert.fingerprint())
+    except CertificateError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+
+    payload = build_report(margin=cert.margin)
+    identity = current_identity(payload)
+    # Drift is only testable against a recording the certificate was *not* issued from.
+    # Re-scoring the same cassettes cannot produce a different answer, and reporting that as a
+    # pass would be reporting a tautology as evidence.
+    same_recording = identity["model_snapshots"] == cert.identity()["model_snapshots"]
+    observed = None
+    subset = 0
+    if not same_recording:
+        subset, delta, standard_error = canary_observation(
+            payload,
+            fraction=CANARY_FRACTION,
+            # Seeded from the certificate so successive looks at the same certificate draw the
+            # same stratified subset in the same order — a canary that re-drew freely could
+            # look again by re-running rather than by spending alpha.
+            seed=int(cert.fingerprint()[:8], 16) + canary_log.taken,
+        )
+        observed = (delta, standard_error)
+
+    try:
+        result = take_look(
+            cert, canary_log, today=as_of, identity=identity, observed=observed, subset_size=subset
+        )
+    except CertificateError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+    canary_log.write(log_path)
+
+    typer.echo(f"certificate: {path.name} ({cert.fingerprint()}), expires {cert.expires}")
+    typer.echo(
+        f"look:        {result.look} of {result.of_looks}, alpha {result.alpha_this_look:.4f}"
+    )
+    if result.drift_tested and result.observed_delta is not None and result.z is not None:
+        typer.echo(
+            f"drift:       {result.observed_delta * 100:+.1f} points on {result.subset_size} "
+            f"stratified tasks against the certificate's {cert.delta_point * 100:+.1f}, "
+            f"z = {result.z:+.2f}"
+        )
+    else:
+        typer.echo(f"drift:       not tested — {result.drift_note}")
+    typer.echo("")
+    if result.raised:
+        typer.echo("CANARY RAISED")
+        for reason in result.reasons:
+            typer.echo(f"  {reason}")
+        raise typer.Exit(1)
+    typer.echo("CANARY CLEAR: the certificate still stands.")
 
 
 @app.command()
@@ -390,7 +908,7 @@ def fixtures_check() -> None:
         typer.echo(f"  {'ok  ' if ok else 'FAIL'}  {name}: {detail}")
         failures += 0 if ok else 1
 
-    for fixture_name, state, fixture_detail in _check_fixture_dirs():
+    for fixture_name, state, fixture_detail in [*_check_fixture_dirs(), *_check_annotations()]:
         # `state is None` is a note: something worth printing that is not a defect in the
         # repository. The token-counter line is the only one, and it reports a property of the
         # machine running the check, not of the fixtures (DECISIONS.md D26).
@@ -402,6 +920,72 @@ def fixtures_check() -> None:
         typer.echo(f"\nfixtures-check FAILED ({failures} check(s))", err=True)
         raise typer.Exit(1)
     typer.echo("\nfixtures-check passed")
+
+
+def _check_annotations() -> list[tuple[str, bool | None, str]]:
+    """Replay every verdict an annotation set records and assert it matches its cassette.
+
+    An annotation set is a committed artifact holding numbers that reach the screen, so it has
+    to be checkable the way the dataset is: regenerate from the source and compare. The source
+    here is the judge call itself. A verdict that no longer matches the reply it came from means
+    either the parser changed or the file was edited, and both are defects.
+    """
+    from tokop.optimize.annotation import AnnotationError, AnnotationSet, annotations_path
+    from tokop.paths import fixtures_dir
+
+    checks: list[tuple[str, bool | None, str]] = []
+    for kind in ("demo", "test"):
+        root = fixtures_dir() / kind
+        for contract in (False, True):
+            path = annotations_path(root, contract=contract)
+            if not path.exists():
+                continue
+            try:
+                annotations = AnnotationSet.read(path)
+            except AnnotationError as exc:
+                checks.append((f"fixtures/{kind}: {path.name}", False, str(exc)))
+                continue
+            checks.append(_replay_verdicts(kind, root, path, annotations))
+    return checks
+
+
+def _replay_verdicts(
+    kind: str, root: Path, path: Path, annotations: Any
+) -> tuple[str, bool | None, str]:
+    """One annotation set's verdicts, re-read from the calls they came from."""
+    from tokop.adapters.cassette import CassetteStore
+    from tokop.workloads.verification import verifier_kind
+
+    store = CassetteStore(root / "cassettes")
+    parse = verifier_kind(str(annotations.judge["kind"])).parse
+    missing: list[str] = []
+    disagreeing: list[str] = []
+    replayed = 0
+    for item in annotations.items:
+        for name, arm in (("baseline", item.baseline), ("candidate", item.candidate)):
+            pairs: list[tuple[str, int | None]] = [(arm.judge_cassette_key, arm.judge_correct)]
+            if arm.strong_cassette_key is not None:
+                pairs.append((arm.strong_cassette_key, arm.strong_correct))
+            for key, recorded in pairs:
+                cassette = store.get(key)
+                if cassette is None:
+                    missing.append(f"{item.task_id}.{name}")
+                    continue
+                replayed += 1
+                verdict = parse(cassette.response_text)
+                stored = recorded if recorded is not None else verdict.correct
+                if verdict.correct != stored:
+                    disagreeing.append(f"{item.task_id}.{name}")
+
+    ok = not missing and not disagreeing
+    detail = f"{replayed} judge verdicts replayed from cassettes, all matching"
+    if missing:
+        detail = f"{len(missing)} verdicts name a cassette that is not there: {missing[:3]}"
+    elif disagreeing:
+        detail = (
+            f"{len(disagreeing)} verdicts disagree with the reply they came from: {disagreeing[:3]}"
+        )
+    return (f"fixtures/{kind}: every verdict in {path.name} matches its call", ok, detail)
 
 
 def _check_fixture_dirs() -> list[tuple[str, bool | None, str]]:

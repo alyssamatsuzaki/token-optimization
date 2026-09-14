@@ -1,0 +1,97 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "19906edfe46381a923fe605db27164747cade5ba1375f08d4ad2a1b016abd254",
+  "latency_ms": 1170.37,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"correct\": false, \"confidence\": 0.182, \"why\": \"does not follow from sec-shipping-fees\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_19906edfe46381a9",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8190,
+      "input_tokens": 165,
+      "output_tokens": 44
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 8190,
+    "input_tokens": 165,
+    "output_tokens": 44
+  },
+  "recorded_at": "2026-09-14T15:05:35.022759+00:00",
+  "request": {
+    "max_tokens": 150,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Customer question: 18 lb parcel, Zone 4 (Alaska and Hawaii). Shipping fee in dollars?\n\nAnswer under review:\n<<<ANSWER\n{\"answer\": \"53.95\", \"evidence\": \"The window is met if the authorisation is requested inside it, even if the parcel is posted later.\", \"section\": \"sec-definitions\", \"derivation\": \"sec-definitions gives the rule; applying it to the values in the question yields 53.95\"}\nANSWER>>>\n"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "ba85e0cb260695f919fed99032ca5576ae676fb845f3c27bd10e94e527c372ff"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"correct\": false, \"confidence\": 0.182, \"why\": \"does not follow from sec-shipping-fees\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 686.37,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 8190,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 165,
+    "output_reasoning": 0,
+    "output_visible": 44,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8190,
+      "input_tokens": 165,
+      "output_tokens": 44
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

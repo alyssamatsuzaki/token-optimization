@@ -1,0 +1,16 @@
+Customer question: For insulated outerwear, how many days does the base return window run?
+
+Answer under review:
+<<<ANSWER
+I appreciate you checking rather than guessing on this one.
+
+The policy here has changed since earlier versions circulated, so let me quote the current wording rather than working from memory.
+
+The handbook says: "## Return windows by category  The base return window runs from the delivery date, not the order date."
+
+Applying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. If anything about your situation differs from what I've assumed, the answer could change, so do let me know and I'll re-check it for you.
+
+I hope that's clear, and thank you again for your patience.
+
+Final answer: 45
+ANSWER>>>

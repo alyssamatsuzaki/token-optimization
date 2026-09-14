@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "7378775d8e13860200230046b0081c9873c37c432934af874d62d2bc6c50182b",
+  "latency_ms": 2154.55,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"14\", \"evidence\": \"The tier changes three things: how long they have to return something, how much they must spend before shipping is free, and whether a restocking fee is charged at all.\", \"section\": \"sec-loyalty\", \"derivation\": \"sec-loyalty gives the rule; applying it to the values in the question yields 14\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_7378775d8e138602",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8390,
+      "input_tokens": 39,
+      "output_tokens": 126
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 8390,
+    "input_tokens": 39,
+    "output_tokens": 126
+  },
+  "recorded_at": "2026-09-14T15:02:50.029905+00:00",
+  "request": {
+    "max_tokens": 320,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "What is the return window bonus for a Summit member, in days?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "8cb7948632bba9c3390e6aa3e2f4bd016cfc3cb30370890af28bc3b208fa7be9"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"14\", \"evidence\": \"The tier changes three things: how long they have to return something, how much they must spend before shipping is free, and whether a restocking fee is charged at all.\", \"section\": \"sec-loyalty\", \"derivation\": \"sec-loyalty gives the rule; applying it to the values in the question yields 14\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 768.55,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 8390,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 39,
+    "output_reasoning": 0,
+    "output_visible": 126,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8390,
+      "input_tokens": 39,
+      "output_tokens": 126
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

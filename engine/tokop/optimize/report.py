@@ -32,7 +32,7 @@ from typing import Any
 from tokop.adapters.cassette import CassetteStore, ReplayAdapter
 from tokop.core.pricing import PriceSnapshot
 from tokop.core.registry import Registry, load_registry
-from tokop.core.stats import DEFAULT_SEED
+from tokop.core.stats import DEFAULT_SEED, StatsError
 from tokop.core.tokenize import base_counter_name, counter_named
 from tokop.optimize.cascade import (
     OBJECTIVE_COST,
@@ -44,6 +44,11 @@ from tokop.optimize.cascade import (
     simulate,
     tier_run_from_arrays,
 )
+from tokop.optimize.entailment import (
+    EntailmentError,
+    measure_correlation,
+    parse_entailment,
+)
 from tokop.optimize.findings import (
     CallRow,
     RunStats,
@@ -53,7 +58,22 @@ from tokop.optimize.findings import (
     workload_findings,
 )
 from tokop.optimize.lint import Finding, LintContext, clear_score, lint
-from tokop.optimize.proof import ArmResult, ProofCost, build_proof, build_waterfall
+from tokop.optimize.proof import (
+    ArmResult,
+    Proof,
+    ProofCost,
+    build_judged_delta,
+    build_proof,
+    build_waterfall,
+)
+from tokop.optimize.pseudolabels import (
+    GOLD,
+    MAJORITY_VOTE,
+    PENALIZED_V1,
+    PseudoLabels,
+    build_pseudo_labels,
+    pseudo_label_kind,
+)
 from tokop.optimize.scorers import (
     FEATURE_REGISTRY,
     Scorer,
@@ -65,6 +85,7 @@ from tokop.optimize.scorers import (
     fit_scorer,
     scorer_kind,
 )
+from tokop.optimize.ties import Candidate, find_ties
 from tokop.paths import fixtures_dir, repo_root
 from tokop.recording_state import describe as describe_recording
 from tokop.workloads.demo.dataset import DatasetBundle
@@ -301,14 +322,103 @@ def replay_run(
     )
 
 
+class ReplayEntailment:
+    """An entailment judgement read back from the call that made it (UPGRADE_V3.md U6).
+
+    The scorer asks "does A entail B"; this renders the workload's entailment prompt, finds the
+    cassette that request was recorded under, and reads the verdict out of the reply. A missing
+    cassette is a **fixture** problem and propagates; a reply the parser could not read is a
+    *data* condition and raises ``EntailmentError``, which the clustering catches and counts as
+    a pair it could not judge. The two are different and are kept different: one means re-record,
+    the other means the model waffled.
+    """
+
+    def __init__(
+        self,
+        workload: WorkloadSpec,
+        registry: Registry,
+        store: CassetteStore,
+        handbook: str,
+        provider: str = "simulated",
+    ) -> None:
+        spec = workload.entailment
+        if spec is None:
+            raise ReportError(
+                f"workload {workload.id!r} defines no `entailment:` block, so answers cannot be "
+                "clustered by meaning. Add one, or drop `semantic-entropy-v1` from the grid."
+            )
+        self.spec = spec
+        self.model_id = registry.roles[spec.model_role]
+        self.store = store
+        self.handbook = handbook
+        self.provider = provider
+        self.calls = 0
+        self._cache: dict[tuple[str, str, str], bool] = {}
+
+    def __call__(self, question: str, premise: str, hypothesis: str) -> bool:
+        key = (question, premise, hypothesis)
+        if key in self._cache:
+            return self._cache[key]
+        request = self.spec.render(
+            self.provider,
+            self.model_id,
+            {
+                "question": question,
+                "answer_a": premise,
+                "answer_b": hypothesis,
+                "handbook": self.handbook,
+                "timestamp": demo_timestamp(),
+            },
+        )
+        cassette = self.store.get(request.cassette_key())
+        if cassette is None:
+            raise ReportError(
+                f"no recorded entailment judgement for a pair on {question[:60]!r}. The "
+                "response matrix was recorded without the entailment pass, or at a different "
+                "sample depth. Run `tokop build-test-fixtures`."
+            )
+        self.calls += 1
+        verdict = parse_entailment(cassette.response_text)
+        if verdict is None:
+            raise EntailmentError(
+                "the entailment model's reply could not be read as a judgement; the two answers "
+                "stay in separate clusters rather than being merged on a guess"
+            )
+        self._cache[key] = verdict
+        return verdict
+
+
+def entailment_price(manifest: dict[str, Any]) -> Decimal:
+    """The mean recorded price of one entailment call.
+
+    Charged per call a clustering makes. The recording paid for every pair a clustering *might*
+    ask about, which is slightly more than any one clustering asks; that excess is reported as
+    the recording's own cost rather than loaded onto a scorer that did not spend it — the same
+    split the deeper sample matrix already gets (DECISIONS.md D27).
+    """
+    calls = int(manifest.get("entailment_calls", 0) or 0)
+    if calls <= 0:
+        return Decimal(0)
+    return Decimal(str(manifest.get("entailment_recording_cost_usd", "0"))) / Decimal(calls)
+
+
 def _views(
-    run: ReplayedRun, items: Sequence[DemoItem], handbook: str, samples: int = 1
+    run: ReplayedRun,
+    items: Sequence[DemoItem],
+    handbook: str,
+    samples: int = 1,
+    keep: set[str] | None = None,
 ) -> list[TaskView]:
     """Task views for the scorer. No answer key, by construction.
 
     ``samples`` is how many recorded generations to expose. A scorer that does not sample
     never reads them; one that does gets exactly the k it is configured for, so two settings
     of k are compared over the same draws rather than over fresh ones.
+
+    ``keep`` drops tasks the caller has decided cannot be labelled. Under label-free
+    calibration that is the tasks whose answer distribution is close to uniform: their
+    pseudo-label would be an accident of the draw, so they are excluded from fitting rather
+    than fitted against noise (UPGRADE_V3.md U3).
     """
     by_id = {item.id: item for item in items}
     views = []
@@ -319,6 +429,8 @@ def _views(
             tokens_by_task[call.task_id] = call.total_output
     samples_by_task = dict(zip(run.task_ids, run.sample_outputs, strict=False))
     for task_id in run.task_ids:
+        if keep is not None and task_id not in keep:
+            continue
         item = by_id[task_id]
         drawn = samples_by_task.get(task_id, (outputs_by_task[task_id],))
         views.append(
@@ -488,12 +600,423 @@ class ReportPayload:
         }
 
 
+def _fixtures_exercise_pseudolabels(alternatives: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    """Whether this fixture set can say anything about label-free calibration at all.
+
+    Computed rather than asserted, because the answer is currently no and pretending otherwise
+    would be the D27 mistake repeated. The simulated provider draws wrong answers independently
+    and each one is a *different* perturbation, so the correct answer is almost always the
+    unique plurality across pooled generations and every pseudo-label agrees with gold. That
+    makes the demo's agreement figure a statement about the noise model, not about the method.
+
+    The failure U3 exists for — a plurality that is an artefact of a split distribution, or one
+    tier repeating a wrong answer loudly — is exercised in ``tests/test_pseudolabels.py``
+    against a constructed calibration set instead, where the majority vote is wrong on a known
+    subset by construction.
+    """
+    agreements = [
+        value
+        for alternative in alternatives
+        for value in alternative["label_agreement_with_gold"].values()
+        if value is not None
+    ]
+    perfect = bool(agreements) and min(agreements) >= 0.999
+    return {
+        "min_label_agreement_with_gold": min(agreements) if agreements else None,
+        "answer": not perfect,
+        "reason": (
+            "No. Every pseudo-label on this split agrees with the answer key, because the "
+            "simulated provider draws wrong answers independently and each is a different "
+            "perturbation — so the correct answer is the unique plurality almost every time and "
+            "a majority vote cannot go wrong here. Agreement of 1.00 is a fact about the noise "
+            "model, not evidence that the method works. The case it exists for is tested "
+            "against a constructed calibration set in tests/test_pseudolabels.py."
+            if perfect
+            else "Yes: the pseudo-labels and the answer key disagree on this split, so the "
+            "comparison above measures something."
+        ),
+    }
+
+
+#: The interval width the checkable-contract lever is priced against (UPGRADE_V3.md U4). A
+#: standard error of one accuracy point is a 95% interval of about plus or minus two, which is
+#: the resolution a 3-point non-inferiority margin actually needs. Any fixed target works; the
+#: comparison is between two judges at the *same* target, and the target is named so a reader
+#: can see it is not the flattering one.
+TARGET_STANDARD_ERROR = 0.01
+
+
+def _horvitz_thompson(values: Sequence[float], rates: Sequence[float], n: int) -> float:
+    """``(1/T) sum v_t / pi_t`` over the sampled items. The annotated subset is not a simple
+    random sample, so a plain average over it would be weighted towards whatever the policy
+    found interesting."""
+    if n <= 0:
+        return 0.0
+    return sum(value / rate for value, rate in zip(values, rates, strict=True)) / n
+
+
+def canary_observation(
+    payload: ReportPayload, *, fraction: float, seed: int
+) -> tuple[int, float, float]:
+    """Re-score a stratified subset of the current report: (size, delta, standard error).
+
+    The subset is stratified by question type because a canary that happened to draw only
+    lookups would miss exactly the drift worth catching — a cascade's risk lives in its hardest
+    types, and those are its smallest strata.
+    """
+    from tokop.optimize.certificate import paired_delta, stratified_subset
+
+    per_task = payload["proof"]["per_task"]
+    task_ids = list(per_task["task_ids"])
+    by_type = {b["question_type"]: b for b in payload["proof"]["by_type"]}
+    workload = load_workload(repo_root() / "data/demo/workload.yaml")
+    bundle = build_dataset(
+        size=workload.dataset.size,
+        calibration_size=workload.dataset.calibration_size,
+        seed=workload.dataset.seed,
+    )
+    types = {item.id: item.question_type for item in bundle.test}
+    strata = [types.get(task_id, "unknown") for task_id in task_ids]
+    if not by_type:  # pragma: no cover - defensive; the demo always has types
+        strata = ["all"] * len(task_ids)
+
+    chosen = set(stratified_subset(task_ids, strata, fraction, seed))
+    index = [i for i, task_id in enumerate(task_ids) if task_id in chosen]
+    baseline = [int(per_task["baseline_correct"][i]) for i in index]
+    candidate = [int(per_task["candidate_correct"][i]) for i in index]
+    delta, standard_error = paired_delta(baseline, candidate)
+    return len(index), delta, standard_error
+
+
+def current_identity(payload: ReportPayload) -> dict[str, Any]:
+    """What the world says today about the models, prices and modes a certificate rests on."""
+    provenance = payload["provenance"]
+    return {
+        "model_snapshots": [
+            {
+                "role": role,
+                "model_id": model_id,
+                "snapshot": f"{model_id}@{provenance.get('recorded_at') or 'unrecorded'}",
+            }
+            for role, model_id in sorted(provenance["model_ids"].items())
+        ],
+        "price_snapshot_id": str(provenance["price_snapshot_id"]),
+        "grading_mode": str(payload["workload"].get("grading", "gold")),
+        "calibration_mode": str(payload["calibration"]["mode"]),
+    }
+
+
+def dataset_provenance_block(workload: WorkloadSpec, bundle: DatasetBundle) -> dict[str, Any]:
+    """Where the task set came from, and whether it can back a certificate (UPGRADE_V3.md U8).
+
+    The declared origins come from the workload; the shape — template coverage, how much of the
+    set sits in rarely-seen templates, how concentrated it is — is computed from the items. A
+    workload that declares nothing gets a block saying so and is refused, because "we did not
+    say" and "it is fine" have to look different.
+    """
+    from tokop.workloads.demo.generator import all_templates
+    from tokop.workloads.provenance import DeclaredProvenance, build_provenance
+
+    declared_spec = workload.dataset_provenance
+    declared = (
+        DeclaredProvenance(
+            real_traffic_items=declared_spec.real_traffic_items,
+            model_generated_items=declared_spec.model_generated_items,
+            program_generated_items=declared_spec.program_generated_items,
+            generators=tuple(declared_spec.generators),
+            decoding_budget=declared_spec.decoding_budget,
+            relabelled_by_frozen_reference=declared_spec.relabelled_by_frozen_reference,
+            real_traffic_accumulating=declared_spec.real_traffic_accumulating,
+            notes=tuple(declared_spec.notes),
+        )
+        if declared_spec is not None
+        else DeclaredProvenance(
+            notes=(
+                "This workload declares no `dataset_provenance:` block, so nothing is known "
+                "about where its tasks came from.",
+            )
+        )
+    )
+    provenance = build_provenance(
+        [item.template_id for item in bundle.items],
+        [template.id for template in all_templates()],
+        declared,
+    )
+    return {**provenance.as_dict(), "declared": declared_spec is not None}
+
+
+def _contract_block(
+    root: Path,
+    workload: WorkloadSpec,
+    runs: dict[tuple[str, str, str], ReplayedRun],
+    tier: str,
+    origin: str,
+) -> dict[str, Any]:
+    """What a checkable output contract costs and what it buys (UPGRADE_V3.md U4).
+
+    The trade, in one place, with both halves:
+
+    * **what it costs** — the extra output tokens the derivation takes, and any accuracy the
+      contract loses. Kirchner et al. call that second one a legibility tax and measure it;
+      this row is allowed to show it as a negative number and is tested for not hiding it.
+    * **what it buys** — agreement between the cheap judge and the strong grader. Higher
+      agreement is a smaller ``E[(H - G)^2]``, which is a smaller sampling rate for a given
+      interval width, which is fewer dollars of annotation.
+
+    Both are measured over the same tasks with the same judge, so the comparison is between two
+    contracts and not between two experiments.
+    """
+    from tokop.optimize.annotation import (
+        AnnotationError,
+        AnnotationSet,
+        annotations_path,
+        budget_for_standard_error,
+    )
+
+    path = annotations_path(root, contract=True)
+    if not path.exists():
+        return {
+            "available": False,
+            "reason": (
+                f"no contract annotation set at {path.name}. Run `tokop annotate --contract` to "
+                "judge the checkable pair and price what the contract buys."
+            ),
+        }
+    try:
+        annotations = AnnotationSet.read(path)
+    except AnnotationError as exc:
+        return {"available": False, "reason": str(exc)}
+
+    pair = (annotations.baseline_pipeline, annotations.candidate_pipeline)
+    missing = [p for p in pair if (p, "test", tier) not in runs]
+    if missing:
+        return {
+            "available": False,
+            "reason": (
+                f"the contract annotation set judged {pair[0]} against {pair[1]}, and this "
+                f"fixture set has no test run for {', '.join(missing)}."
+            ),
+        }
+
+    drawn = [item for item in annotations.items if item.sampled and item.has_strong]
+    if not drawn:
+        return {
+            "available": False,
+            "reason": "no item in the contract annotation set has a strong label on both arms.",
+        }
+    rates = [item.rate for item in drawn]
+    n = annotations.n
+    cheap_per_item = Decimal(str(annotations.cost["judge_usd"])) / (Decimal(n) * 2)
+    strong_per_item = Decimal(str(annotations.policy["cost_per_item_usd"])) / 2
+
+    arms: list[dict[str, Any]] = []
+    for pipeline_id, side in zip(pair, ("baseline", "candidate"), strict=True):
+        verdicts = [getattr(item, side) for item in drawn]
+        squared = [float((arm.judge_correct - (arm.strong_correct or 0)) ** 2) for arm in verdicts]
+        mse = _horvitz_thompson(squared, rates, n)
+        agreement = 1.0 - mse
+        cost, rate = budget_for_standard_error(
+            mse, n, TARGET_STANDARD_ERROR, cheap_per_item, strong_per_item
+        )
+        run = runs[(pipeline_id, "test", tier)]
+        arms.append(
+            {
+                "pipeline": pipeline_id,
+                "label": workload.pipeline(pipeline_id).name,
+                "checkable": workload.pipeline(pipeline_id).checkable,
+                "judge_agreement_with_strong_grader": agreement,
+                "judge_mean_square_error": mse,
+                "sampling_rate_for_target": rate,
+                "annotation_cost_for_target_usd": str(cost),
+                "accuracy": run.accuracy,
+                "generation_cost_usd": str(run.total_cost - run.prewarm_cost),
+                "output_tokens": sum(c.total_output for c in run.calls if not c.prewarm),
+            }
+        )
+
+    before, after = arms
+    accuracy_delta = after["accuracy"] - before["accuracy"]
+    annotation_saving = Decimal(before["annotation_cost_for_target_usd"]) - Decimal(
+        after["annotation_cost_for_target_usd"]
+    )
+    generation_premium = Decimal(after["generation_cost_usd"]) - Decimal(
+        before["generation_cost_usd"]
+    )
+    return {
+        "available": True,
+        "baseline_pipeline": before["pipeline"],
+        "candidate_pipeline": after["pipeline"],
+        "target_standard_error": TARGET_STANDARD_ERROR,
+        "n": n,
+        "annotated": len(drawn),
+        "judge": dict(annotations.judge),
+        "strong_grader": dict(annotations.strong_grader),
+        "arms": arms,
+        # Reported with its sign, always. A row that showed the saving and hid the accuracy it
+        # cost would be the single most tempting dishonesty in this product.
+        "accuracy_delta": accuracy_delta,
+        "agreement_delta": (
+            after["judge_agreement_with_strong_grader"]
+            - before["judge_agreement_with_strong_grader"]
+        ),
+        "annotation_saving_usd": str(annotation_saving),
+        "generation_premium_usd": str(generation_premium),
+        "net_on_evaluation_split_usd": str(annotation_saving - generation_premium),
+        "pays_for_itself": annotation_saving > generation_premium,
+        "note": (
+            "The annotation saving is paid once per evaluation; the generation premium is paid "
+            "on every task the pipeline ever runs. A contract that wins on this split can still "
+            "lose in production, and the two figures are kept apart rather than netted into one "
+            "number that hides which is which."
+        ),
+        "origin": annotations.origin,
+    }
+
+
+def _judged_block(
+    workload: WorkloadSpec,
+    root: Path,
+    operating_point: dict[str, Any],
+    proof: Proof,
+    *,
+    margin: float,
+    seed: int,
+    resamples: int,
+    annotation_budget: Decimal | None,
+    origin: str,
+) -> dict[str, Any]:
+    """The same comparison with the answer key withheld (UPGRADE_V3.md U1).
+
+    Reported beside the gold one rather than instead of it, because the interesting number is
+    the relationship between the two: an estimate that never sees a label, and the labelled
+    truth it is supposed to land on. A workload that arrives with no labels gets only the first
+    half, which is the point of the whole upgrade.
+
+    Never raises. An annotation set that is missing or was drawn against a different operating
+    point makes the block unavailable *with the reason and the command that fixes it*; a report
+    that could not be built at all would hide which of those happened. ``make verify`` fails on
+    an unavailable block for the demo, so a stale set cannot ship.
+    """
+    from tokop.optimize.annotation import AnnotationError, AnnotationSet, annotations_path
+
+    if workload.judge is None:
+        return {
+            "available": False,
+            "reason": f"workload {workload.id!r} defines no `judge:` block.",
+        }
+    path = annotations_path(root)
+    if not path.exists():
+        return {
+            "available": False,
+            "reason": (
+                f"no annotation set at {path.name}. Run `tokop annotate` to buy the strong "
+                "labels the estimator corrects the judge with."
+            ),
+        }
+    try:
+        annotations = AnnotationSet.read(path)
+    except AnnotationError as exc:
+        return {"available": False, "reason": str(exc)}
+
+    drawn_for = annotations.operating_point
+    mismatched = [
+        f"{key} {drawn_for.get(key)!r} vs {operating_point.get(key)!r}"
+        for key in ("scorer", "k", "thresholds", "protect_scarce")
+        if drawn_for.get(key) != operating_point.get(key)
+    ]
+    if mismatched:
+        return {
+            "available": False,
+            "stale": True,
+            "reason": (
+                "the annotation set was drawn against a different operating point ("
+                + "; ".join(mismatched)
+                + "). The cascade answers different tasks at different tiers under a different "
+                "operating point, so those verdicts are about answers this cascade did not "
+                "give. Re-run `tokop annotate`."
+            ),
+        }
+    if (
+        annotations.baseline_pipeline != proof.baseline.pipeline_id
+        or annotations.candidate_pipeline != proof.candidate.pipeline_id
+    ):
+        return {
+            "available": False,
+            "stale": True,
+            "reason": (
+                f"the annotation set judged {annotations.baseline_pipeline} against "
+                f"{annotations.candidate_pipeline}; this report compares "
+                f"{proof.baseline.pipeline_id} with {proof.candidate.pipeline_id}."
+            ),
+        }
+
+    try:
+        if annotation_budget is not None:
+            annotations = annotations.restrict_to_budget(annotation_budget)
+        judged = build_judged_delta(
+            annotations,
+            margin=margin,
+            seed=seed,
+            resamples=resamples,
+            caveats=_judged_caveats(workload, annotations, origin),
+        )
+    except (AnnotationError, StatsError) as exc:
+        return {"available": False, "reason": str(exc)}
+
+    payload = {"available": True, **judged.as_dict()}
+    # Only computable here because this demo happens to have gold. A workload that arrives
+    # unlabelled has no such check, which is exactly why the demo runs it: it is the evidence
+    # that the gold-free path lands where the labelled one does.
+    gold_delta = proof.delta_accuracy.point
+    payload["coverage_check"] = {
+        "gold_delta_accuracy": gold_delta,
+        "judged_interval_covers_gold": judged.delta.contains(gold_delta),
+        "judge_only_interval_covers_gold": judged.judge_only_delta.contains(gold_delta),
+        "gold_delta_minus_judged": gold_delta - judged.delta.point,
+        "note": (
+            "This demo has gold answers, so the gold-free estimate can be checked against the "
+            "labelled one. A workload that arrives unlabelled cannot run this check; it is "
+            "here as evidence that the estimator lands where it claims to."
+        ),
+    }
+    return payload
+
+
+def _judged_caveats(workload: WorkloadSpec, annotations: Any, origin: str) -> list[str]:
+    """What the judged estimate does not establish. Rendered verbatim wherever it appears."""
+    caveats = [
+        "The estimate is unbiased for the **strong grader's** mean, not for a perfect one. A "
+        "strong grader that is itself wrong moves the target, and the inverse-probability "
+        "weight cannot correct for that. What it does correct for, completely, is the cheap "
+        "judge.",
+        "The cascade's operating point was still calibrated against gold labels on the "
+        "calibration split. Only the *test* comparison here is label-free. Calibrating without "
+        "labels is UPGRADE_V3.md U3 and is not built yet.",
+    ]
+    if annotations.strong_grader.get("source") == "human":
+        caveats.append(
+            "The strong labels came from a human review queue, so they are as good as the "
+            "review was. Tokop records who produced them and nothing about their quality."
+        )
+    if origin != "recorded":
+        caveats.append(
+            "Both the answers and the judge verdicts come from the deterministic simulated "
+            "provider, not from a recording (DECISIONS.md D1). The judge's error rates are "
+            "invented parameters; the estimator's unbiasedness does not depend on them, which "
+            "is what `tests/test_judged_proof.py`'s adversarial judge demonstrates against an "
+            "injected judge rather than against these fixtures."
+        )
+    return caveats
+
+
 def build_report(
     *,
     protect_scarce: bool = False,
     seed: int = DEFAULT_SEED,
     resamples: int = 5000,
     margin: float | None = None,
+    annotation_budget: Decimal | None = None,
+    calibration: str | None = None,
 ) -> ReportPayload:
     """Recompute every headline metric from the committed fixtures."""
     registry = load_registry()
@@ -546,10 +1069,6 @@ def build_report(
     # result is computed, which is the ordering the whole proof rests on.
     objective = OBJECTIVE_SCARCE if protect_scarce else OBJECTIVE_COST
     frontier_calibration = need(base_pipeline, "calibration", tiers[-1])
-    # Held fixed across configurations on purpose. The floor says what the workload requires of
-    # any candidate; letting it move with the candidate would let a worse scorer lower the bar
-    # it is judged against.
-    accuracy_floor = max(0.0, frontier_calibration.accuracy - cascade_spec.accuracy_slack)
     recorded_depth = min(
         (
             need(base_pipeline, split, tier).sample_depth()
@@ -559,23 +1078,114 @@ def build_report(
         default=1,
     )
 
-    def fit_bundle(config: CascadeConfig) -> tuple[ScorerBundle, dict[str, float | None]]:
+    # ------------------------------------------------- 2a. where calibration labels come from
+    #
+    # `gold` reads the dataset's answer key. Anything else stands in for one from the repeated
+    # generations themselves (UPGRADE_V3.md U3): the workload arrived unlabelled, and the
+    # cascade still has to choose thresholds somehow. The mode is a parameter rather than a
+    # consequence of the grading mode alone, because the demo *has* an answer key and the
+    # interesting number is how far the label-free calibration lands from the labelled one.
+    calibration_mode = calibration or (GOLD if workload.grading == "gold" else PENALIZED_V1)
+
+    def build_labels(kind: str) -> PseudoLabels:
+        return build_pseudo_labels(
+            {
+                tier: dict(
+                    zip(
+                        need(base_pipeline, "calibration", tier).task_ids,
+                        need(base_pipeline, "calibration", tier).sample_outputs,
+                        strict=True,
+                    )
+                )
+                for tier in tiers
+            },
+            answers_equivalent,
+            kind=kind,
+        )
+
+    # The entailment judge, read back from the calls that made it. Built once: it caches, and
+    # the same pair recurs across tiers and across configurations.
+    entails = (
+        ReplayEntailment(workload, registry, store, bundle.handbook)
+        if workload.entailment is not None
+        else None
+    )
+    entailment_call_price = entailment_price(manifest)
+
+    pseudo = None if calibration_mode == GOLD else build_labels(calibration_mode)
+
+    def kept_and_items(labels: PseudoLabels | None) -> tuple[set[str] | None, list[DemoItem]]:
+        keep = None if labels is None else set(labels.kept)
+        items = [item for item in bundle.calibration if keep is None or item.id in keep]
+        if labels is not None and not items:
+            raise ReportError(
+                f"{labels.kind} excluded every calibration task: no answer distribution on this "
+                "split carries a usable consensus. There is nothing to fit thresholds on."
+            )
+        return keep, items
+
+    # Called once here so a label source that excludes everything fails immediately, with the
+    # kind that did it, rather than at the first fit.
+    kept_and_items(pseudo)
+
+    def calibration_labels(
+        run: ReplayedRun,
+        views: Sequence[TaskView],
+        scorer: Scorer | None,
+        labels: PseudoLabels | None,
+    ) -> list[int]:
+        """The label for each kept calibration task at one tier.
+
+        With gold, it is the checker's verdict on the answer the tier returned. Without, it is
+        whether that answer agrees with the consensus the other tiers reached — the same answer
+        in both cases, so a scorer that returns a different generation is labelled on what it
+        returned rather than on what it drew first.
+        """
+        index_of = {task_id: i for i, task_id in enumerate(run.task_ids)}
+        out: list[int] = []
+        for view in views:
+            index = index_of[view.task_id]
+            chosen = 0 if scorer is None else scorer.answer_index(view)
+            if labels is None:
+                graded = run.sample_correct[index] or run.correct[index : index + 1]
+                out.append(graded[chosen])
+            else:
+                answers = run.sample_outputs[index] or (run.outputs[index],)
+                out.append(labels.label_for(run.tier, view.task_id, answers[chosen]))
+        return out
+
+    def fit_bundle(
+        config: CascadeConfig, labels: PseudoLabels | None = None
+    ) -> tuple[ScorerBundle, dict[str, float | None]]:
+        source = pseudo if labels is None else labels
+        keep, items = kept_and_items(source)
         scorers: dict[str, Scorer] = {}
         warnings: list[ScorerWarning] = []
         aurocs: dict[str, float | None] = {}
-        context = ScorerContext(
-            feature_names=tuple(workload.scorer_features),
-            equivalence=answers_equivalent,
-            seed=seed,
-            k=config.k,
-        )
         for tier in tiers:
             cal = need(base_pipeline, "calibration", tier)
-            views = _views(cal, list(bundle.calibration), bundle.handbook, config.k)
-            scorer, tier_warnings = fit_scorer(
-                config.scorer, tier, views, list(cal.correct), context
+            views = _views(cal, items, bundle.handbook, config.k, keep=keep)
+            context = ScorerContext(
+                feature_names=tuple(workload.scorer_features),
+                equivalence=answers_equivalent,
+                entailment=entails,
+                entailment_price=entailment_call_price,
+                hidden_state_models=registry.hidden_state_models(),
+                seed=seed,
+                k=config.k,
+                sample_weights=(
+                    None
+                    if source is None
+                    else tuple(source.weights[(tier, view.task_id)] for view in views)
+                ),
             )
+            fitted_on = calibration_labels(cal, views, None, source)
+            scorer, tier_warnings = fit_scorer(config.scorer, tier, views, fitted_on, context)
             test = need(base_pipeline, "test", tier)
+            # AUROC is measured against **gold** on the test split wherever gold exists. It is
+            # a statement about whether the scorer predicts correctness, and scoring it against
+            # the same pseudo-labels it was fitted on would make it a statement about whether
+            # the scorer predicts the consensus — which it was trained to do.
             scorer.auroc = evaluate_auroc(
                 scorer,
                 _views(test, list(bundle.test), bundle.handbook, config.k),
@@ -591,6 +1201,7 @@ def build_report(
         items: Sequence[DemoItem],
         scorer_bundle: ScorerBundle,
         config: CascadeConfig,
+        labels: PseudoLabels | None = None,
     ) -> list[TierRun]:
         """One tier's recorded answers under one configuration.
 
@@ -601,24 +1212,35 @@ def build_report(
         the cascade with an accuracy it did not deliver.
         """
         out: list[TierRun] = []
+        calibrating = split_name == "calibration"
+        source = pseudo if labels is None else labels
+        keep = (None if source is None else set(source.kept)) if calibrating else None
         for tier in tiers:
             run = need(base_pipeline, split_name, tier)
-            views = _views(run, items, bundle.handbook, config.k)
+            views = _views(run, items, bundle.handbook, config.k, keep=keep)
             scores = scorer_bundle.score(tier, views)
             scorer = scorer_bundle.scorers[tier]
+            index_of = {task_id: i for i, task_id in enumerate(run.task_ids)}
             costs: list[Decimal] = []
             correct: list[int] = []
-            for index, view in enumerate(views):
+            if calibrating:
+                correct = calibration_labels(run, views, scorer, source)
+            for view in views:
+                index = index_of[view.task_id]
                 drawn = run.sample_costs[index][: config.k] or (run.cost_usd[index],)
-                costs.append(sum(drawn, Decimal(0)))
-                chosen = scorer.answer_index(view)
-                graded = run.sample_correct[index] or run.correct[index : index + 1]
-                correct.append(graded[chosen])
+                # Whatever the scorer spends beyond the tier's own generations is charged here
+                # and nowhere else. `semantic-entropy-v1` buys entailment calls; the others buy
+                # nothing and return zero (DECISIONS.md D27's rule, on the protocol this time).
+                costs.append(sum(drawn, Decimal(0)) + scorer.extra_cost(view))
+                if not calibrating:
+                    chosen = scorer.answer_index(view)
+                    graded = run.sample_correct[index] or run.correct[index : index + 1]
+                    correct.append(graded[chosen])
             out.append(
                 tier_run_from_arrays(
                     tier,
                     run.model_id,
-                    run.task_ids,
+                    tuple(view.task_id for view in views),
                     correct,
                     costs,
                     scores,
@@ -640,6 +1262,18 @@ def build_report(
         )
         return ConfiguredCascade(config=config, scorers=scorer_bundle, aurocs=aurocs, search=found)
 
+    # Held fixed across configurations on purpose. The floor says what the workload requires of
+    # any candidate; letting it move with the candidate would let a worse scorer lower the bar
+    # it is judged against. Under label-free calibration it is the frontier's *pseudo* accuracy
+    # on the kept tasks — a floor derived from gold would be a gold label reaching into a
+    # calibration that claims not to have one.
+    if pseudo is None:
+        frontier_accuracy = frontier_calibration.accuracy
+    else:
+        _, frontier_labels, _ = pseudo.for_tier(tiers[-1])
+        frontier_accuracy = sum(frontier_labels) / len(frontier_labels)
+    accuracy_floor = max(0.0, frontier_accuracy - cascade_spec.accuracy_slack)
+
     candidates = _configurations(cascade_spec, recorded_depth)
     if not candidates:
         raise ReportError(
@@ -653,6 +1287,103 @@ def build_report(
     aurocs = chosen.aurocs
     config = chosen.config
     search: SearchResult = chosen.search
+
+    # ------------------------------------------------- 2b. what a label-free calibration does
+    #
+    # The demo has an answer key, so the question U3 asks can actually be answered here: how far
+    # does a calibration that never saw one land from the one that did? Computed for the chosen
+    # configuration only — re-searching every configuration under every label source would
+    # triple the report's run time to answer a question about the operating point.
+    def calibrate_with(labels: PseudoLabels | None) -> tuple[ScorerBundle, SearchResult, float]:
+        scorer_bundle, _ = fit_bundle(config, labels)
+        calibration_tiers = tier_runs(
+            "calibration", kept_and_items(labels)[1], scorer_bundle, config, labels
+        )
+        if labels is None:
+            floor = max(0.0, frontier_calibration.accuracy - cascade_spec.accuracy_slack)
+        else:
+            _, frontier_pseudo, _ = labels.for_tier(tiers[-1])
+            floor = max(
+                0.0, sum(frontier_pseudo) / len(frontier_pseudo) - cascade_spec.accuracy_slack
+            )
+        return (
+            scorer_bundle,
+            search_thresholds(
+                calibration_tiers,
+                accuracy_floor=floor,
+                step=cascade_spec.threshold_step,
+                objective=objective,
+            ),
+            floor,
+        )
+
+    gold_truth = {
+        tier: dict(
+            zip(
+                need(base_pipeline, "calibration", tier).task_ids,
+                need(base_pipeline, "calibration", tier).correct,
+                strict=True,
+            )
+        )
+        for tier in tiers
+    }
+    alternatives: list[dict[str, Any]] = []
+    for kind_name in (PENALIZED_V1, MAJORITY_VOTE):
+        if kind_name == calibration_mode:
+            # Already the operating point; reporting it as an alternative to itself would be a
+            # row comparing a number with itself.
+            continue
+        labels = build_labels(kind_name)
+        alt_bundle, alt_search, alt_floor = calibrate_with(labels)
+        alt_test = tier_runs("test", list(bundle.test), alt_bundle, config)
+        alt_outcome = simulate(alt_test, alt_search.thresholds)
+        gaps = [abs(a - b) for a, b in zip(alt_search.thresholds, search.thresholds, strict=True)]
+        alternatives.append(
+            {
+                **{"kind": kind_name, "description": pseudo_label_kind(kind_name).description},
+                **labels.as_dict(),
+                "thresholds": list(alt_search.thresholds),
+                "accuracy_floor": alt_floor,
+                "feasible": alt_search.feasible,
+                "max_threshold_gap": max(gaps) if gaps else 0.0,
+                "label_agreement_with_gold": {
+                    tier: labels.agreement_with(tier, gold_truth[tier]) for tier in tiers
+                },
+                "test_accuracy": alt_outcome.accuracy,
+                "test_cost_per_task_usd": str(
+                    alt_outcome.total_cost / alt_outcome.n if alt_outcome.n else Decimal(0)
+                ),
+                "test_scarce_share": alt_outcome.scarce_share,
+            }
+        )
+
+    calibration_block = {
+        "mode": calibration_mode,
+        "description": (
+            "the dataset's answer key"
+            if calibration_mode == GOLD
+            else pseudo_label_kind(calibration_mode).description
+        ),
+        "thresholds": list(search.thresholds),
+        "accuracy_floor": accuracy_floor,
+        "excluded": 0 if pseudo is None else len(pseudo.excluded),
+        "n": len(bundle.calibration),
+        "alternatives": alternatives,
+        "note": (
+            "Calibration labels come from the answer key. The rows below are what a calibration "
+            "that never saw one would have chosen on the same data, which is the only way to "
+            "size how much the answer key was worth."
+            if calibration_mode == GOLD
+            else "Calibration labels stand in for an answer key this workload does not have."
+        ),
+        "limits": (
+            "No label-free consensus can see a wrong answer every tier agrees on. What it can "
+            "see is a plurality that is an accident of a split distribution, or one tier "
+            "repeating itself loudly enough to win a weak vote; those are what the exclusions "
+            "and the overconfidence penalty are for."
+        ),
+        "fixtures_can_exercise_this": _fixtures_exercise_pseudolabels(alternatives),
+    }
 
     # ---------------------------------------------------------------- 3. simulate on test
     test_tiers = tier_runs("test", list(bundle.test), bundle_scorers, config)
@@ -779,10 +1510,48 @@ def build_report(
     waterfall_arms.append(
         arm_from_run(need(base_pipeline, "test", tiers[-1]), workload.pipeline(base_pipeline).name)
     )
+    # Between the prompt rewrite and the cascade sits the checkable-contract lever
+    # (UPGRADE_V3.md U4). Found from the spec rather than named here, so a workload that defines
+    # no such pipeline simply has no row and nothing has to know about it.
+    checkable_pipelines = [
+        pipeline_id
+        for pipeline_id in sorted(workload.pipelines)
+        if workload.pipeline(pipeline_id).checkable and (pipeline_id, "test", tiers[-1]) in runs
+    ]
+    for pipeline_id in checkable_pipelines:
+        waterfall_arms.append(
+            arm_from_run(
+                runs[(pipeline_id, "test", tiers[-1])], workload.pipeline(pipeline_id).name
+            )
+        )
     waterfall_arms.append(candidate_arm)
     waterfall = build_waterfall(
         waterfall_arms, margin=effective_margin, seed=seed, resamples=resamples
     )
+
+    # ------------------------------------------------- 6a. the same proof, without gold
+    operating_point = {
+        "scorer": config.scorer,
+        "k": config.k,
+        "label": config.label,
+        "thresholds": list(search.thresholds),
+        "protect_scarce": protect_scarce,
+        "chosen_on": "calibration",
+    }
+    judged = _judged_block(
+        workload,
+        root,
+        operating_point,
+        proof,
+        margin=effective_margin,
+        seed=seed,
+        resamples=resamples,
+        annotation_budget=annotation_budget,
+        origin=origin,
+    )
+
+    contract_block = _contract_block(root, workload, runs, tiers[-1], origin)
+    provenance_block = dataset_provenance_block(workload, bundle)
 
     # ------------------------------------------------- 6b. the same proof, scorer by scorer
     #
@@ -828,9 +1597,28 @@ def build_report(
             items_by_id=items_by_id,
             scorer_auroc=candidate.aurocs,
         ).as_dict()
+        # How much k repeated samples agreed with each other, and therefore how many
+        # independent draws they were worth (UPGRADE_V3.md U6). This is the number that
+        # replaces D27's paragraph about correlated sampling: an effective k close to k means
+        # the draws really were independent, which on these fixtures is true and is a fact
+        # about the simulator rather than about sampling.
+        correlation: dict[str, Any] | None = None
+        if candidate.config.k >= 2:
+            per_tier: dict[str, Any] = {}
+            for tier in tiers:
+                run = need(base_pipeline, "test", tier)
+                sizes = candidate.scorers.scorers[tier].cluster_sizes(
+                    _views(run, list(bundle.test), bundle.handbook, candidate.config.k)
+                )
+                if sizes is None:
+                    continue
+                per_tier[tier] = measure_correlation(sizes, candidate.config.k).as_dict()
+            correlation = per_tier or None
+
         scorer_comparison.append(
             {
                 **candidate.config.as_dict(),
+                "sample_correlation": correlation,
                 "is_chosen": candidate.config == config,
                 "thresholds": list(candidate.search.thresholds),
                 "calibration_feasible": candidate.search.feasible,
@@ -850,6 +1638,31 @@ def build_report(
                 "scorer_auroc": candidate.aurocs,
             }
         )
+
+    # ------------------------------------------------- 6c. every configuration tied for cheapest
+    #
+    # The scorer comparison already carries a cost interval per configuration. Whether one of
+    # them is *cheaper* than the others is a question those intervals answer, and when they
+    # overlap the answer is no (UPGRADE_V3.md U7).
+    tie_candidates = [
+        Candidate(
+            label=row["label"],
+            cost_point=float(row["cost_per_successful_task"]["point"]),
+            cost_low=float(row["cost_per_successful_task"]["low"]),
+            cost_high=float(row["cost_per_successful_task"]["high"]),
+            accuracy_point=float(row["accuracy"]["point"]),
+            scarce_share=float(row["scarce_share"]),
+            adoptable=row["scorer"] in set(cascade_spec.searchable_scorers()),
+            extra={
+                "scorer": row["scorer"],
+                "k": row["k"],
+                "is_operating_point": bool(row["is_chosen"]),
+                "verdict": row["verdict"]["label"],
+            },
+        )
+        for row in scorer_comparison
+    ]
+    tie_report = find_ties(tie_candidates, config.label) if tie_candidates else None
 
     # ---------------------------------------------------------------- 7. findings and lint
     frontier_model = registry.model(registry.roles[tiers[-1]])
@@ -945,6 +1758,7 @@ def build_report(
             "description": workload.description,
             "margin": effective_margin,
             "workload_margin": workload.margin,
+            "grading": workload.grading,
             "latency_sensitive": workload.latency_sensitive,
             "dataset": {
                 "size": len(bundle.items),
@@ -980,7 +1794,22 @@ def build_report(
             "git_sha": manifest.get("runs", [{}])[0].get("git_sha", "unknown"),
         },
         "proof": proof.as_dict(),
-        "waterfall": [step.as_dict() for step in waterfall],
+        "judged": judged,
+        "calibration": calibration_block,
+        "contract": contract_block,
+        "dataset_provenance": provenance_block,
+        "waterfall": [
+            {
+                **step.as_dict(),
+                **(
+                    {"contract": contract_block}
+                    if contract_block.get("available")
+                    and step.pipeline_id == contract_block.get("candidate_pipeline")
+                    else {}
+                ),
+            }
+            for step in waterfall
+        ],
         "cascade": {
             **search.as_dict(),
             "tiers": [
@@ -1010,6 +1839,18 @@ def build_report(
                 for i, tier in enumerate(tiers)
             ],
             "reached_frontier_share": cascade_outcome.tier_shares(len(tiers))[-1],
+            # Which tier actually answered each task. `tokop annotate` needs it: the judged
+            # proof reviews the answer the cascade *returned*, and that is a different tier's
+            # output on every task. Small enough to carry (one short string per task) and the
+            # alternative is re-running the calibration search to re-derive it.
+            "resolved_tier_by_task": {
+                task_id: tiers[index]
+                for task_id, index in zip(
+                    cascade_outcome.task_ids,
+                    cascade_outcome.resolved_tier_index,
+                    strict=True,
+                )
+            },
             "scorer_choice": {
                 **config.as_dict(),
                 "chosen_on": "calibration",
@@ -1022,6 +1863,7 @@ def build_report(
                 "search_recording_cost_usd": str(sampling_spend(recorded_depth)),
             },
             "scorer_comparison": scorer_comparison,
+            "ties": tie_report.as_dict() if tie_report else None,
             "scorers": bundle_scorers.as_dict(),
             "frontier_chart": [
                 {
@@ -1150,6 +1992,149 @@ def fitted_cascade(
         scorers[tier] = scorer
     thresholds = tuple(float(t) for t in payload["cascade"]["thresholds"])
     return ScorerBundle(scorers=scorers), thresholds, tiers
+
+
+def arms_for_annotation(protect_scarce: bool = False) -> dict[str, Any]:
+    """The two arms' answers on the test split, ready for a judge (UPGRADE_V3.md U1).
+
+    The baseline arm is one pipeline, so its answer is whatever it said. The candidate arm is a
+    cascade: the answer it *returned* is the output of whichever tier the router stopped at, and
+    that is a different tier on every task. Judging the frontier's answer on a task the cascade
+    answered at the cheap tier would grade a pipeline nobody is proposing to run.
+
+    Refuses rather than approximates when the operating point draws more than one sample per
+    task: which of k generations the scorer returned is the scorer's own decision, the judge
+    cassettes cover the first, and guessing here would judge an answer the cascade did not give.
+    """
+    payload = cached_report(protect_scarce)
+    cascade = payload["cascade"]
+    choice = cascade["scorer_choice"]
+    if int(choice["k"]) > 1:
+        raise ReportError(
+            f"the operating point is {choice['label']}, which returns one of "
+            f"{choice['k']} generations per task. Annotation judges the answer the cascade "
+            "returned, and only the first generation of each task has been judged. Record "
+            "judge calls for every sample, or annotate an operating point that draws one."
+        )
+
+    registry = load_registry()
+    workload = load_workload(repo_root() / "data/demo/workload.yaml")
+    bundle = build_dataset(
+        size=workload.dataset.size,
+        calibration_size=workload.dataset.calibration_size,
+        seed=workload.dataset.seed,
+    )
+    cascade_spec = workload.cascade(CANDIDATE_CASCADE)
+    tiers = list(cascade_spec.tiers)
+    root = _fixture_root()
+    manifest = _load_manifest(root)
+    store = CassetteStore(root / "cassettes")
+    snapshot = registry.snapshot(list(registry.roles.values()), date(2026, 9, 11))
+    origin = str(manifest.get("origin", "simulated"))
+
+    def replay(pipeline_id: str, tier: str) -> ReplayedRun:
+        return replay_run(
+            workload, registry, bundle, snapshot, store, pipeline_id, "test", tier, origin
+        )
+
+    baseline_run = replay(BASELINE_PIPELINE, tiers[-1])
+    by_tier = {tier: replay(cascade_spec.base_pipeline, tier) for tier in tiers}
+    outputs_by_tier = {
+        tier: dict(zip(run.task_ids, run.outputs, strict=True)) for tier, run in by_tier.items()
+    }
+    resolved: dict[str, str] = dict(cascade["resolved_tier_by_task"])
+    questions = {item.id: item.question for item in bundle.test}
+
+    return {
+        "task_ids": list(baseline_run.task_ids),
+        "questions": {task_id: questions[task_id] for task_id in baseline_run.task_ids},
+        "baseline_answers": dict(zip(baseline_run.task_ids, baseline_run.outputs, strict=True)),
+        "candidate_answers": {
+            task_id: outputs_by_tier[resolved[task_id]][task_id]
+            for task_id in baseline_run.task_ids
+        },
+        "candidate_tiers": {task_id: resolved[task_id] for task_id in baseline_run.task_ids},
+        "baseline_tier": tiers[-1],
+        "baseline_pipeline": BASELINE_PIPELINE,
+        "candidate_pipeline": CANDIDATE_CASCADE,
+        "operating_point": {
+            "scorer": choice["scorer"],
+            "k": choice["k"],
+            "label": choice["label"],
+            "thresholds": list(cascade["thresholds"]),
+            "protect_scarce": protect_scarce,
+            "chosen_on": choice["chosen_on"],
+        },
+        "origin": origin,
+    }
+
+
+def arms_for_contract(baseline_id: str = "B2", candidate_id: str | None = None) -> dict[str, Any]:
+    """Two single-call pipelines on the test split, ready for a judge (UPGRADE_V3.md U4).
+
+    The pair the checkable-contract lever is about: the same prompt with and without a contract
+    that asks the model to show the step from the rule it quoted to the number it returned.
+    Judging both with the same judge is how the lever gets priced — a contract that makes a
+    cheap verifier agree with a strong grader more often needs fewer strong labels for the same
+    interval width, and that is a number in dollars.
+
+    ``candidate_id`` defaults to the workload's checkable pipeline. Refuses rather than guesses
+    when there is more than one.
+    """
+    registry = load_registry()
+    workload = load_workload(repo_root() / "data/demo/workload.yaml")
+    bundle = build_dataset(
+        size=workload.dataset.size,
+        calibration_size=workload.dataset.calibration_size,
+        seed=workload.dataset.seed,
+    )
+    if candidate_id is None:
+        checkable = sorted(p for p, spec in workload.pipelines.items() if spec.checkable)
+        if len(checkable) != 1:
+            raise ReportError(
+                f"the workload defines {len(checkable)} checkable pipelines ({checkable}); name "
+                "the one to price with --candidate."
+            )
+        candidate_id = checkable[0]
+
+    tier = workload.cascade(CANDIDATE_CASCADE).tiers[-1]
+    root = _fixture_root()
+    manifest = _load_manifest(root)
+    store = CassetteStore(root / "cassettes")
+    snapshot = registry.snapshot(list(registry.roles.values()), date(2026, 9, 11))
+    origin = str(manifest.get("origin", "simulated"))
+
+    def replay(pipeline_id: str) -> ReplayedRun:
+        return replay_run(
+            workload, registry, bundle, snapshot, store, pipeline_id, "test", tier, origin
+        )
+
+    base_run, cand_run = replay(baseline_id), replay(candidate_id)
+    if base_run.task_ids != cand_run.task_ids:
+        raise ReportError(
+            f"{baseline_id} and {candidate_id} answered different task sets; the contract "
+            "comparison is paired and cannot be approximated."
+        )
+    questions = {item.id: item.question for item in bundle.test}
+    return {
+        "task_ids": list(base_run.task_ids),
+        "questions": {task_id: questions[task_id] for task_id in base_run.task_ids},
+        "baseline_answers": dict(zip(base_run.task_ids, base_run.outputs, strict=True)),
+        "candidate_answers": dict(zip(cand_run.task_ids, cand_run.outputs, strict=True)),
+        "candidate_tiers": dict.fromkeys(base_run.task_ids, tier),
+        "baseline_tier": tier,
+        "baseline_pipeline": baseline_id,
+        "candidate_pipeline": candidate_id,
+        "operating_point": {
+            "scorer": "none",
+            "k": 1,
+            "label": f"{baseline_id} vs {candidate_id}, single call at the {tier} tier",
+            "thresholds": [],
+            "protect_scarce": False,
+            "chosen_on": "not applicable: neither arm routes",
+        },
+        "origin": origin,
+    }
 
 
 def trace_for(task_id: str) -> dict[str, Any]:
@@ -1300,6 +2285,212 @@ METRICS_START = "<!-- metrics:start -->"
 METRICS_END = "<!-- metrics:end -->"
 
 
+def _provenance_metrics_lines(payload: ReportPayload) -> list[str]:
+    """Where the task set came from, and whether it can certify (UPGRADE_V3.md U8)."""
+    block = payload["dataset_provenance"]
+    shape = block["shape"]
+    lines = [
+        f"**Where these tasks came from** — {block['n']} items: "
+        f"{block['real_traffic_items']} from real traffic, "
+        f"{block['model_generated_items']} written by a model, "
+        f"{block['program_generated_items']} templated by a program. "
+        f"{shape['templates_present']} of {shape['template_space']} question templates appear "
+        f"({shape['tail_coverage'] * 100:.0f}% tail coverage).",
+        "",
+        f"- **Certifiable: {'yes' if block['certifiable'] else 'no'}.**",
+    ]
+    lines += [f"  - Refused: {refusal}" for refusal in block["refusals"]]
+    lines.append("")
+    return lines
+
+
+def _contract_metrics_lines(payload: ReportPayload) -> list[str]:
+    """What a checkable output contract cost and what it bought (UPGRADE_V3.md U4)."""
+    contract = payload["contract"]
+    if not contract.get("available"):
+        return []
+    before, after = contract["arms"]
+    lines = [
+        f"**What checkability costs** — {after['pipeline']} is {before['pipeline']}'s prompt "
+        "plus one line showing how the quoted rule produces the answer:",
+        "",
+        "| Pipeline | Cheap judge agrees with the strong grader | Strong labels needed | "
+        "Annotation | Accuracy | Generation |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for arm in (before, after):
+        lines.append(
+            f"| {arm['pipeline']} {arm['label']} | "
+            f"{arm['judge_agreement_with_strong_grader'] * 100:.1f}% | "
+            f"{arm['sampling_rate_for_target'] * 100:.0f}% of tasks | "
+            f"${float(arm['annotation_cost_for_target_usd']):.4f} | "
+            f"{arm['accuracy'] * 100:.1f}% | "
+            f"${float(arm['generation_cost_usd']):.4f} |"
+        )
+    verdict = (
+        "it pays for itself on this split"
+        if contract["pays_for_itself"]
+        else f"net ${contract['net_on_evaluation_split_usd']} — **it does not pay here**"
+    )
+    lines += [
+        "",
+        f"- Judge agreement moves {contract['agreement_delta'] * 100:+.1f} points and accuracy "
+        f"{contract['accuracy_delta'] * 100:+.1f} points. The accuracy cost is reported with "
+        "its sign; a row that showed the saving and hid it would be the most tempting "
+        "dishonesty in this product.",
+        f"- Annotation saving ${contract['annotation_saving_usd']} against a generation premium "
+        f"of ${contract['generation_premium_usd']} at a target standard error of "
+        f"{contract['target_standard_error']:.2f}: {verdict}.",
+        "",
+    ]
+    return lines
+
+
+def _effective_samples(row: dict[str, Any]) -> str:
+    """The worst tier's effective sample count, for one scorer configuration (U6).
+
+    k repeats are worth k only when the draws are independent, and a sampled scorer's whole
+    argument rests on them being so. The cell reports the design effect at the tier where the
+    repeats agree with themselves most, because that is the tier whose routing the correlation
+    eats first.
+    """
+    correlation = row.get("sample_correlation")
+    if not correlation:
+        return "—"
+    tier, measured = min(correlation.items(), key=lambda item: item[1]["effective_k"])
+    return f"{measured['effective_k']:.2f} of {measured['k']} ({tier})"
+
+
+def _scorer_metrics_lines(payload: ReportPayload) -> list[str]:
+    """Every configuration the search compared, and every one it cannot separate (U6, U7)."""
+    cascade = payload["cascade"]
+    rows = cascade["scorer_comparison"]
+    if not rows:
+        return []
+    ties = cascade["ties"]
+    mark = "~" if payload["provenance"]["is_test_data"] else "▪"
+    adoptable = set(cascade["scorer_choice"]["adoptable"])
+    tied = {row["label"] for row in ties["tied"]} if ties and ties["is_tie"] else set()
+    lines = [
+        "**What else was measured** — every scorer configuration the calibration search compared, "
+        "scored on the same test split:",
+        "",
+        "| Configuration | Calls per scored task | Accuracy | Cost per successful task | "
+        "Effective samples | Notes |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for row in rows:
+        cost = row["cost_per_successful_task"]
+        notes = [
+            "operating point" if row["is_chosen"] else "",
+            "tied for cheapest" if row["label"] in tied else "",
+            "" if row["label"] in adoptable else "not adoptable here",
+        ]
+        lines.append(
+            f"| {row['label']} | {row['calls_per_scored_task']} | "
+            f"{row['accuracy']['point'] * 100:.1f}% | "
+            f"${float(cost['point']):.6f} {mark} (${float(cost['low']):.6f}–"
+            f"${float(cost['high']):.6f}) | {_effective_samples(row)} | "
+            f"{', '.join(note for note in notes if note)} |"
+        )
+
+    lines.append("")
+    rhos = [
+        measured["intraclass_correlation"]
+        for row in rows
+        for measured in (row.get("sample_correlation") or {}).values()
+    ]
+    if rhos:
+        lines.append(
+            "- Effective samples is the cluster-sampling design effect `k / (1 + (k-1) rho)` over "
+            f"the intraclass correlation of within-task agreement. Here rho runs {min(rhos):.3f} "
+            f"to {max(rhos):.3f}, so "
+            + (
+                "k repeats are worth very nearly k — which is a property of a simulator that "
+                "draws them independently, not of real sampled generations, and is why the "
+                "sampling scorers are measured here and not adopted."
+                if max(rhos) < 0.1
+                else "k repeats are worth appreciably less than k, and the routing decision is "
+                "weaker than the raw sample count suggests."
+            )
+        )
+    if ties:
+        lines += [f"- {ties['note']}", f"- {ties['fallback_reason']}"]
+    lines.append("")
+    return lines
+
+
+def _judged_metrics_lines(payload: ReportPayload) -> list[str]:
+    """The same comparison without the answer key, for the README (UPGRADE_V3.md U1).
+
+    Generated like everything else between the markers: a workload without labels is the case
+    the upgrade exists for, so the number it would get belongs in the README rather than in a
+    paragraph claiming it works.
+    """
+    judged = payload["judged"]
+    if not judged.get("available"):
+        return [
+            "**Without the answer key:** not computed — "
+            + str(judged.get("reason", "no reason given")),
+            "",
+        ]
+    delta = judged["delta_accuracy"]
+    judge_only = judged["judge_only"]["delta_accuracy"]
+    annotation = judged["annotation"]
+    coverage = judged.get("coverage_check") or {}
+    lines = [
+        "**Without the answer key** — the same test split graded by "
+        f"{judged['judge']['model_id']} on every task, corrected from "
+        f"{annotation['n_annotated']} tasks re-graded by "
+        + (
+            "a human reviewer"
+            if judged["strong_grader"]["source"] == "human"
+            else str(judged["strong_grader"]["model_id"])
+        )
+        + ":",
+        "",
+        "| Estimate | Accuracy difference | 95% CI | What it cost |",
+        "| --- | --- | --- | --- |",
+        f"| The cheap judge alone | {judge_only['point'] * 100:+.1f} pt | "
+        f"{judge_only['low'] * 100:+.1f} to {judge_only['high'] * 100:+.1f} | "
+        f"${float(annotation['judge_cost_usd']):.4f} |",
+        f"| Corrected (active evaluation) | {delta['point'] * 100:+.1f} pt | "
+        f"{delta['low'] * 100:+.1f} to {delta['high'] * 100:+.1f} | "
+        f"${float(annotation['annotation_cost_usd']):.4f} for "
+        f"{annotation['annotated_share'] * 100:.0f}% of tasks |",
+    ]
+    if coverage:
+        lines.append(
+            f"| The answer key, for comparison | "
+            f"{coverage['gold_delta_accuracy'] * 100:+.1f} pt | — | "
+            "not available to a real unlabelled workload |"
+        )
+    lines += [
+        "",
+        f"- The judge's bias is {judged['judge_only']['bias_vs_corrected'] * 100:+.1f} points, "
+        "measured rather than assumed away. The correction removes it; a biased judge costs "
+        "interval width, never correctness.",
+    ]
+    if coverage:
+        lines.append(
+            "- The gold-free interval "
+            + ("covers" if coverage["judged_interval_covers_gold"] else "does **not** cover")
+            + f" the gold-graded difference of {coverage['gold_delta_accuracy'] * 100:+.1f} "
+            "points. That check exists only because this demo happens to have labels."
+        )
+    if annotation["strong_only_items_for_same_width"] is not None:
+        lines.append(
+            f"- Strong-only grading would need "
+            f"{annotation['strong_only_items_for_same_width']} items at "
+            f"${float(annotation['strong_only_cost_usd']):.4f} for the same interval width, "
+            f"against ${float(annotation['annotation_cost_usd']):.4f} spent here. The "
+            f"cost-optimal sampling rate at this judge quality is "
+            f"{annotation['cost_optimal_rate'] * 100:.0f}%."
+        )
+    lines.append("")
+    return lines
+
+
 def metrics_block(payload: ReportPayload) -> str:
     """The README's metrics block, generated from the report.
 
@@ -1368,6 +2559,10 @@ def metrics_block(payload: ReportPayload) -> str:
             else f"unverified for {', '.join(provenance['unverified_models'])}."
         ),
         "",
+        *_scorer_metrics_lines(payload),
+        *_provenance_metrics_lines(payload),
+        *_contract_metrics_lines(payload),
+        *_judged_metrics_lines(payload),
         f"<sub>{mark} "
         + (
             "simulated: these numbers are real engine output computed over simulated traces, "

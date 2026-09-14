@@ -1,0 +1,101 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "3c596485c35aa16ca443a227e7b3fdaf5cdcecbcc997330772e9fb3bcc3839f9",
+  "latency_ms": 2159.16,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"156.95\", \"evidence\": \"A rope that has been climbed on, a sole that has been walked down, and a stove that has been run for three seasons are all working as expected, not failing.\", \"section\": \"sec-warranty\", \"derivation\": \"sec-warranty gives the rule; applying it to the values in the question yields 156.95\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_3c596485c35aa16c",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8390,
+      "input_tokens": 67,
+      "output_tokens": 131
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 8390,
+    "input_tokens": 67,
+    "output_tokens": 131
+  },
+  "recorded_at": "2026-09-14T15:02:48.971411+00:00",
+  "request": {
+    "max_tokens": 320,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "A 58 lb order containing tents and shelters ships to Zone 4 (Alaska and Hawaii) with no free shipping. What is the shipping fee in dollars?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "8cb7948632bba9c3390e6aa3e2f4bd016cfc3cb30370890af28bc3b208fa7be9"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Current date and time: 2026-09-11 09:00 UTC"
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"156.95\", \"evidence\": \"A rope that has been climbed on, a sole that has been walked down, and a stove that has been run for three seasons are all working as expected, not failing.\", \"section\": \"sec-warranty\", \"derivation\": \"sec-warranty gives the rule; applying it to the values in the question yields 156.95\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 718.16,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 8390,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 67,
+    "output_reasoning": 0,
+    "output_visible": 131,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 8390,
+      "input_tokens": 67,
+      "output_tokens": 131
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

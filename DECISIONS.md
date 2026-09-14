@@ -362,3 +362,472 @@ scorer pays for the sampling it costs. The README already names the failure mode
    than $15.10 and 334 — money spent on the *comparison*, misattributed to the *proof*. Each
    configuration is now charged for the samples it draws, and what the deeper recording cost is
    reported separately as `search_recording_cost_usd`, where it was actually incurred.
+
+## D28 — UPGRADE_V3.md's milestones are numbered from M9 here, not M8
+
+`UPGRADE_V3.md` section 5 numbers its milestones M8 to M12. **M8 already exists**: it is the
+pluggable-scorer work in `PROGRESS.md` and D27, finished and committed before the upgrade brief
+arrived. Reusing the number would make `git log` and `PROGRESS.md` disagree about what M8 is.
+
+Reality wins over the document (CLAUDE.md), so the upgrade's milestones are shifted by one:
+
+| UPGRADE_V3.md | Here |
+| --- | --- |
+| M8 (U1, U2) | **M9** |
+| M9 (U3, U4) | **M10** |
+| M10 (U5, U8) | **M11** |
+| M11 (U6, U7) | **M12** |
+| M12 (U9) | **M13** |
+
+Nothing else moves. The upgrade numbers U1 to U9 are unchanged and are what the code and the
+tests cite, because those are stable identifiers and the milestone numbers are not.
+
+## D29 — M9: proving a workload nobody labelled
+
+**The goal.** `UPGRADE_V3.md` U1 and U2: a workload may be graded by a cheap judge whose bias is
+corrected by a small, cost-optimally allocated sample of strong labels, so the verdict stays
+valid even when the judge is wrong. The estimator for this — `active_eval_estimate` and
+`paired_active_eval_estimate` — has been in `core/stats.py` since M1 with no callers outside its
+own tests. M9 is mostly wiring, and the wiring is where all the decisions were.
+
+1. **A judge verdict is a recorded model call, not a function.** Non-negotiable 1 says every
+   number in the UI comes from engine code computing over traces, and a judge verdict is a
+   number on screen. So the cheap judge and the strong grader are a prompt in the workload YAML,
+   run through the same `Runner`, the same pre-warming, the same cassette store and the same
+   price snapshot as any other call. 5,450 cassettes now, up from 4,914. What the judging cost
+   is a measured figure, not an estimate: $0.39 for the cheap pass over 400 answers and $0.60
+   for 88 strong-grader calls.
+
+   The invented half — how often a simulated judge is wrong — lives in
+   `workloads/demo/judge_responder.py`, beside the responder that already invents how often a
+   model is right, and nowhere else.
+
+2. **Annotation is its own command, run after the operating point exists.** The allocation policy
+   reads disagreement between the two arms, and the candidate arm is a cascade whose answer on
+   each task comes from whichever tier the router stopped at — which is only known once
+   calibration has chosen a configuration. So `tokop record` cannot do it, and `tokop annotate`
+   does: it judges both arms, allocates the budget, draws, grades the drawn items, and commits
+   `fixtures/test/annotations.json`.
+
+   That is also the honest order for a real user. You run the proof, you see which items are
+   discordant, you spend the annotation budget where it buys something.
+
+3. **The annotation set is checked against its cassettes.** It holds numbers that reach the
+   screen, so `tokop fixtures-check` replays all 488 recorded verdicts through the verdict parser
+   and fails if any disagrees with the reply it came from. A committed artifact nobody can
+   regenerate is a committed artifact nobody can trust.
+
+4. **The draw is nested in the budget.** Each task carries a fixed uniform `u_t` keyed by task id
+   and seed, and `xi_t = 1[u_t < pi_t]`. Lowering the budget lowers every rate, so a smaller
+   budget selects a subset of what a larger one selected. `tokop prove --annotation-budget 0.30`
+   therefore replays a cheaper annotation set out of the committed one rather than needing a
+   fresh run. A budget *above* the recorded one is refused, with the command that would fix it:
+   the extra items were never graded and inventing a label for them is the exact failure this
+   product exists to prevent.
+
+5. **The budget bounds *expected* spend, and the report says what was actually spent.** Which
+   item is drawn is random and items differ in price, so a realised draw lands either side of the
+   figure. The alternative — stopping mid-run when the budget is hit — is worse: an item drawn
+   and then not graded is an item the estimator must treat as never sampled, which silently
+   changes `pi` after the fact. Nothing is dropped; the overrun is printed.
+
+   Pre-warming is handled separately because it is a fixed cost: it comes off the budget before
+   the per-item rate is set, and a budget that cannot cover it is refused rather than half-spent.
+
+6. **The strong grader's price is projected through the tokenizer ratio, and that was a 38% bug.**
+   The first version repriced the cheap judge's recorded usage at the strong grader's rates and
+   came in 38% low every time. Anthropic's tokenizer changed at Claude 4.7, so Opus 5 counts
+   about 30% more tokens for the same text than Haiku 4.5 does — the thing `core/ratios.py` was
+   built to measure and which nothing had needed until now. The projection scales usage by
+   `ratio(strong) / ratio(cheap)` before pricing, and now lands within 0.2% of what the run
+   costs. The projection and the actual are both recorded, so the next time it drifts it will be
+   visible rather than absorbed.
+
+7. **The demo keeps `grading: gold` and gains a judge.** Every headline number is unchanged. The
+   judged estimate is computed *beside* the gold one, which is the only way to show the thing
+   that matters: a gold-free interval covering the labelled truth. `tokop prove --grading judged`
+   takes the verdict from the judged estimate instead, which is what a workload with no labels
+   gets, and `tests/test_cli_gate.py` pins that the two gates can disagree — at a 5-point margin
+   the gold verdict passes and the judged one does not, because label-free evidence really is
+   weaker and a gate that hid that would be advertising a proof nobody ran.
+
+8. **The operating point is still calibrated on gold.** The cascade's thresholds and its scorer
+   are fitted against labelled calibration tasks. Only the *test* comparison is label-free in M9.
+   That is U3's job (M10), and until it is done the judged block carries the limitation as a
+   caveat rendered verbatim on screen, in the CLI and in the README, rather than implying the
+   whole pipeline is label-free.
+
+9. **One sample per task, or it refuses.** The judge reviews the answer the cascade *returned*,
+   and under a sampling scorer that is one of k generations chosen by the scorer. Judge cassettes
+   cover the first generation of each task. `arms_for_annotation` refuses when the operating
+   point draws more than one, naming what would have to be recorded. The demo's operating point
+   is `logistic-v1` at k=1, so it runs; a workload that adopted `self-consistency-v1` would get
+   the refusal rather than a verdict about an answer the cascade did not give.
+
+10. **A drawn item whose strong grading failed is not sampled.** It is not a cheaper observation,
+    it is no observation. Counting it with a missing value would bias the correction towards
+    whichever arm failed less often. The failed count and what it cost are reported.
+
+**What M9 does not establish.** The judge error rates in `judge_responder.py` are invented
+parameters, and no claim about real judges is derived from them. The property U1 rests on — that
+the estimate stays unbiased however bad the judge is — is proved in `tests/test_judged_proof.py`
+against an *injected* judge, not against the simulator, precisely so the guarantee does not
+depend on a table that could have been tuned to flatter it.
+
+## D30 — The adversarial judge test corrupts numeric answers, not yes/no ones
+
+`UPGRADE_V3.md` U1 names the construction: "Inject a judge that marks 20% of correct yes-answers
+wrong. The naive judge-only accuracy estimate must fall outside its own interval; the active
+estimate must stay inside." Two readings had to be settled.
+
+1. **"Falls outside its own interval" is read as "its interval fails to cover the truth".** A
+   point estimate always sits inside an interval centred on it, so the literal sentence cannot be
+   what is meant. The testable claim is that the naive interval stops covering the true accuracy
+   while the active one still covers it, and that is what `tests/test_judged_proof.py` asserts.
+
+2. **The corrupted class is `number`, not `yes_no`, and the arithmetic is why.** The demo's test
+   split holds 29 yes/no items against 91 numeric ones. 20% of the 28 correct yes-answers is six
+   items — three accuracy points — against a Wilson half-width of about three points at n = 200.
+   The effect would be real and undetectable, so a release blocker would pass or fail on
+   rounding. Corrupting 20% of the correct numeric answers flips 18 items, moves the naive
+   estimate from 95.5% to 86.5%, and puts the truth five points outside a [81.5, 90.6] interval.
+   Same construction, same share, a class the split actually contains.
+
+   The version UPGRADE_V3.md writes verbatim runs too, next to it, asserting what 29 items can
+   support: the naive point estimate moves by the full corrupted share and the corrected one does
+   not. Both are in the release-blocking class, and `make verify` runs it by name so a failure is
+   not buried in a count of "N tests failed".
+
+3. **Two stronger versions run beside it,** because the interesting claim is general: a judge that
+   is wrong about *everything* (`G = 1 - H`) still yields an unbiased estimate over 3,000 draws,
+   and a judge whose error hits one arm only — the case a cascade actually meets, since the two
+   arms return different answers — biases the naive delta by more than five points while the
+   corrected interval still covers the truth.
+
+## D31 — The simulated judge's confidence is a posterior, and it had to be
+
+The allocation policy reads the judge's stated confidence. The first version of the simulated
+judge derived that confidence from its own hit rate, which depends on whether the answer is
+*actually* right — so items the judge was wrong about carried visibly higher uncertainty, and the
+policy would have been sampling a gold label in disguise. Its measured advantage over uniform
+sampling would have been an artefact of the simulator. That is the mistake D27 caught in the
+sampling scorer, one layer up.
+
+The confidence is now the Bayes posterior `P(answer is right | verdict, sensitivity, specificity,
+prior)`. It depends on the judge's role, the question type and the verdict it gave, and on nothing
+about the particular item.
+
+The cost of that is worth stating rather than discovering later: on these fixtures the judge's
+uncertainty carries information about *question type* and nothing finer, so the policy's per-item
+signal comes from disagreement between the two arms. A real judge's confidence would vary task by
+task and the policy would have more to work with, not less. `tests/test_verification.py` asserts
+the posterior cannot see the truth, by signature and by behaviour.
+
+Even so, the policy earns its place on these fixtures: at the demo's budget it cuts the paired
+estimator's variance by 64% against uniform sampling at the same expected spend, computed exactly
+rather than from a draw. The discordance feature is doing most of that work — the squared
+correction term averages 0.81 on discordant pairs against 0.02 on concordant ones.
+
+## D32 — `uncertainty_proportional_rates` did not produce the mean rate it promised
+
+Found by the U2 acceptance test, which asserted that two policies at the same budget have the same
+expected spend and got $0.326 against $0.300.
+
+The function scaled an uncertainty score to a target mean and then clipped to `[floor, 1]`. The
+floor lifts the bottom of the distribution and nothing gives it back, so the realised mean came
+out above the target — 8.5% high on the test's population at the smallest budget it checks, and
+1.9% high on the demo's own recorded verdicts at half the demo budget. Since the caller's target
+rate is how an annotation budget is expressed, a drifted mean is money quietly overspent, and the
+drift grows as the budget shrinks and the floor binds on more items. At the demo's own budget it
+happened to round to zero, which is exactly why a test that measured it rather than an eye that
+looked at it was needed.
+
+The scale is now *solved for* rather than computed: `mean(clip(lambda * u, floor, 1))` is
+continuous and non-decreasing in `lambda`, running from `floor` to 1, so bisection finds the value
+that hits the target exactly. When the target cannot be reached by scaling at all — most of the
+weight exactly zero — the remainder is spread evenly over the items not yet at 1, which is no
+longer proportional and is documented as such; under-spending silently would be worse.
+
+Every existing test of the function still passes; the ones that existed were named "when nothing
+clips", so the gap was known and unfixed rather than unnoticed.
+
+## D33 — The annotation row is on Optimize, not Inspect
+
+`UPGRADE_V3.md` U1 says "`report.py` and the Inspect screen gain an annotation row." In this
+build Inspect is the paste-a-prompt-and-price-it screen (SPEC.md 5.2); the proof and its verdict
+live on Optimize. An annotation row on Inspect would sit next to a prompt that has nothing to do
+with the split it was computed over.
+
+So the row is on Optimize, immediately under the verdict it qualifies, as a section titled
+**Without the answer key**. Reality wins over the document (CLAUDE.md), and the conservative
+option is the one that puts a number next to the thing it is about.
+
+## D34 — M10: calibrating without labels, and pricing what checkability buys
+
+**The goal.** `UPGRADE_V3.md` U3 and U4. M9 made the *test* comparison label-free; the cascade's
+thresholds were still fitted against gold. U3 removes that. U4 then makes the judge's job easier
+on purpose and prices what that costs.
+
+1. **A pseudo-label is a vote, and the vote is the thing to be careful about.**
+   `optimize/pseudolabels.py` registers two kinds so the comparison is always available:
+   `majority-vote`, implemented honestly rather than as a straw man, and `penalized-v1`, which
+   borrows RESTRAIN's *mechanism* — penalize the rollouts that would otherwise dominate the vote
+   — and none of its results. Three corrections, each of which is a way the naive version goes
+   wrong: a tier does not vote on its own label; a distribution with no clear winner is excluded
+   and counted; and confident disagreement with the consensus is weighted **up**, not softened.
+
+2. **Exclusion is by margin, not by entropy.** "Close to uniform" sounds like an entropy rule and
+   is not one: normalized by sample count, a 5/5/5 split reads as 0.4 and looks decisive. The
+   rule that actually captures "the plurality is an accident of the draw" is the margin — how far
+   ahead the winner is — with a uniformity cutoff measured against the *number of clusters* as a
+   second net. A task is excluded when the pooled distribution has no clear winner or any single
+   tier's leave-one-out reference does not, because the threshold search needs the same tasks at
+   every tier.
+
+3. **What the demo's fixtures can say about this: nothing, and the report says so.** Every
+   pseudo-label on the demo's calibration split agrees with the answer key, under both kinds. That
+   is not evidence the method works. The simulated provider draws wrong answers independently and
+   each one is a *different* perturbation, so the correct answer is the unique plurality almost
+   every time and a majority vote cannot go wrong there. `calibration.fixtures_can_exercise_this`
+   is computed, not asserted, and prints that reason on the screen and in the CLI. This is D27's
+   discipline applied to a second mechanism: ship it, measure it, withhold the conclusion.
+
+4. **So the acceptance check is a constructed calibration set, and it is constructed around the
+   failure rather than around the result.** `tests/test_pseudolabels.py` builds a cheap tier with
+   a *characteristic* error: on 60% of the tasks it gets wrong it produces the same confusable
+   answer five draws out of five, and the mid tier shares it. That is what a real model does and
+   what the simulator deliberately does not. The naive vote reads five identical wrong answers as
+   correctness, the cheap tier's apparent accuracy goes up, the frontier's goes down, and the
+   search **routes everything to the cheap tier** — threshold 0.00 against gold's 0.78 to 0.98, at
+   every committed seed. The penalized version excludes those tasks, agrees with the answer key on
+   what survives, and lands within 0.06 to 0.38 of the gold thresholds with an accuracy floor
+   within 0.012 of gold's against the naive version's 21 to 31 points low.
+
+5. **Three earlier fixtures were tried and rejected, and the reason matters.** A poisoned subset
+   that hit all tiers equally barely moved the threshold, because the floor and the tier
+   accuracies deflate together and largely cancel. A two-tier version made leave-one-out too
+   fragile to mean anything. A version poisoning only hard tasks biased the calibration set by
+   construction. The fixture that works is the one where the label error is *asymmetric across
+   tiers*, which is also the realistic one — a cheap model's characteristic error is its own, not
+   the frontier's. The threshold argmin on the discarded fixtures was a flat surface and the
+   comparison was noise; asserting on it would have been asserting on a seed.
+
+6. **A checkable output contract is a pipeline, not a mode.** `PipelineSpec.checkable` marks it,
+   B2c is B2's prompt plus one line showing how the quoted rule produces the answer, and the
+   waterfall finds it from the spec rather than from a hardcoded id. The simulated judge's bonus
+   is read off the *answer* — does it carry a derivation? — rather than passed in as a flag, so
+   the judge is better because the answer is checkable and not because a configuration said so.
+
+7. **The lever is priced against a stated interval width.** At a uniform rate the active
+   estimator's variance is `mse (1 - pi) / (pi T)`, so `pi = mse / (mse + T se^2)` is the sample a
+   given judge needs for a given standard error. Both contracts are priced at the same target —
+   one accuracy point of standard error, about plus or minus two points of interval — and the
+   target is named in the payload so a reader can see it was not chosen after the fact.
+
+8. **The answer on these fixtures is that it does not pay, and that is the headline.** The
+   contract lifts the cheap judge's agreement with the strong grader from 83.7% to 93.0%, which
+   cuts the strong labels needed from 89% of tasks to 78% and the annotation bill from $1.2412 to
+   $1.1064 — a saving of $0.1347. It costs 7,406 extra output tokens ($0.1955) and **2.5 accuracy
+   points**. Net on the evaluation split: **-$0.0607**. `pays_for_itself: false`.
+
+   The accuracy delta is reported with its sign on every surface, and
+   `tests/test_contract.py::TestItNeverSuppressesANegativeAccuracyDelta` is a named check in
+   `make verify` because a row that showed the saving and hid the cost is the single most tempting
+   dishonesty in this product. The saving and the premium are also kept apart rather than netted
+   into one number: the annotation saving is paid once per evaluation and the generation premium
+   is paid on every task the pipeline ever runs, so a contract that wins on the split can still
+   lose in production.
+
+9. **The proof cost moved, correctly.** $15.10 to $16.61, repaying after 367 tasks rather than
+   334, because B2c's test run is money spent exploring the waterfall and lands in
+   `other_pipelines_usd` like B1's always has.
+
+**What M10 does not establish.** The size of the legibility tax and the size of the checkability
+bonus are invented parameters in `workloads/demo/`. The *mechanism* is real and runs end to end
+over recorded calls; the numbers are a simulator's. What is not a simulator's is the disclosure
+rule, which is tested against the payload rather than against the fixtures.
+
+## D35 — The annotation machinery is pointed at a second pair rather than generalized
+
+U4 needs judge and strong-grader verdicts on the B2/B2c pair, and M9 already had machinery that
+judges two arms, allocates a budget across them, draws, and commits a set. Rather than widen
+`AnnotationSet` to hold three arms — which would have made every consumer handle a shape that
+only one caller produces — `tokop annotate --contract` runs the *same* code over a different pair
+and writes `contract-annotations.json` beside `annotations.json`.
+
+Same judge, same prompt, same prices, same allocation policy. That is what makes the two
+agreement figures comparable at all: the only thing that differs between the runs is which
+answers are under review. `tokop fixtures-check` now replays both sets — 488 verdicts in one and
+502 in the other — against the cassettes they name.
+
+## D36 — `uncertainty_proportional_rates` is solved, not clipped (see also D32)
+
+Recorded here as well because U3's and U4's budgets both depend on it: the function now solves
+for the scale by bisection so `mean(clip(lambda * u, floor, 1))` hits the target exactly. Every
+"what would this cost" figure in the contract row rests on the rate being the rate that was asked
+for.
+
+## D37 — The blob-count test asserted a property of the fixtures, not of the store
+
+`test_blobs_deduplicate_the_handbook` asserted `blob_count() < 20`. The judge prompts added in M9
+carry the answer under review, and B0's answers are essays, so a long *unique* string correctly
+gets a blob of its own and the count went to 206.
+
+The test's name says what it was for, and the count was never it. It now asserts the dedup
+property directly: the handbook appears in at most three distinct blobs — one per wrapper text —
+across 6,026 calls, and the blob count stays below a tenth of the call count. A cap on the total
+would have been a cap on how many long strings the fixtures are allowed to contain, which is not
+a property anybody wants to freeze.
+
+## D38 — M11: a certificate that expires, and a task set that has to earn the right to back one
+
+**The goal.** `UPGRADE_V3.md` U5 and U8. A proof was a snapshot with a price hash, and nothing
+invalidated it when a provider shipped a new revision under the same name. A task set was a
+number of rows, and nothing asked where they came from.
+
+1. **The expiry and the alpha spending need each other.** A canary that checks a stable quantity
+   at the 5% level every week raises on about one workload in five over a month — measured, in
+   `tests/test_certificate.py`, not asserted — so alpha has to be spent across the looks. Spending
+   it needs a finite number of looks, and a certificate with no expiry has none. So the TTL (30
+   days) and the canary interval (7 days) between them fix K = 4, and the per-look levels come
+   from a spending function over k/K.
+
+2. **It is not a group-sequential boundary, and calling it one would be wrong.** Pocock and
+   O'Brien–Fleming correct for looks at *accumulating* data, where the looks are correlated. A
+   canary draws a fresh stratified subset each time, so the looks are independent and the exact
+   correction is `alpha_k = 1 - (1 - S_k)/(1 - S_{k-1})`, which makes the family-wise error rate
+   exactly alpha. The spending *functions* are borrowed (Pocock's even spending is the default,
+   because a model can be swapped in any week and no look matters less than the last); the
+   correlated correction is not.
+
+3. **A changed model snapshot is not a statistical question.** The certificate records a snapshot
+   identifier per role and the canary raises immediately when one moves, before any re-scoring.
+   Most model ids do not pin a revision, so the identifier is the id plus the recording's own
+   stamp — the best available, and the certificate says that rather than implying the provider
+   supplied one.
+
+4. **A canary in replay has no drift to find, and says so.** Re-scoring the cassettes a
+   certificate was issued from cannot produce a different answer. Reporting that as a pass would
+   be reporting a tautology as evidence, so the drift test is marked *not applicable* with the
+   reason and only the identity checks fire. `tokop canary` on the demo prints exactly that.
+
+5. **The demo's own dataset is refused, and that is the right answer.** 300 items, all templated
+   by a program from `policy.yaml`, none from real traffic. `tokop provenance` refuses
+   certification with the reason named: a set nobody has observed in production cannot certify
+   production, however good its numbers are. The certificate is still *issued* — everything on it
+   is true about the set — and it carries `certifiable: false` with the refusal.
+
+6. **Program-generated and model-generated are counted separately.** The collapse literature is
+   about a model sampling from its own output; a program templating questions from a policy file
+   is synthetic without being in that loop. Conflating them would refuse every seeded benchmark
+   for the wrong reason, so the refusal that mentions the self-consuming loop fires only on
+   *model-generated* share, and the demo does not trip it.
+
+7. **Tail coverage is measured against the generator's template space.** The failure worth
+   catching is specific and worth restating: a cascade earns its savings on easy tasks and its
+   risk lives in the tail, so an eval set whose tail has thinned certifies a router that fails in
+   production while every number above it looks fine. The demo covers 28 of 28 templates; the
+   acceptance fixture piles the same number of items onto 4 of 20 and is refused with the count
+   of what is missing.
+
+8. **The detector is not built, and the refusal says why.** Drayson et al. train a
+   machine-generated-text detector and importance-resample towards likely human content. A
+   detector needs a model; this build has none (D1). `DETECTOR_REGISTRY` is empty and asking for
+   one raises — a detector that guessed would resample the set towards its own guess, which is
+   the self-consuming loop wearing a lab coat. `importance_weights` is implemented and tested,
+   because a caller with a real detector can use it; the detector is not faked.
+
+9. **`proof.per_task` is now in the payload.** Three short arrays for 200 tasks. The canary needs
+   per-task outcomes to re-score a stratified subset, and the alternative was a second computation
+   of the same thing in a second place, which is how two numbers start to disagree.
+
+## D39 — `grading: judged` now requires a `dataset_provenance:` block
+
+`UPGRADE_V3.md` section 2 marks the block "required when `grading: judged`", and the reason is
+worth spelling out: a judged workload has no answer key, so where its tasks came from is the only
+remaining evidence that a certificate over it means anything. The loader refuses with that
+sentence rather than with a schema error.
+
+The demo declares the block despite being `grading: gold`, because the block is useful either
+way — and because a certificate that omitted it would be a certificate that did not know what it
+was measured on.
+
+## D40 — M12: entropy over meanings, and refusing to name a winner that is not one
+
+**The goal.** `UPGRADE_V3.md` U6 and U7. D27 shipped `self-consistency-v1` as an exact-match
+approximation of semantic entropy and said so everywhere; U6 is the thing itself. U7 is the
+report refusing to rank configurations the data cannot separate.
+
+1. **Entailment is a model call, and it is charged.** `semantic-entropy-v1` clusters k samples by
+   bidirectional entailment — two directed calls per candidate pair, because entailment is not
+   symmetric and a model asked a symmetric question answers a symmetric one. The calls are
+   recorded, replayed from cassettes, and billed to the scorer that makes them through a new
+   `extra_cost` on the `Scorer` protocol. On the protocol rather than at the call site: a scorer
+   that spends money the cascade is not charged for is exactly how a comparison stops meaning
+   anything, and D27 learned that once already.
+
+2. **Identical answers are never sent.** Paying a model to confirm that "60" means what "60"
+   means is money for nothing, and on a workload of numbers and yes/no it is most of the bill.
+   830 entailment judgements cover the whole matrix at depth 5 as a result.
+
+3. **The clustering is first-fit and says it is not canonical.** Exact-match equality is a
+   genuine equivalence, so grouping by one representative is exact and order-independent.
+   Model-judged entailment is not transitive: A can match B and B match C while A and C do not.
+   The grouping therefore depends on the order the samples arrive in, which is the recording's
+   order — reproducible, not canonical, and stated rather than left to be assumed.
+
+4. **On this workload, clustering by meaning costs money and buys nothing.** `semantic-entropy-v1`
+   returns exactly the same accuracy, the same AUROC and the same routing as
+   `self-consistency-v1` at every k, and costs $0.000223 more per successful task at k=3. The
+   demo's answers are numbers, enums and yes/no, and the workload's exact-match relation already
+   merges a currency symbol, a trailing percent and a hedge before a yes or no. What it does not
+   merge is a unit word after a number — "60" against "60 days" — and the fixtures contain none.
+
+   That is a property of this question mix, not of the method, and it is pinned by a test so it
+   cannot quietly stop being reported. The paraphrase merging the method exists for is tested
+   against explicit pairs, each one checked to be a case exact match actually misses rather than
+   assumed to be. Three of the four pairs I first wrote down turned out not to be: the grader
+   already handled them, and claiming them would have overstated what the method adds.
+
+5. **Effective k replaces D27's paragraph with a number.** The intraclass correlation of
+   within-task agreement, and the cluster-sampling design effect `k / (1 + (k-1) rho)`. On these
+   fixtures rho runs 0.000 to 0.043 and effective k is 2.94 of 3 and 4.27 of 5 — the repeats
+   really are independent draws, which is a fact about the simulator and is precisely why the
+   scorer comparison is still withheld. A real recording would show a much lower effective k and
+   the number would say so without anyone having to write a paragraph.
+
+6. **`sep-v1` is registered and refuses.** Kossen et al. recover semantic entropy from the hidden
+   states of a single generation, which removes the fivefold sampling cost — and hidden states
+   are what no provider API returns. The registry gained a `hidden_states` flag so the refusal
+   points at something real; no model sets it, and the refusal names `semantic-entropy-v1` and
+   self-hosting as the two ways forward. This is D27.4 unchanged: not a "not yet", a structural
+   consequence of non-negotiable 6.
+
+7. **U7: the report shows the tie.** Three configurations' cost intervals overlap on the demo, so
+   all three are listed, ordered by dollars, and `single_winner` *raises* rather than returning
+   one. The cheapest of them is a configuration this workload does not let the search adopt
+   (D27), so the tie says that too — and there is consequently no fallback, which the report
+   states rather than designating the operating point as its own.
+
+8. **The fallback is an alternative to what is running, not to whichever row is cheapest.** A
+   fallback that shares the constraint it is meant to survive is not a fallback, so it is chosen
+   by scarce-model share among *adoptable* alternatives. A fallback nobody is allowed to run is a
+   footnote. The first version designated the operating point as its own fallback, which is how
+   that rule got written down.
+
+9. **Exploration weights are uniform over the tie, and nothing calls them in anger.** Online
+   exploration does not exist in this build (D24). The rule is implemented and tested because the
+   rule is the interesting part — greedy selection amplifies whichever option won the last sample,
+   which is the frequency amplification Sinha et al. remove — and inventing it later under
+   deadline is how greedy selection creeps back in.
+
+10. **The README's M12 numbers are generated, not typed.** The scorer comparison, its
+    effective-sample column, the tie and the missing fallback are rendered into the metrics block
+    by `optimize/report.py`, because a hand-written tie is a tie that stops being true the next
+    time the fixtures move and nothing fails. Non-negotiable 1, applied to the two upgrades that
+    would otherwise have arrived as prose.
+
+**What M12 does not establish.** The simulated entailment model's error rates are invented, like
+every other rate in `workloads/demo/`. The clustering, the charging, the effective-k measurement
+and the tie logic are real code over recorded calls; what a real entailment model would merge on
+a real workload is not something these fixtures can say.

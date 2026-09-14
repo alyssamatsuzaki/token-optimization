@@ -1,0 +1,90 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "07f903588bdd00ed610477450776a6e2d2b9a07d4a477f06cf9c4a142d2b5c99",
+  "latency_ms": 353.9,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"entails\": true, \"why\": \"same value once units and hedging are removed\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_07f903588bdd00ed",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 210,
+      "output_tokens": 25
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 210,
+    "output_tokens": 25
+  },
+  "recorded_at": "2026-09-14T16:24:35.216613+00:00",
+  "request": {
+    "max_tokens": 60,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Question: A parcel up to 2 lb is going to Zone 4 (Alaska and Hawaii). What is the fee in dollars?\n\nAnswer A:\n<<<A\n18.95\nA>>>\n\nAnswer B:\n<<<B\n4.95\nB>>>\n"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "c83b71f47299560d59fbab9ec45cb116d3e39563e5ae76b16d66a1ff852da71e"
+        }
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"entails\": true, \"why\": \"same value once units and hedging are removed\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 266.4,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 210,
+    "output_reasoning": 0,
+    "output_visible": 25,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 210,
+      "output_tokens": 25
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

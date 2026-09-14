@@ -35,7 +35,14 @@ from tokop.core.usage import TokenUsage
 from tokop.db import Call, GradeRow, Run, Workload, session_scope, store_price_snapshot
 from tokop.workloads.demo.generator import DemoItem
 from tokop.workloads.grading import grade
-from tokop.workloads.spec import PipelineSpec, WorkloadSpec, demo_timestamp
+from tokop.workloads.spec import (
+    EntailmentSpec,
+    JudgeSpec,
+    PipelineSpec,
+    WorkloadSpec,
+    demo_timestamp,
+)
+from tokop.workloads.verification import AnswerView
 
 
 class AnyAdapter(Protocol):
@@ -60,6 +67,20 @@ class TaskResult:
     @property
     def failed(self) -> bool:
         return self.error is not None
+
+
+@dataclass
+class JudgeRunResult:
+    """Everything one verifier run produced (UPGRADE_V3.md U1)."""
+
+    model_id: str
+    calls: list[tuple[AnswerView, LLMRequest, LLMResponse]]
+    prewarm: list[tuple[LLMRequest, LLMResponse]]
+    total_cost: Decimal
+
+    @property
+    def n(self) -> int:
+        return len(self.calls)
 
 
 @dataclass
@@ -243,6 +264,145 @@ class Runner:
             manifest=manifest,
             prewarm=list(zip(prewarm_pairs, prewarm_responses, strict=True)),
         )
+
+    async def run_judge(
+        self,
+        judge: JudgeSpec,
+        views: Sequence[AnswerView],
+        *,
+        model_id: str,
+        prewarm: bool = True,
+    ) -> JudgeRunResult:
+        """Run one verifier over a list of answers (UPGRADE_V3.md U1).
+
+        Deliberately not ``run_pipeline``. A pipeline answers a task; a judge reviews an answer,
+        so the unit is an ``AnswerView`` rather than a ``DemoItem`` and there is no grading step
+        at the end — reading a verdict out of the reply is ``workloads/verification.py``'s job
+        and happens above this. What is the same is everything that costs money: the same
+        pre-warming, the same concurrency, the same cassette-backed adapter, so a judge call is
+        priced exactly like any other call and shows up in the trace like one.
+        """
+        requests = [
+            judge.render(self.provider, model_id, self.judge_variables(view)) for view in views
+        ]
+        prewarm_requests: list[LLMRequest] = []
+        prewarm_responses: list[LLMResponse] = []
+        if prewarm:
+            prewarm_requests, prewarm_responses = await self.prewarm(requests)
+
+        outcomes = await asyncio.gather(
+            *(self._call(request) for request in requests), return_exceptions=True
+        )
+        calls: list[tuple[AnswerView, LLMRequest, LLMResponse]] = []
+        for view, request, outcome in zip(views, requests, outcomes, strict=True):
+            if isinstance(outcome, BaseException):
+                # A judge call that failed verified nothing. It stays visible as a failed call
+                # and the verdict parser records it as unverified (non-negotiable 8).
+                outcome = LLMResponse(
+                    text="",
+                    usage=TokenUsage(),
+                    model=model_id,
+                    provider=self.provider,
+                    latency_ms=0.0,
+                    error=f"{type(outcome).__name__}: {outcome}",
+                )
+            calls.append((view, request, outcome))
+
+        total = sum(
+            (self.snapshot.cost(model_id, response.usage).total for _, _, response in calls),
+            Decimal(0),
+        ) + sum(
+            (self.snapshot.cost(model_id, warm.usage).total for warm in prewarm_responses),
+            Decimal(0),
+        )
+        return JudgeRunResult(
+            model_id=model_id,
+            calls=calls,
+            prewarm=list(zip(prewarm_requests, prewarm_responses, strict=True)),
+            total_cost=total,
+        )
+
+    async def run_entailment(
+        self,
+        entailment: EntailmentSpec,
+        pairs: Sequence[tuple[str, str, str]],
+        *,
+        model_id: str,
+        prewarm: bool = False,
+    ) -> JudgeRunResult:
+        """Ask one model whether each (question, A, B) pair entails (UPGRADE_V3.md U6).
+
+        Reuses ``JudgeRunResult`` because the shape is identical — a list of small calls with
+        their cost — and inventing a second one would mean two places that have to agree about
+        how a call is priced. Pre-warming is off by default: the prompt carries no large static
+        prefix, so there is no cache entry to warm and a warm call would be pure cost.
+        """
+        views = [
+            AnswerView(task_id=f"{question[:24]}|{index}", question=question, answer=f"{a}\n{b}")
+            for index, (question, a, b) in enumerate(pairs)
+        ]
+        requests = [
+            entailment.render(
+                self.provider,
+                model_id,
+                {
+                    "question": question,
+                    "answer_a": a,
+                    "answer_b": b,
+                    "handbook": self.handbook,
+                    "timestamp": self.timestamp,
+                },
+            )
+            for question, a, b in pairs
+        ]
+        prewarm_requests: list[LLMRequest] = []
+        prewarm_responses: list[LLMResponse] = []
+        if prewarm:
+            prewarm_requests, prewarm_responses = await self.prewarm(requests)
+
+        outcomes = await asyncio.gather(
+            *(self._call(request) for request in requests), return_exceptions=True
+        )
+        calls: list[tuple[AnswerView, LLMRequest, LLMResponse]] = []
+        for view, request, outcome in zip(views, requests, outcomes, strict=True):
+            if isinstance(outcome, BaseException):
+                outcome = LLMResponse(
+                    text="",
+                    usage=TokenUsage(),
+                    model=model_id,
+                    provider=self.provider,
+                    latency_ms=0.0,
+                    error=f"{type(outcome).__name__}: {outcome}",
+                )
+            calls.append((view, request, outcome))
+
+        total = sum(
+            (self.snapshot.cost(model_id, response.usage).total for _, _, response in calls),
+            Decimal(0),
+        ) + sum(
+            (self.snapshot.cost(model_id, warm.usage).total for warm in prewarm_responses),
+            Decimal(0),
+        )
+        return JudgeRunResult(
+            model_id=model_id,
+            calls=calls,
+            prewarm=list(zip(prewarm_requests, prewarm_responses, strict=True)),
+            total_cost=total,
+        )
+
+    def judge_variables(self, view: AnswerView) -> dict[str, str]:
+        """What a judge prompt may render. ``answer`` is the extra one; gold is not among them.
+
+        The workload supplies the handbook, so the judge checks against the same document the
+        pipeline was given. ``view.context`` is ignored here on purpose: a judge that graded
+        against whatever context was attached to the answer could be handed a favourable one.
+        """
+        return {
+            "handbook": self.handbook,
+            "question": view.question,
+            "answer": view.answer,
+            "timestamp": self.timestamp,
+        }
 
     def manifest(
         self,

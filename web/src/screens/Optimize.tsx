@@ -6,7 +6,7 @@
  * number comes from `/api/report`, which is the same computation the CLI runs and the README is
  * generated from.
  */
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useHealth, useReport } from "../lib/api";
 import {
   count,
@@ -21,7 +21,16 @@ import {
   usd,
   usdShort,
 } from "../lib/format";
-import type { FindingView, Provenance, Report } from "../lib/types";
+import type {
+  CalibrationView,
+  ContractView,
+  DatasetProvenanceView,
+  TiesView,
+  FindingView,
+  JudgedView,
+  Provenance,
+  Report,
+} from "../lib/types";
 import { FrontierChart } from "../components/FrontierChart";
 import { PipelineGraph, type StepNode } from "../components/PipelineGraph";
 import {
@@ -413,6 +422,16 @@ export default function Optimize() {
             </dl>
           </Section>
 
+          <TiesPanel ties={cascade.ties} />
+
+          <ProvenancePanel provenance={report.dataset_provenance} />
+
+          <CalibrationPanel calibration={report.calibration} />
+
+          <ContractPanel contract={report.contract} />
+
+          <JudgedPanel judged={report.judged} margin={proof.verdict.margin} />
+
           <Section
             title="Cost-quality frontier"
             subtitle="Every threshold setting the search evaluated, scored on the test split."
@@ -585,5 +604,339 @@ export default function Optimize() {
         <NewExperiment report={report} onClose={() => setShowExperiment(false)} />
       )}
     </div>
+  );
+}
+
+/**
+ * What the same comparison says with the answer key withheld (UPGRADE_V3.md U1).
+ *
+ * The row that matters is the middle one: what the cheap judge claimed on its own, and how far
+ * that was from the corrected estimate. That gap is the judge's bias, *measured* rather than
+ * assumed away, and showing it is the only reason anyone should believe the corrected number.
+ */
+function JudgedPanel({ judged, margin }: { judged: JudgedView; margin: number }) {
+  if (!judged?.available) {
+    return (
+      <Section
+        title="Without the answer key"
+        subtitle="The estimate a workload that arrives unlabelled would get."
+        id="judged"
+      >
+        <p className="text-small text-graphite max-w-prose" data-testid="judged-unavailable">
+          {judged?.reason ?? "No judged estimate was computed for this report."}
+        </p>
+      </Section>
+    );
+  }
+
+  const annotation = judged.annotation;
+  const coverage = judged.coverage_check;
+  const tone =
+    judged.verdict.label === "non_inferior"
+      ? "better"
+      : judged.verdict.label === "worse"
+        ? "worse"
+        : "neutral";
+
+  return (
+    <Section
+      title="Without the answer key"
+      subtitle={`A cheap judge graded all ${count(annotation.n)} tasks; ${count(
+        annotation.n_annotated,
+      )} were re-graded by ${judged.strong_grader.source === "human" ? "a human reviewer" : judged.strong_grader.model_id}.`}
+      right={<Pill tone={tone}>{judged.verdict.display}</Pill>}
+      id="judged"
+    >
+      <p className="text-body max-w-prose" data-testid="judged-sentence">
+        {judged.verdict.sentence}
+      </p>
+      <IntervalPlot
+        interval={judged.delta_accuracy}
+        margin={margin}
+        testId="judged-interval-plot"
+      />
+      <dl className="mt-4 text-small grid grid-cols-[12rem_1fr] gap-x-4 gap-y-1">
+        <dt className="text-graphite">The judge alone</dt>
+        <dd className="tabular-nums" data-testid="judge-bias">
+          {points(judged.judge_only.delta_accuracy.point)} pt (
+          {intervalPoints(judged.judge_only.delta_accuracy)}) — {points(judged.judge_only.bias_vs_corrected)} pt
+          of judge bias, measured against the strong grader
+        </dd>
+        <dt className="text-graphite">Annotation</dt>
+        <dd className="tabular-nums" data-testid="annotation-row">
+          {count(annotation.n_annotated)} of {count(annotation.n)} items ({pct(annotation.annotated_share, 0)})
+          at {usd(annotation.annotation_cost_usd, 4)}, judge {usd(annotation.judge_cost_usd, 4)}
+          {annotation.strong_only_items_for_same_width !== null &&
+            ` · strong-only grading needs ${count(annotation.strong_only_items_for_same_width)} items at ${usdShort(annotation.strong_only_cost_usd ?? "0")} for the same interval width`}
+        </dd>
+        <dt className="text-graphite">Cost-optimal rate</dt>
+        <dd className="tabular-nums">{pct(annotation.cost_optimal_rate, 0)}</dd>
+        {coverage && (
+          <>
+            <dt className="text-graphite">Against the answer key</dt>
+            <dd className="tabular-nums" data-testid="judged-coverage">
+              gold {points(coverage.gold_delta_accuracy)} pt —{" "}
+              {coverage.judged_interval_covers_gold ? "inside" : "outside"} the gold-free interval
+            </dd>
+          </>
+        )}
+      </dl>
+      <p className="mt-3 text-small text-graphite max-w-prose">
+        {annotation.cost_optimal_rate_note}
+      </p>
+      <ul className="mt-3 text-small text-graphite max-w-prose list-disc pl-5 space-y-1">
+        {judged.caveats.map((caveat) => (
+          <li key={caveat}>{caveat}</li>
+        ))}
+      </ul>
+      <p className="mt-3 text-micro text-graphite max-w-prose">{annotation.method}</p>
+      <Legend kinds={["estimated", "simulated"]} />
+    </Section>
+  );
+}
+
+/**
+ * Where the cascade's thresholds came from, and what a calibration with no answer key would
+ * have chosen instead (UPGRADE_V3.md U3).
+ */
+function CalibrationPanel({ calibration }: { calibration: CalibrationView }) {
+  if (!calibration) return null;
+  const exercise = calibration.fixtures_can_exercise_this;
+  return (
+    <Section
+      title="Where the thresholds came from"
+      subtitle={calibration.description}
+      right={<Pill tone="neutral">{calibration.mode}</Pill>}
+      id="calibration"
+    >
+      <dl className="text-small grid grid-cols-[12rem_1fr] gap-x-4 gap-y-1">
+        <dt className="text-graphite">Operating point</dt>
+        <dd className="tabular-nums" data-testid="calibration-thresholds">
+          {calibration.thresholds.slice(0, -1).map((t) => t.toFixed(2)).join(", ")} at a{" "}
+          {pct(calibration.accuracy_floor)} accuracy floor
+          {calibration.excluded > 0 &&
+            `, ${count(calibration.excluded)} of ${count(calibration.n)} tasks excluded`}
+        </dd>
+        {calibration.alternatives.map((alternative) => {
+          const agreements = Object.values(alternative.label_agreement_with_gold).filter(
+            (value): value is number => value !== null,
+          );
+          return (
+            <Fragment key={alternative.kind}>
+              <dt className="text-graphite">{alternative.kind}</dt>
+              <dd className="tabular-nums">
+                {alternative.thresholds.slice(0, -1).map((t) => t.toFixed(2)).join(", ")} — gap{" "}
+                {alternative.max_threshold_gap.toFixed(2)}, {count(alternative.excluded)} excluded
+                {agreements.length > 0 && `, labels agree ${pct(Math.min(...agreements), 0)}`}
+              </dd>
+            </Fragment>
+          );
+        })}
+      </dl>
+      <p className="mt-3 text-small text-graphite max-w-prose">{calibration.note}</p>
+      {calibration.alternatives.length > 0 && !exercise.answer && (
+        <p className="mt-2 text-small text-graphite max-w-prose" data-testid="calibration-limits">
+          {exercise.reason}
+        </p>
+      )}
+    </Section>
+  );
+}
+
+/**
+ * The legibility tax, priced (UPGRADE_V3.md U4).
+ *
+ * The accuracy delta is rendered with its sign whatever that sign is. Hiding a negative one
+ * next to a saving is the single most tempting dishonesty in this product, and the engine test
+ * `test_contract.py` fails if this row ever stops carrying it.
+ */
+function ContractPanel({ contract }: { contract: ContractView }) {
+  if (!contract) return null;
+  if (!contract.available) {
+    return (
+      <Section
+        title="What checkability costs, and what it buys"
+        subtitle="A contract that makes an answer easy to verify, priced against the annotation budget."
+        id="contract"
+      >
+        <p className="text-small text-graphite max-w-prose" data-testid="contract-unavailable">
+          {contract.reason ?? "Not priced for this report."}
+        </p>
+      </Section>
+    );
+  }
+  return (
+    <Section
+      title="What checkability costs, and what it buys"
+      subtitle={`${contract.candidate_pipeline} against ${contract.baseline_pipeline}, judged by ${contract.judge.model_id} and corrected by ${count(contract.annotated)} of ${count(contract.n)} strong-graded tasks.`}
+      right={
+        <Pill tone={contract.pays_for_itself ? "better" : "neutral"}>
+          {contract.pays_for_itself ? "Pays for itself" : "Does not pay here"}
+        </Pill>
+      }
+      id="contract"
+    >
+      <table className="w-full text-base" data-testid="contract-table">
+        <thead>
+          <tr className="text-small text-graphite">
+            <th className="text-left font-medium py-2">Pipeline</th>
+            <th className="text-right font-medium py-2">Judge agrees</th>
+            <th className="text-right font-medium py-2">Sample rate</th>
+            <th className="text-right font-medium py-2">Annotation</th>
+            <th className="text-right font-medium py-2">Accuracy</th>
+            <th className="text-right font-medium py-2">Generation</th>
+          </tr>
+        </thead>
+        <tbody>
+          {contract.arms.map((arm) => (
+            <tr key={arm.pipeline} className="rule-t">
+              <td className="py-2">
+                {arm.pipeline} <span className="text-graphite text-small">{arm.label}</span>
+              </td>
+              <td className="text-right tabular-nums">
+                {pct(arm.judge_agreement_with_strong_grader)}
+              </td>
+              <td className="text-right tabular-nums">{pct(arm.sampling_rate_for_target)}</td>
+              <td className="text-right tabular-nums">
+                {usd(arm.annotation_cost_for_target_usd, 4)}
+              </td>
+              <td className="text-right tabular-nums">{pct(arm.accuracy)}</td>
+              <td className="text-right tabular-nums">{usd(arm.generation_cost_usd, 4)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-3 text-body max-w-prose" data-testid="contract-verdict">
+        The contract moves judge agreement {points(contract.agreement_delta)} points and accuracy{" "}
+        <span data-testid="contract-accuracy-delta">{points(contract.accuracy_delta)}</span> points.
+        Annotation saving {usd(contract.annotation_saving_usd, 4)} against a generation premium of{" "}
+        {usd(contract.generation_premium_usd, 4)}: net{" "}
+        {usd(contract.net_on_evaluation_split_usd, 4)} on the evaluation split, at a target
+        standard error of {contract.target_standard_error.toFixed(2)}.
+      </p>
+      <p className="mt-2 text-small text-graphite max-w-prose">{contract.note}</p>
+    </Section>
+  );
+}
+
+/**
+ * Where the tasks came from, and whether that is enough to certify anything (UPGRADE_V3.md U8).
+ *
+ * Sits under the verdict because it qualifies it. A cascade earns its savings on easy tasks and
+ * its risk lives in the tail, so an eval set whose tail has thinned will certify a router that
+ * fails in production — and every number above will look fine while it does.
+ */
+function ProvenancePanel({ provenance }: { provenance: DatasetProvenanceView }) {
+  if (!provenance) return null;
+  const shape = provenance.shape;
+  return (
+    <Section
+      title="Where these tasks came from"
+      subtitle={`${count(provenance.n)} items: ${count(provenance.real_traffic_items)} real traffic, ${count(provenance.model_generated_items)} model-generated, ${count(provenance.program_generated_items)} program-generated.`}
+      right={
+        <Pill tone={provenance.certifiable ? "better" : "worse"}>
+          {provenance.certifiable ? "Can certify" : "Cannot certify"}
+        </Pill>
+      }
+      id="provenance"
+    >
+      <dl className="text-small grid grid-cols-[12rem_1fr] gap-x-4 gap-y-1">
+        <dt className="text-graphite">Tail coverage</dt>
+        <dd className="tabular-nums" data-testid="provenance-tail">
+          {count(shape.templates_present)} of {count(shape.template_space)} question templates
+          present ({pct(shape.tail_coverage, 0)}), {pct(shape.tail_share, 1)} of items in
+          rarely-seen templates, concentration {shape.concentration.toFixed(2)}
+        </dd>
+        <dt className="text-graphite">Generators</dt>
+        <dd>
+          {provenance.generators.join(", ") || "none declared"}
+          {provenance.decoding_budget
+            ? `, decoding budget ${provenance.decoding_budget}`
+            : ", no decoding budget (no model wrote any of it)"}
+        </dd>
+      </dl>
+      {provenance.refusals.length > 0 && (
+        <ul
+          className="mt-3 text-small text-vermilion max-w-prose list-disc pl-5 space-y-1"
+          data-testid="provenance-refusals"
+        >
+          {provenance.refusals.map((refusal) => (
+            <li key={refusal}>{refusal}</li>
+          ))}
+        </ul>
+      )}
+      {provenance.warnings.length > 0 && (
+        <ul className="mt-2 text-small text-graphite max-w-prose list-disc pl-5 space-y-1">
+          {provenance.warnings.map((warning) => (
+            <li key={warning}>{warning}</li>
+          ))}
+        </ul>
+      )}
+    </Section>
+  );
+}
+
+/**
+ * Every configuration the data cannot tell apart on cost (UPGRADE_V3.md U7).
+ *
+ * A single winner drawn out of overlapping intervals is a single-vendor recommendation
+ * manufactured from sampling error. The screen shows the whole tie, ordered by dollars, and
+ * names the fallback — or says why there isn't one.
+ */
+function TiesPanel({ ties }: { ties: TiesView | null }) {
+  if (!ties) return null;
+  return (
+    <Section
+      title={ties.is_tie ? "Tied for cheapest" : "One cheapest configuration"}
+      subtitle="Configurations whose cost-per-successful-task intervals overlap cannot be ranked by this data."
+      right={
+        <Pill tone={ties.is_tie ? "neutral" : "better"}>
+          {ties.is_tie ? `${ties.tied.length} tied` : "no tie"}
+        </Pill>
+      }
+      id="ties"
+    >
+      <table className="w-full text-base" data-testid="ties-table">
+        <thead>
+          <tr className="text-small text-graphite">
+            <th className="text-left font-medium py-2">Configuration</th>
+            <th className="text-right font-medium py-2">Cost per successful task</th>
+            <th className="text-right font-medium py-2">Accuracy</th>
+            <th className="text-right font-medium py-2">Scarce share</th>
+            <th className="text-left font-medium py-2 pl-6">Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {ties.tied.map((row) => (
+            <tr key={row.label} className="rule-t">
+              <td className="py-2">{row.label}</td>
+              <td className="text-right tabular-nums">
+                {usd(row.cost_per_successful_task, 6)}
+                <span className="text-graphite text-small ml-2">
+                  ({usd(row.cost_low, 6)}–{usd(row.cost_high, 6)})
+                </span>
+              </td>
+              <td className="text-right tabular-nums">{pct(row.accuracy)}</td>
+              <td className="text-right tabular-nums">{pct(row.scarce_share, 0)}</td>
+              <td className="pl-6 text-small text-graphite">
+                {[
+                  row.is_operating_point ? "operating point" : null,
+                  row.is_fallback ? "fallback" : null,
+                  row.adoptable ? null : "not adoptable here",
+                ]
+                  .filter(Boolean)
+                  .join(", ")}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-3 text-small text-graphite max-w-prose" data-testid="ties-note">
+        {ties.note}
+      </p>
+      <p className="mt-2 text-small text-graphite max-w-prose" data-testid="ties-fallback">
+        {ties.fallback_reason}
+      </p>
+    </Section>
   );
 }

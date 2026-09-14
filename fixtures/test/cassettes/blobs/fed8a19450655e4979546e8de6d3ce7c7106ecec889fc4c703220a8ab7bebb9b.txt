@@ -1,0 +1,16 @@
+Customer question: How much shipping is due on a 58 lb tents and shelters order to Zone 3 (continental)?
+
+Answer under review:
+<<<ANSWER
+Thanks for reaching out, and I'm happy to help you get to the bottom of this.
+
+The policy here has changed since earlier versions circulated, so let me quote the current wording rather than working from memory.
+
+The handbook says: "Weight bands are inclusive of their upper bound: a parcel weighing exactly 5 lb falls in the "over 2 lb up to 5 lb" band, not the next one up."
+
+Applying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. I've double-checked the arithmetic, but if your order details differ from what I have in front of me the figure may move.
+
+I hope that's clear, and thank you again for your patience.
+
+Final answer: 95.95
+ANSWER>>>
