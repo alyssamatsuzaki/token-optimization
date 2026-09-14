@@ -20,7 +20,24 @@ The model it encodes:
 * **A wrong answer looks like a wrong answer,** not like noise: a perturbed number, a flipped
   yes/no, a neighbouring enum, sometimes a quote from the wrong section.
 
-Draws are deterministic in (model, task, pipeline), so a re-record reproduces the same matrix.
+Draws are deterministic in (model, task, pipeline, sample), so a re-record reproduces the same
+matrix.
+
+**Repeated sampling, and what it is not evidence of.** A sampling scorer asks a tier the same
+question k times and reads the disagreement. A deterministic responder answers identically every
+time, so entropy would be zero everywhere and the scorer could not be exercised at all. Samples
+therefore draw independently against the accuracy table above — the same table, unchanged, that
+was committed long before any sampling scorer existed. Nothing here was added or tuned to make a
+sampling scorer look good, and sample 0 is untouched.
+
+The consequence has to be stated rather than discovered later. Under i.i.d. draws there is no
+per-task latent difficulty: two tasks of the same question type at the same tier have identical
+sample distributions. So the entropy a sampling scorer measures over this data carries
+information about *question type* and nothing finer, while a feature-based scorer sees per-task
+evidence. Any quality comparison between the two over these fixtures is therefore a statement
+about this noise model, not about the methods — and every surface that reports one says so. The
+*cost* side is a different matter: those are real prices over real usage, and they are as true
+here as anywhere (DECISIONS.md D27).
 """
 
 from __future__ import annotations
@@ -177,15 +194,23 @@ class DemoResponder:
                 return item
         return None
 
-    def is_correct(self, model_id: str, item: DemoItem) -> bool:
-        """Whether this tier gets this task right. Deterministic in (model, task)."""
+    def is_correct(self, model_id: str, item: DemoItem, sample_index: int = 0) -> bool:
+        """Whether this tier gets this task right. Deterministic in (model, task, sample).
+
+        Sample 0 draws exactly as it always did, so every committed cassette reproduces. Later
+        samples draw independently against the *same* committed probability: repeated sampling
+        adds no new parameter and no new correlation, it only stops pretending a tier is
+        deterministic. What that buys, and what it deliberately does not, is in the module
+        docstring.
+        """
         role = self.role_by_model.get(model_id)
         if role is None:
             raise KeyError(
                 f"no simulated accuracy profile for {model_id!r}; known: "
                 f"{', '.join(sorted(self.role_by_model))}"
             )
-        return _draw(model_id, item.id, "accuracy", "c") < ACCURACY[role][item.question_type]
+        salt = "c" if sample_index == 0 else f"c#{sample_index}"
+        return _draw(model_id, item.id, "accuracy", salt) < ACCURACY[role][item.question_type]
 
     def __call__(self, request: LLMRequest) -> str:
         item = self.item_for(request)
@@ -193,12 +218,18 @@ class DemoResponder:
             # A request Tokop did not generate. Answering it would invent a task, so refuse.
             return json.dumps({"answer": "not covered", "evidence": "", "section": ""})
 
-        rng = random.Random(f"{request.model}|{item.id}|{self.pipeline_id}")
-        correct = self.is_correct(request.model, item)
+        # Sample 0 keeps the seeds and salts it has always had; only a repeat varies. That is
+        # what makes every existing cassette reproduce byte for byte.
+        sample = request.sample_index
+        seed_suffix = "" if sample == 0 else f"|s{sample}"
+        salt_suffix = "" if sample == 0 else f"#{sample}"
+
+        rng = random.Random(f"{request.model}|{item.id}|{self.pipeline_id}{seed_suffix}")
+        correct = self.is_correct(request.model, item, sample)
         answer = item.gold if correct else _wrong_answer(item, rng)
 
         section = item.sections[0]
-        if not correct and _draw(request.model, item.id, self.pipeline_id, "sec") < (
+        if not correct and _draw(request.model, item.id, self.pipeline_id, f"sec{salt_suffix}") < (
             WRONG_SECTION_GIVEN_WRONG
         ):
             from tokop.workloads.demo.handbook import SECTION_IDS
@@ -211,14 +242,14 @@ class DemoResponder:
         # all, which is exactly what the evidence feature is there to catch.
         if (
             section not in item.sections
-            and _draw(request.model, item.id, self.pipeline_id, "q") < 0.5
+            and _draw(request.model, item.id, self.pipeline_id, f"q{salt_suffix}") < 0.5
         ):
             evidence = "the policy states that this situation is handled as described above"
 
         contract = self.output_contract
-        if _draw(request.model, item.id, self.pipeline_id, "parse") < PARSE_FAILURE.get(
-            contract, 0.01
-        ):
+        if _draw(
+            request.model, item.id, self.pipeline_id, f"parse{salt_suffix}"
+        ) < PARSE_FAILURE.get(contract, 0.01):
             # The answer is there but not in a form the parser can read: an essay that trails
             # off, or JSON with prose wrapped around it and the key missing.
             if contract == "json_answer":

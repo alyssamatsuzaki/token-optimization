@@ -96,6 +96,23 @@ class CascadeSpec(BaseModel):
     #: Samples drawn per scored task. 1 is one call per tier, which is what a deterministic
     #: scorer needs. A sampling scorer charges every one of these.
     scorer_samples: int = 1
+    #: Scorer kinds the calibration search may choose between. Empty means "only `scorer`".
+    scorer_grid: list[str] = Field(default_factory=list)
+    #: Sample counts the calibration search may choose between. Empty means "only
+    #: `scorer_samples`". The response matrix has to hold the largest of these.
+    scorer_samples_grid: list[int] = Field(default_factory=list)
+
+    def scorer_choices(self) -> list[str]:
+        return list(dict.fromkeys(self.scorer_grid or [self.scorer]))
+
+    def sample_choices(self) -> list[int]:
+        return sorted(set(self.scorer_samples_grid or [self.scorer_samples]))
+
+    @property
+    def max_samples(self) -> int:
+        """The deepest the response matrix has to go for any setting the search may pick."""
+        return max([self.scorer_samples, *self.scorer_samples_grid])
+
     threshold_step: float = 0.02
     #: Minimum calibration accuracy, expressed as "the frontier's accuracy minus this".
     accuracy_slack: float = 0.01
@@ -148,6 +165,14 @@ class WorkloadSpec(BaseModel):
                 f"{', '.join(sorted(self.cascades)) or 'none'}"
             ) from None
 
+    def max_samples(self) -> int:
+        """Samples per task the response matrix must hold to serve every cascade defined here.
+
+        The recording captures this many once; a setting that wants fewer reads a prefix of
+        them, so every k is compared over the same draws rather than over fresh ones.
+        """
+        return max([1, *(c.max_samples for c in self.cascades.values())])
+
     def provider_allowed(self, provider: str) -> bool:
         """Enforced by the router (SPEC.md 7.7). An empty list means no restriction."""
         return not self.allowed_providers or provider in self.allowed_providers
@@ -179,10 +204,16 @@ def load_workload(path: Path) -> WorkloadSpec:
                 f"cascade {cascade.id!r} is built on pipeline {cascade.base_pipeline!r}, "
                 f"which is not defined"
             )
-        try:
-            scorer_kind(cascade.scorer)
-        except ScorerError as exc:
-            raise WorkloadError(f"cascade {cascade.id!r}: {exc}") from None
+        for name in {cascade.scorer, *cascade.scorer_grid}:
+            try:
+                scorer_kind(name)
+            except ScorerError as exc:
+                raise WorkloadError(f"cascade {cascade.id!r}: {exc}") from None
+        if any(k < 1 for k in cascade.scorer_samples_grid):
+            raise WorkloadError(
+                f"cascade {cascade.id!r} has a sample count below 1 in its grid: "
+                f"{cascade.scorer_samples_grid}"
+            )
         if cascade.scorer_samples < 1:
             raise WorkloadError(
                 f"cascade {cascade.id!r} asks for {cascade.scorer_samples} samples per task; "

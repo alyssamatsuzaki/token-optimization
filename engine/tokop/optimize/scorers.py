@@ -537,3 +537,235 @@ register_scorer(
         calls_per_task=lambda k: 1,
     )
 )
+
+
+# ------------------------------------------------------------------- self-consistency-v1
+
+
+def group_samples(samples: Sequence[str], equivalence: EquivalenceFn) -> list[int]:
+    """Group repeated generations by meaning and return the group sizes, largest first.
+
+    Each sample is compared against one representative per group. That is exact here rather
+    than an approximation, because the supplied relation is a genuine equivalence — reflexive,
+    symmetric and transitive — so the grouping is the same whatever order the samples arrive
+    in. A relation that only approximates meaning, such as model-judged entailment, is *not*
+    transitive, and clustering under one needs more care than this function takes. That is part
+    of why this scorer does not claim to implement one (DECISIONS.md D27).
+    """
+    groups: list[list[str]] = []
+    for sample in samples:
+        for group in groups:
+            if equivalence(group[0], sample):
+                group.append(sample)
+                break
+        else:
+            groups.append([sample])
+    return sorted((len(g) for g in groups), reverse=True)
+
+
+def discrete_entropy(sizes: Sequence[int]) -> float:
+    """Shannon entropy over group proportions, normalized to [0, 1].
+
+    Probabilities come from **generation counts** rather than from token likelihoods, which is
+    what makes this computable behind a provider API at all: the log-probabilities a
+    length-normalized sequence entropy would need are not something every provider returns.
+
+    Normalized by ``log(k)``, the most entropy k samples can carry, so that the number means
+    the same thing at different sample counts and can be thresholded on one grid. 0 is total
+    agreement; 1 is k samples that all disagree.
+    """
+    total = sum(sizes)
+    if total <= 1 or len(sizes) <= 1:
+        return 0.0
+    proportions = [size / total for size in sizes if size]
+    entropy = -sum(p * np.log(p) for p in proportions)
+    return float(entropy / np.log(total))
+
+
+@dataclass
+class SelfConsistencyScorer:
+    """Routes on how much a tier agrees with itself across k repeated generations.
+
+    The estimate is the normalized entropy of the sample grouping, mapped to a probability by a
+    one-feature logistic fit on the calibration split — the same split, and the same moment,
+    that every other scorer here is fitted on. The mapping is monotone, so it changes what the
+    threshold *means* without changing the ranking or the AUROC; it exists so that a score is a
+    probability, as the rest of the cascade assumes.
+
+    This is **self-consistency over an exact-match equivalence relation, a deterministic
+    approximation of semantic entropy** — not semantic entropy. The method it approximates
+    clusters by model-judged meaning, which catches two differently-worded answers that say the
+    same thing; an exact-match relation over extracted answers does not, and will read a
+    paraphrase as disagreement. On a workload whose answers are numbers, enums and yes/no that
+    gap is narrow. On free-form text it is not. DECISIONS.md D27 records the departure.
+    """
+
+    tier: str
+    k: int
+    equivalence: EquivalenceFn
+    model: LogisticRegression
+    scaler: StandardScaler
+    fitted_on: int
+    train_positive_rate: float
+    degenerate: bool = False
+    auroc: float | None = None
+    kind: str = SELF_CONSISTENCY_V1
+
+    def entropies(self, views: Sequence[TaskView]) -> np.ndarray:
+        values = []
+        for view in views:
+            samples = require_samples(view, self.k)
+            values.append(discrete_entropy(group_samples(samples, self.equivalence)))
+        return np.array(values, dtype=float).reshape(-1, 1)
+
+    def score(self, views: Sequence[TaskView]) -> np.ndarray:
+        """P(correct) for each view, in [0, 1]."""
+        if not views:
+            return np.array([], dtype=float)
+        if self.degenerate:
+            return np.full(len(views), self.train_positive_rate, dtype=float)
+        scaled = self.scaler.transform(self.entropies(views))
+        probabilities: np.ndarray = self.model.predict_proba(scaled)[:, 1]
+        return probabilities
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "tier": self.tier,
+            "k": self.k,
+            "features": ["sample_entropy"],
+            "fitted_on": self.fitted_on,
+            "auroc": self.auroc,
+            "degenerate": self.degenerate,
+            "coefficients": {
+                "sample_entropy": (0.0 if self.degenerate else float(self.model.coef_[0][0]))
+            },
+        }
+
+
+def require_samples(view: TaskView, k: int) -> tuple[str, ...]:
+    """The k repeats this scorer was promised, or a refusal that says what is missing."""
+    if len(view.samples) < k:
+        raise ScorerError(
+            f"task {view.task_id!r} carries {len(view.samples)} sample(s) but "
+            f"{SELF_CONSISTENCY_V1} was asked for {k}. A sampling scorer cannot be run over a "
+            "response matrix that was recorded with fewer repeats than it needs; re-record the "
+            "matrix at the depth the cascade asks for."
+        )
+    return view.samples[:k]
+
+
+def fit_self_consistency(
+    tier: str,
+    views: Sequence[TaskView],
+    labels: Sequence[int],
+    context: ScorerContext,
+) -> tuple[Scorer, list[ScorerWarning]]:
+    """Fit the entropy-to-probability mapping on the calibration split."""
+    if context.equivalence is None:
+        raise ScorerError(
+            f"{SELF_CONSISTENCY_V1} needs the workload's answer-equivalence function and this "
+            "workload supplies none. It groups repeated generations by whether they mean the "
+            "same thing; without that relation there is nothing to group by. Falling back to "
+            "string equality would silently score a different quantity — two answers that a "
+            "grader would mark identical would be counted as disagreement — so this refuses "
+            "instead. Give the workload an equivalence function, or name a different scorer."
+        )
+    if context.k < 2:
+        raise ScorerError(
+            f"{SELF_CONSISTENCY_V1} needs at least 2 samples per task to measure disagreement; "
+            f"the cascade asks for {context.k}. One sample always agrees with itself."
+        )
+    if len(views) != len(labels):
+        raise ScorerError(f"{len(views)} views but {len(labels)} labels")
+    if not views:
+        raise ScorerError("a scorer needs at least one calibration example")
+
+    equivalence = context.equivalence
+    warnings: list[ScorerWarning] = []
+    if len(views) < MIN_CALIBRATION_TASKS:
+        warnings.append(
+            ScorerWarning(
+                tier,
+                f"only {len(views)} calibration tasks. A cascade needs labelled examples from "
+                f"the same distribution it will serve; below about {MIN_CALIBRATION_TASKS} the "
+                "thresholds are fitted to noise.",
+            )
+        )
+
+    matrix = np.array(
+        [
+            [discrete_entropy(group_samples(require_samples(view, context.k), equivalence))]
+            for view in views
+        ],
+        dtype=float,
+    )
+    y = np.asarray(labels, dtype=int)
+    positive_rate = float(y.mean())
+    scaler = StandardScaler()
+
+    spread = float(matrix.std())
+    if len(set(y.tolist())) < 2 or spread == 0.0:
+        if spread == 0.0 and len(set(y.tolist())) >= 2:
+            warnings.append(
+                ScorerWarning(
+                    tier,
+                    f"every calibration task produced the same sample entropy at k="
+                    f"{context.k}, so agreement cannot discriminate here and the scorer returns "
+                    "the base rate. Either the tier is perfectly consistent on this split or k "
+                    "is too small to separate anything.",
+                )
+            )
+        else:
+            warnings.append(
+                ScorerWarning(
+                    tier,
+                    f"every calibration example at this tier had the same outcome "
+                    f"({'all correct' if positive_rate else 'all wrong'}), so the scorer cannot "
+                    "discriminate and returns the base rate.",
+                )
+            )
+        scaler.fit(matrix if len(matrix) else np.zeros((1, 1)))
+        return (
+            SelfConsistencyScorer(
+                tier=tier,
+                k=context.k,
+                equivalence=equivalence,
+                model=LogisticRegression(),
+                scaler=scaler,
+                fitted_on=len(views),
+                train_positive_rate=positive_rate,
+                degenerate=True,
+            ),
+            warnings,
+        )
+
+    scaled = scaler.fit_transform(matrix)
+    model = LogisticRegression(C=context.C, max_iter=1000, random_state=context.seed)
+    model.fit(scaled, y)
+    return (
+        SelfConsistencyScorer(
+            tier=tier,
+            k=context.k,
+            equivalence=equivalence,
+            model=model,
+            scaler=scaler,
+            fitted_on=len(views),
+            train_positive_rate=positive_rate,
+        ),
+        warnings,
+    )
+
+
+register_scorer(
+    ScorerKind(
+        name=SELF_CONSISTENCY_V1,
+        description=(
+            "self-consistency over an exact-match equivalence relation, a deterministic "
+            "approximation of semantic entropy: k samples per task, grouped by answer "
+            "equivalence, scored by the normalized entropy of the group proportions"
+        ),
+        fit=fit_self_consistency,
+        calls_per_task=lambda k: k,
+    )
+)

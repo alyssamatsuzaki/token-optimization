@@ -82,12 +82,23 @@ class LLMRequest(BaseModel):
     # output. Rejected by the API alongside streaming, thinking, structured outputs or a forced
     # tool choice, so it is tracked explicitly rather than inferred from max_tokens.
     prewarm: bool = False
+    #: Which of k repeated generations this is. A sampling scorer asks a tier the *same*
+    #: question k times and reads the disagreement, so the k requests are identical on the wire
+    #: and differ only in the provider's own nondeterminism — which a content-addressed cassette
+    #: cannot represent. This field is that discriminator. It is never sent to a provider:
+    #: neither adapter reads it when building a payload.
+    sample_index: int = 0
 
     model_config = {"frozen": True}
 
     def canonical(self) -> dict[str, Any]:
-        """The request as it is hashed. Sorted keys, no volatile fields."""
-        return {
+        """The request as it is hashed. Sorted keys, no volatile fields.
+
+        ``sample_index`` appears only when it is non-zero, because sample 0 *is* the ordinary
+        single call: hashing it in unconditionally would rekey every cassette ever recorded and
+        move committed numbers that have nothing to do with sampling.
+        """
+        canonical: dict[str, Any] = {
             "provider": self.provider,
             "model": self.model,
             "system": [{"text": b.text, "cache": b.cache} for b in self.system],
@@ -101,6 +112,9 @@ class LLMRequest(BaseModel):
             "stop_sequences": self.stop_sequences,
             "prewarm": self.prewarm,
         }
+        if self.sample_index:
+            canonical["sample_index"] = self.sample_index
+        return canonical
 
     def cassette_key(self) -> str:
         """SHA-256 over provider, model and the canonicalized request (SPEC.md 7.1)."""

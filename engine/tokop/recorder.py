@@ -204,11 +204,18 @@ class Recorder:
         )
 
     async def _step(
-        self, pipeline_id: str, split_name: str, tier: str, items: Sequence[DemoItem]
+        self,
+        pipeline_id: str,
+        split_name: str,
+        tier: str,
+        items: Sequence[DemoItem],
+        samples: int = 1,
     ) -> StepResult:
         model_id = self.registry.roles[tier]
         runner = self._runner(pipeline_id)
-        result = await runner.run_pipeline(pipeline_id, items, model_id=model_id, split=split_name)
+        result = await runner.run_pipeline(
+            pipeline_id, items, model_id=model_id, split=split_name, samples=samples
+        )
         self.guard.preflight(Decimal(0))  # caps are checked per call by the live adapter
         self.guard.record(result.total_cost)
         return StepResult(
@@ -233,9 +240,14 @@ class Recorder:
                 items = calibration if step.split == "calibration" else test
                 persist(engine, self.workload, step.result, items, self.snapshot)
 
+        # The matrix runs carry every repeat any cascade may ask for. Recorded once at full
+        # depth: a setting that wants fewer samples reads a prefix, so every k is compared over
+        # the same draws. B0 and B1 are single-call baselines and are never sampled.
+        matrix_samples = self.workload.max_samples()
+
         # 1. B2 on calibration with each tier, cheapest first.
         for tier in ("cheap", "mid", "frontier"):
-            keep(await self._step("B2", "calibration", tier, calibration))
+            keep(await self._step("B2", "calibration", tier, calibration, matrix_samples))
 
         # 2. Sanity and difficulty gate, before the expensive part.
         frontier = report.by_key("B2", "calibration", "frontier")
@@ -261,7 +273,7 @@ class Recorder:
 
         # 3. B2 on test with each tier: completes the response matrix.
         for tier in ("cheap", "mid", "frontier"):
-            keep(await self._step("B2", "test", tier, test))
+            keep(await self._step("B2", "test", tier, test, matrix_samples))
 
         # 4. B0 and B1 on test with the frontier model.
         for pipeline_id in ("B0", "B1"):

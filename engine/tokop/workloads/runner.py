@@ -167,11 +167,24 @@ class Runner:
         model_id: str | None = None,
         split: str = "test",
         prewarm: bool = True,
+        samples: int = 1,
     ) -> RunResult:
-        """Run one pipeline over one split."""
+        """Run one pipeline over one split.
+
+        ``samples`` asks the model the *same* question that many times, for a scorer that reads
+        the disagreement between repeated generations. The requests are identical but for
+        ``sample_index``, which exists only so a content-addressed cassette can hold more than
+        one of them; sample 0 is the ordinary single call and hashes as one.
+        """
+        if samples < 1:
+            raise AdapterError(f"samples must be at least 1, got {samples}")
         pipeline = self.workload.pipeline(pipeline_id)
         model = model_id or self.registry.role(pipeline.model_role).model_id
-        requests = [self.render(pipeline, item, model) for item in items]
+        requests = [
+            self.render(pipeline, item, model).model_copy(update={"sample_index": index})
+            for item in items
+            for index in range(samples)
+        ]
 
         prewarm_responses: list[LLMResponse] = []
         prewarm_pairs: list[LLMRequest] = []
@@ -183,22 +196,26 @@ class Runner:
         )
 
         tasks: list[TaskResult] = []
-        for item, request, outcome in zip(items, requests, responses, strict=True):
+        for position, item in enumerate(items):
+            window = slice(position * samples, (position + 1) * samples)
             result = TaskResult(task_id=item.id)
-            if isinstance(outcome, BaseException):
-                # A failed call stays visible and the task counts as unsuccessful.
-                result.error = f"{type(outcome).__name__}: {outcome}"
-                failed = LLMResponse(
-                    text="",
-                    usage=TokenUsage(),
-                    model=model,
-                    provider=self.provider,
-                    latency_ms=0.0,
-                    error=result.error,
-                )
-                result.calls.append((request, failed, "single", 0))
-            else:
-                result.output = outcome.text
+            for request, outcome in zip(requests[window], responses[window], strict=True):
+                if isinstance(outcome, BaseException):
+                    # A failed call stays visible and the task counts as unsuccessful.
+                    result.error = f"{type(outcome).__name__}: {outcome}"
+                    outcome = LLMResponse(
+                        text="",
+                        usage=TokenUsage(),
+                        model=model,
+                        provider=self.provider,
+                        latency_ms=0.0,
+                        error=result.error,
+                    )
+                elif request.sample_index == 0:
+                    # Sample 0 is the tier's answer for every scorer that does not sample. What
+                    # a sampling scorer returns instead is its own decision, made downstream
+                    # from all k outputs, so the runner does not presume one here.
+                    result.output = outcome.text
                 result.calls.append((request, outcome, "single", 0))
             tasks.append(result)
 

@@ -204,3 +204,53 @@ def grade(
     if answer_type in ("enum", "string"):
         return check_exact(answer, gold, aliases)
     raise ValueError(f"unknown answer type {answer_type!r}")
+
+
+#: A bare number, once currency, grouping commas and a trailing percent are stripped. Used to
+#: decide whether two *candidate* answers should be compared numerically. Deliberately a
+#: fullmatch: `parse_number` finds a number anywhere, so it reads "tier_1" as 1 and would merge
+#: it with the answer "1".
+_BARE_NUMBER = re.compile(r"-?\$?\s*\d[\d,]*\.?\d*\s*%?")
+
+
+def _looks_numeric(text: str) -> bool:
+    return bool(_BARE_NUMBER.fullmatch(text.strip()))
+
+
+def answers_equivalent(left: str, right: str) -> bool:
+    """Whether two model outputs give the same answer (SPEC.md 7.5, the sampling scorer).
+
+    **Both arguments are candidate answers. Neither is a reference.** That is what makes this
+    usable by a scorer: it is a relation between two things the model said, and it holds no
+    opinion about which — if either — is right. The checker's comparisons take a candidate and a
+    gold answer and live above; this one is exported for injection precisely so that
+    ``optimize/scorers.py`` never has to import from this module's gold-aware half.
+
+    It reuses the checker's parsing and normalization so that two answers a grader would score
+    identically also group together here. Shape is inferred from the answers themselves rather
+    than from the task, because the task's answer type is one of the things a scorer is
+    structurally forbidden to see.
+
+    An output that cannot be parsed is equivalent to nothing, **including another unparseable
+    output**. Two failures are not evidence of agreement, and treating them as agreement would
+    make a tier that reliably emits garbage look maximally self-consistent.
+    """
+    left_answer = extract_answer(left)
+    right_answer = extract_answer(right)
+    if left_answer is None or right_answer is None:
+        return False
+
+    if _looks_numeric(left_answer) and _looks_numeric(right_answer):
+        left_number = parse_number(left_answer)
+        right_number = parse_number(right_answer)
+        if left_number is not None and right_number is not None:
+            return abs(left_number - right_number) <= NUMBER_TOLERANCE
+
+    left_bool = parse_yes_no(left_answer)
+    right_bool = parse_yes_no(right_answer)
+    if left_bool is not None and right_bool is not None:
+        return left_bool == right_bool
+
+    left_text = normalize(left_answer)
+    right_text = normalize(right_answer)
+    return bool(left_text) and left_text == right_text
