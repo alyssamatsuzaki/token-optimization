@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Literal
 
@@ -24,6 +25,16 @@ from tokop.adapters.base import Block, LLMRequest, Message
 VARIABLE = re.compile(r"\{\{(\w+)\}\}")
 
 OutputContract = Literal["final_answer_line", "json_answer"]
+
+#: How a workload's tasks are marked right or wrong (UPGRADE_V3.md U1). ``gold`` is the mode
+#: every existing workload is in and stays in by default: the dataset carries an answer key.
+#: ``judged`` is for the workload that arrives with no labels at all — a cheap verifier grades
+#: everything and a strong grader corrects it on a sampled subset.
+GradingMode = Literal["gold", "judged"]
+
+#: Who produces the strong labels. ``frontier`` is a model call; ``human`` is a review queue
+#: Tokop writes and refuses to fill in itself.
+StrongGrader = Literal["frontier", "human"]
 
 
 class WorkloadError(ValueError):
@@ -80,6 +91,58 @@ class PipelineSpec(BaseModel):
             messages=[Message(role="user", blocks=user_blocks)],
             max_tokens=self.max_tokens,
         )
+
+
+class JudgeSpec(BaseModel):
+    """The cheap verifier, and the strong grader that corrects it (UPGRADE_V3.md U1).
+
+    One prompt serves both. The only difference between the cheap judge and the strong grader
+    is which model role runs it, which is what makes the correction term mean anything: if the
+    two saw different prompts, ``H - G`` would mix a prompt difference into a rater difference.
+    """
+
+    #: Which verifier kind reads the reply. Registered in ``workloads/verification.py``.
+    kind: str = "judge-v1"
+    model_role: str = "cheap"
+    #: The model role the strong grader uses when ``annotation.strong_grader`` is ``frontier``.
+    strong_model_role: str = "frontier"
+    #: U4's lever. ``checkable`` asks the pipeline for output a judge can check cheaply;
+    #: ``as-is`` judges whatever the pipeline already produces. Priced in M10.
+    contract: Literal["checkable", "as-is"] = "as-is"
+    max_tokens: int = 200
+    system: list[BlockSpec] = Field(default_factory=list)
+    user: list[BlockSpec] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+    model_config = {"frozen": True}
+
+    def render(self, provider: str, model: str, variables: dict[str, str]) -> LLMRequest:
+        return LLMRequest(
+            provider=provider,
+            model=model,
+            system=[b.render(variables) for b in self.system],
+            messages=[Message(role="user", blocks=[b.render(variables) for b in self.user])],
+            max_tokens=self.max_tokens,
+        )
+
+
+class AnnotationSpec(BaseModel):
+    """How much strong grading to buy, and where to spend it (UPGRADE_V3.md U2)."""
+
+    #: The cap on strong-grader spend, in dollars. `tokop annotate` stops at it.
+    budget_usd: Decimal = Decimal("1.00")
+    strong_grader: StrongGrader = "frontier"
+    #: Which allocation policy chooses pi(x). Registered in ``optimize/annotation.py``.
+    policy: str = "cost-optimal"
+    #: Fixes the uniform draw u_t per task, so the same budget always samples the same items
+    #: and a smaller budget samples a subset of a larger one's.
+    seed: int = 20260914
+    #: No item may ever be unsamplable: the inverse weight 1/pi would be infinite and one
+    #: unlucky draw would dominate the estimate. ``core/stats.py`` refuses a zero rate outright.
+    min_rate: float = 0.05
+    notes: list[str] = Field(default_factory=list)
+
+    model_config = {"frozen": True}
 
 
 class CascadeSpec(BaseModel):
@@ -153,6 +216,11 @@ class WorkloadSpec(BaseModel):
     cascades: dict[str, CascadeSpec] = Field(default_factory=dict)
     scorer_features: list[str] = Field(default_factory=list)
     allowed_providers: list[str] = Field(default_factory=list)
+    #: ``gold`` unless the workload says otherwise, so every workload written before the
+    #: judged path existed keeps grading exactly as it did.
+    grading: GradingMode = "gold"
+    judge: JudgeSpec | None = None
+    annotation: AnnotationSpec | None = None
     margin: float = 0.03
     #: Whether the workload has a latency requirement; drives the Batch API finding (W05).
     latency_sensitive: bool = False
@@ -238,6 +306,19 @@ def load_workload(path: Path) -> WorkloadSpec:
                 "a tier has to be called at least once"
             )
 
+    judge_raw = raw.get("judge") or workload.get("judge")
+    judge = JudgeSpec(**judge_raw) if isinstance(judge_raw, dict) else None
+    annotation_raw = raw.get("annotation") or workload.get("annotation")
+    annotation = AnnotationSpec(**annotation_raw) if isinstance(annotation_raw, dict) else None
+    grading = str(workload.get("grading", "gold"))
+    if grading not in ("gold", "judged"):
+        raise WorkloadError(
+            f"grading must be `gold` or `judged`, not {grading!r}. `gold` compares against the "
+            "dataset's answer key; `judged` has a cheap verifier grade everything and corrects "
+            "it from a sampled subset of strong labels."
+        )
+    _validate_judging(path, grading, judge, annotation)
+
     return WorkloadSpec(
         id=str(workload["id"]),
         name=str(workload["name"]),
@@ -247,9 +328,79 @@ def load_workload(path: Path) -> WorkloadSpec:
         cascades=cascades,
         scorer_features=list(workload.get("scorer_features") or []),
         allowed_providers=list(workload.get("allowed_providers") or []),
+        grading=grading,  # type: ignore[arg-type]
+        judge=judge,
+        annotation=annotation,
         margin=float(workload.get("margin", 0.03)),
         latency_sensitive=bool(workload.get("latency_sensitive", False)),
     )
+
+
+def _validate_judging(
+    path: Path,
+    grading: str,
+    judge: JudgeSpec | None,
+    annotation: AnnotationSpec | None,
+) -> None:
+    """Refuse a judged workload that cannot actually be judged.
+
+    Every failure here is one a user would otherwise meet halfway through an annotation run,
+    after money had been spent on the cheap judge.
+    """
+    if grading == "judged" and judge is None:
+        raise WorkloadError(
+            f"{path} declares `grading: judged` but defines no `judge:` block. Judged grading "
+            "needs a verifier prompt and a model role; there is nothing to grade with."
+        )
+    if judge is None:
+        if annotation is not None:
+            raise WorkloadError(
+                f"{path} defines an `annotation:` budget but no `judge:` block. The annotation "
+                "budget buys strong labels that correct a cheap judge; without one there is "
+                "nothing to correct."
+            )
+        return
+
+    # Imported here, not at module scope: `optimize` reads workloads, so a top-level import
+    # would tie the two together in both directions — the same reason the scorer check below
+    # is deferred.
+    from tokop.workloads.verification import VerificationError, verifier_kind
+
+    try:
+        verifier_kind(judge.kind)
+    except VerificationError as exc:
+        raise WorkloadError(f"{path}: {exc}") from None
+    if not judge.user:
+        raise WorkloadError(
+            f"{path}: the judge block has no `user:` content, so every judge call would send "
+            "an empty message."
+        )
+    rendered = "".join(block.text for block in [*judge.system, *judge.user])
+    for required in ("{{answer}}", "{{question}}"):
+        if required not in rendered:
+            raise WorkloadError(
+                f"{path}: the judge prompt never references {required}. A judge that cannot see "
+                "the question and the answer is not verifying anything."
+            )
+
+    if annotation is None:
+        return
+    from tokop.optimize.annotation import AnnotationError, allocation_policy
+
+    try:
+        allocation_policy(annotation.policy)
+    except AnnotationError as exc:
+        raise WorkloadError(f"{path}: {exc}") from None
+    if annotation.budget_usd < 0:
+        raise WorkloadError(
+            f"{path}: the annotation budget is ${annotation.budget_usd}. A negative budget is "
+            "not zero annotations, it is a typo."
+        )
+    if not 0 < annotation.min_rate <= 1:
+        raise WorkloadError(
+            f"{path}: annotation.min_rate is {annotation.min_rate}; it must be in (0, 1]. An "
+            "item that can never be sampled makes its inverse weight infinite."
+        )
 
 
 def demo_timestamp(now: datetime | None = None) -> str:

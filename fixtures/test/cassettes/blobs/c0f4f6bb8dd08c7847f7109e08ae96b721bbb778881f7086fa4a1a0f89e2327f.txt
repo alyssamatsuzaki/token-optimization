@@ -1,0 +1,16 @@
+Customer question: A refund of $499 is requested with no safety issue. Which escalation level handles it? Answer with the level key.
+
+Answer under review:
+<<<ANSWER
+Let me walk you through how this works so the number makes sense.
+
+There are really two things going on in your question, and it helps to separate them before putting them back together, because the handbook treats them in different places.
+
+The handbook says: "A case with no customer response for 96 hours escalates automatically to the next level."
+
+Applying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. If anything about your situation differs from what I've assumed, the answer could change, so do let me know and I'll re-check it for you.
+
+I hope that's clear, and thank you again for your patience.
+
+Final answer: tier_1
+ANSWER>>>

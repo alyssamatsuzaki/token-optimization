@@ -148,6 +148,20 @@ accounting as everything else, and the answer graded is the one it returned rath
 first one drawn. `DECISIONS.md` D27 records why the demo measures the sampling scorer but does
 not adopt it.
 
+**`verification.py` is the gold-free half of `grading.py`,** and the same isolation applies for a
+stronger reason. A *verifier* reads the question, the grounding document and the answer, and
+returns a verdict; it never sees gold, because a judge that could reach the answer key would make
+the entire label-free proof circular. `AnswerView` has no field that could carry one, and
+`tests/test_judge_isolation.py` checks it structurally, at the source level, and through the
+prompt itself — the four variables a judge prompt may render are asserted, so a workload cannot
+smuggle an answer key in through a template. The allocation policy in `optimize/annotation.py` is
+held to the same rule, because it decides *which* items get a strong label and would otherwise be
+choosing the ones it already knew the answer to.
+
+A judge is a model call like any other: the same `Runner`, the same pre-warming, the same
+cassettes, the same price snapshot. That is what makes a judge verdict a number computed over a
+trace rather than a number a function made up.
+
 ### `optimize/` — the analysis
 
 `lint.py` is local and deterministic and makes **no model calls**. Its ranking rule is the whole
@@ -162,7 +176,23 @@ deliberately naive `brute_force` implementation used only to check the first —
 agrees only with itself proves nothing.
 
 `proof.py` pairs the two arms over the same tasks and refuses to compare arms that answered
-different task sets rather than approximating.
+different task sets rather than approximating. It carries two comparisons: the gold one, and —
+when an annotation set exists — the same comparison with the answer key withheld, built on
+`core/stats.py`'s active-evaluation estimator.
+
+`annotation.py` decides where the annotation budget goes (UPGRADE_V3.md U2). The sampling rate is
+proportional to the judge's uncertainty on both arms plus a boost for pairs the arms disagree
+about, which is a proxy for how large the correction on that item will be; the budget fixes the
+mean rate and a floor keeps every item samplable, because at a rate of zero the inverse weight is
+infinite and the estimator's unbiasedness is gone. It also owns `annotations.json`, the committed
+record of what was drawn, what was spent and what every verdict was —
+`tokop fixtures-check` replays each of those verdicts through the parser and fails if one
+disagrees with the call it came from.
+
+`../annotate.py` is the driver, a sibling of `recorder.py`, and a separate command for a reason
+that is not organisational: the allocation reads disagreement between the two arms, and the
+candidate arm is a cascade whose per-task tier is only known once calibration has chosen an
+operating point. `DECISIONS.md` D29 records the rest.
 
 ## Modes
 
@@ -197,9 +227,9 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
 
 ## Testing
 
-- **466 engine tests**, 91% line coverage on `core/` and `optimize/`
+- **549 engine tests**, 91% line coverage on `core/` and `optimize/`
   (`pytest --cov=tokop/core --cov=tokop/optimize`).
-- **39 Playwright tests** against the production build in replay mode.
+- **41 Playwright tests** against the production build in replay mode.
 - **Exit-code tests for `tokop prove`** run through a subprocess, because an exit code asserted
   in-process is not the thing CI observes. They pin the case that matters: an *inconclusive*
   verdict fails the build.
@@ -207,9 +237,15 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
   unbiasedness over 2,000 trials against known ground truth with a deliberately biased cheap
   rater, to prove the correction is doing the work.
 - A **resume test** that hard-kills a recorder mid-run in a subprocess.
-- A **scorer-isolation test** that fails if a scorer can reach a gold answer.
-- `make verify` runs all eleven checks in SPEC.md section 10, in order, and prints
-  `VERIFY PASSED (11 checks)`.
+- A **scorer-isolation test** that fails if a scorer can reach a gold answer, and a
+  **judge-isolation test** that does the same for the verifier and the allocation policy.
+- An **adversarial judge test**, which is a release blocker: a judge that marks 20% of one class
+  of correct answers wrong must break the naive estimate and not the corrected one.
+- A **variance-reduction test** that compares the allocation policy against uniform sampling at
+  the same budget by evaluating the estimator's variance exactly, rather than by drawing once
+  and eyeballing the interval.
+- `make verify` runs all fifteen checks in SPEC.md section 10 plus the UPGRADE_V3.md acceptance
+  checks, in order, and prints `VERIFY PASSED (15 checks)`.
 
 ## What is simulated in this build
 
@@ -220,6 +256,9 @@ model's minimum — and emits Anthropic-shaped usage payloads so the real normal
 them.
 
 What it cannot simulate is whether a model is actually right; answer quality comes from a
-responder with a per-tier, per-difficulty accuracy model. Everything downstream is real code over
-those traces, and every surface that displays a number derived from them labels it simulated.
-`DECISIONS.md` D1 records the whole arrangement.
+responder with a per-tier, per-difficulty accuracy model. A second responder invents how often a
+*judge* is wrong, with sensitivity and specificity given separately because the characteristic
+LLM-judge failure is leniency rather than error. Everything downstream is real code over those
+traces, and every surface that displays a number derived from them labels it simulated.
+`DECISIONS.md` D1 records the whole arrangement, and D29 records why the guarantee U1 rests on is
+tested against an *injected* judge rather than against that table.

@@ -119,6 +119,60 @@ test("build candidate, run proof, and read the verdict", async ({ page }) => {
   }
 });
 
+test("the proof without the answer key shows what the judge alone would have said", async ({
+  page,
+}) => {
+  await openOptimize(page);
+  await page.getByTestId("build-candidate").click();
+  await page.getByTestId("run-proof").click();
+
+  const judged = report.judged;
+  if (!judged.available) {
+    // A missing or stale annotation set is a real state and must say which. `tokop report
+    // --check` fails on it, so this branch is the screen behaving correctly while CI is red.
+    await expect(page.getByTestId("judged-unavailable")).toContainText(judged.reason);
+    return;
+  }
+
+  await expect(page.getByTestId("judged-sentence")).toHaveText(judged.verdict.sentence);
+  await expect(page.getByTestId("judged-interval-plot")).toBeVisible();
+
+  // The row the whole upgrade exists for: the judge's bias, measured rather than assumed away.
+  const bias = page.getByTestId("judge-bias");
+  await expect(bias).toContainText("judge bias");
+  await expect(bias).toContainText(
+    `${judged.judge_only.bias_vs_corrected >= 0 ? "+" : "-"}${Math.abs(
+      judged.judge_only.bias_vs_corrected * 100,
+    ).toFixed(1)}`,
+  );
+
+  // UPGRADE_V3.md U1: the report states what the annotation cost and what strong-only grading
+  // would have cost for the same interval width.
+  const annotation = page.getByTestId("annotation-row");
+  await expect(annotation).toContainText(`${judged.annotation.n_annotated} of ${judged.annotation.n} items`);
+  await expect(annotation).toContainText("strong-only grading needs");
+
+  // Every caveat the engine attached is rendered, not summarised away.
+  const panel = page.locator("#judged");
+  for (const caveat of judged.caveats as string[]) {
+    await expect(panel).toContainText(caveat.slice(0, 60));
+  }
+});
+
+test("the gold-free estimate is checked against the answer key the demo happens to have", async ({
+  page,
+}) => {
+  await openOptimize(page);
+  await page.getByTestId("build-candidate").click();
+  await page.getByTestId("run-proof").click();
+  const judged = report.judged;
+  test.skip(!judged.available, "no annotation set to check");
+  const coverage = page.getByTestId("judged-coverage");
+  await expect(coverage).toContainText(
+    judged.coverage_check.judged_interval_covers_gold ? "inside" : "outside",
+  );
+});
+
 test("the savings waterfall lists every pipeline with its interval and verdict", async ({ page }) => {
   await openOptimize(page);
   await page.getByTestId("build-candidate").click();

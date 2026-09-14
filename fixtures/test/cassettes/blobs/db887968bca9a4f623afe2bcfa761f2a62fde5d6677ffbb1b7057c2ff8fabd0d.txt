@@ -1,0 +1,16 @@
+Customer question: A Standard member places an order totalling $76. Does it ship free? Answer yes or no.
+
+Answer under review:
+<<<ANSWER
+Let me walk you through how this works so the number makes sense.
+
+The policy here has changed since earlier versions circulated, so let me quote the current wording rather than working from memory.
+
+The handbook says: "An order that reaches the threshold ships free in every zone, including Zone 5, and the oversize surcharge is waived with it."
+
+Applying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. I've double-checked the arithmetic, but if your order details differ from what I have in front of me the figure may move.
+
+I hope that's clear, and thank you again for your patience.
+
+Final answer: no
+ANSWER>>>

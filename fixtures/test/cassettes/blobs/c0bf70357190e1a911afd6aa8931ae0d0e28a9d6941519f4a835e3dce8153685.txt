@@ -1,0 +1,16 @@
+Customer question: What is the annual fee for the Summit tier?
+
+Answer under review:
+<<<ANSWER
+Thanks for reaching out, and I'm happy to help you get to the bottom of this.
+
+Looking at the handbook material provided, the relevant rule is in the section that governs this situation, and it is worth reading carefully because there are a few interacting pieces here.
+
+The handbook says: "The tier changes three things: how long they have to return something, how much they must spend before shipping is free, and whether a restocking fee is charged at all."
+
+Applying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. I've double-checked the arithmetic, but if your order details differ from what I have in front of me the figure may move.
+
+I hope that's clear, and thank you again for your patience.
+
+Final answer: 49.00
+ANSWER>>>

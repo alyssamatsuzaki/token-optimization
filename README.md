@@ -32,6 +32,18 @@ savings repay it.
 - The proof itself cost $15.1022 and repays after 334 tasks.
 - Prices: 1d339a1b5b0556ab, all verified against the provider's own page.
 
+**Without the answer key** — the same test split graded by claude-haiku-4-5-20251001 on every task, corrected from 44 tasks re-graded by claude-opus-5:
+
+| Estimate | Accuracy difference | 95% CI | What it cost |
+| --- | --- | --- | --- |
+| The cheap judge alone | +5.5 pt | -1.5 to +12.5 | $0.3907 |
+| Corrected (active evaluation) | -3.5 pt | -12.5 to +5.6 | $0.6008 for 22% of tasks |
+| The answer key, for comparison | +0.5 pt | — | not available to a real unlabelled workload |
+
+- The judge's bias is +9.0 points, measured rather than assumed away. The correction removes it; a biased judge costs interval width, never correctness.
+- The gold-free interval covers the gold-graded difference of +0.5 points. That check exists only because this demo happens to have labels.
+- Strong-only grading would need 50 items at $0.6218 for the same interval width, against $0.6008 spent here. The cost-optimal sampling rate at this judge quality is 100%.
+
 <sub>~ simulated: these numbers are real engine output computed over simulated traces, because this build has no API credentials. See DECISIONS.md D1. Token estimates use `bytes-bpe-approx-v1`.</sub>
 <!-- metrics:end -->
 
@@ -122,9 +134,43 @@ The cascade's operating point is chosen on the **calibration** split by exhausti
 before any test result is computed. The app says so under the chart, because a threshold tuned on
 the test split would make the test number meaningless.
 
-`core/stats.py` also implements the active-evaluation estimator from Angelopoulos et al., with
-the paired form and the optimal fixed sampling rate. Nothing in v1 uses a judge, but the maths is
-there, tested, and ready for S1.
+## Proving a workload nobody labelled
+
+Everything above needs gold answers, and almost no team arriving with 40,000 recorded support
+tickets has them. Declare `grading: judged` and a `judge:` block instead:
+
+1. a **cheap verifier** grades every task in both arms, producing `G`;
+2. a **strong grader** — a frontier model, or a human review queue — re-grades a sample drawn
+   with probability `π(x)`, producing `H`;
+3. the accuracy difference comes from the active-evaluation estimator, not from the judge's raw
+   agreement rate.
+
+The estimator is unbiased for the strong grader's mean because the inverse-probability weight
+makes the correction term's expectation `E[H − G]` however bad `G` is. **A biased judge costs
+interval width, never correctness.** That is the property the whole design rests on, so it is
+tested against an injected judge that marks 20% of one class of correct answers wrong: the naive
+judge-only interval stops covering the truth, the corrected interval still covers it, at every
+committed seed. `make verify` runs that check by name and a failure blocks the release.
+
+`tokop annotate` spends the budget. Where it spends it matters: the sampling rate is proportional
+to the judge's own uncertainty on both arms plus a boost for pairs the two arms disagree about,
+which is a proxy for how large the correction on that item will be. At the demo's budget that
+cuts the estimator's variance by 64% against sampling uniformly at the same expected spend.
+
+    tokop annotate --workload W --budget 25.00     # or --queue for human review
+    tokop prove --workload W --grading judged
+
+The report shows three numbers side by side — what the judge alone claimed, what the correction
+says, and what the correction cost — plus the budget strong-only grading would have needed for
+the same interval width. That last figure is allowed to be the *smaller* one: a judge can be
+unreliable enough that mixing does not pay, and Tokop reports the cost-optimal sampling rate
+rather than selling a saving that is not there.
+
+Two things it does not claim. The estimate targets the **strong grader's** mean, not a perfect
+one; a strong grader that is itself wrong moves the target and no weight can correct for that.
+And the cascade's operating point is still calibrated against labels — only the test comparison
+is label-free so far. Both limitations are rendered on the screen, in the CLI and in the metrics
+block above, not buried here.
 
 ## The gate
 
@@ -206,7 +252,14 @@ engine is what would make savings billable — you cannot invoice against "it se
 
 - **A cascade needs labelled examples from the distribution it will serve** — around 100 per
   workload. Below about 30 the thresholds are fitted to noise, and Tokop warns rather than
-  quietly proceeding.
+  quietly proceeding. Judged grading removes that requirement from the *test* comparison only;
+  calibration still needs labels.
+- **The judged estimate is unbiased for the strong grader, not for the truth.** If your frontier
+  judge or your reviewer is wrong, the estimate is centred on their answer. What the correction
+  removes completely is the cheap judge's bias, and it reports how large that was.
+- **Judging the answer a cascade returned needs one sample per task.** A sampling scorer returns
+  one of k generations, and only the first is judged; `tokop annotate` refuses rather than
+  judging an answer the cascade did not give.
 - **Savings depend on the price spreads at recording time.** Every run stores its own price
   snapshot so historical results do not move, but a result is a statement about the prices it was
   measured under.
@@ -230,11 +283,13 @@ engine is what would make savings billable — you cannot invoice against "it se
 
 In rough order, from the exclusions this version made on purpose:
 
-1. **Judges and human rating for unlabelled workloads** — wire the estimator already in
-   `core/stats.py` to a cheap judge on every task and a strong rater on a sample.
-2. **An upload wizard** for YAML, JSONL or CSV workloads.
-3. **LangGraph trace import** — the pipeline spec already uses nodes, edges and shared state.
-4. **Experiments**: semantic caching with its own false-hit evaluation, and TRIM-style output
+1. ~~**Judges and human rating for unlabelled workloads**~~ — shipped in M9. `grading: judged`,
+   `tokop annotate`, and a cost-optimal allocation policy; see "Proving a workload nobody
+   labelled" above. What is still labelled is calibration.
+2. **Calibrating the router without labels**, so a judged workload is label-free end to end.
+3. **An upload wizard** for YAML, JSONL or CSV workloads.
+4. **LangGraph trace import** — the pipeline spec already uses nodes, edges and shared state.
+5. **Experiments**: semantic caching with its own false-hit evaluation, and TRIM-style output
    compression.
 
 Deliberately out of scope, and staying that way: browser automation of consumer AI apps, reuse of

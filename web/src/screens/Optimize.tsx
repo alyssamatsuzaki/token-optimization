@@ -21,7 +21,7 @@ import {
   usd,
   usdShort,
 } from "../lib/format";
-import type { FindingView, Provenance, Report } from "../lib/types";
+import type { FindingView, JudgedView, Provenance, Report } from "../lib/types";
 import { FrontierChart } from "../components/FrontierChart";
 import { PipelineGraph, type StepNode } from "../components/PipelineGraph";
 import {
@@ -413,6 +413,8 @@ export default function Optimize() {
             </dl>
           </Section>
 
+          <JudgedPanel judged={report.judged} margin={proof.verdict.margin} />
+
           <Section
             title="Cost-quality frontier"
             subtitle="Every threshold setting the search evaluated, scored on the test split."
@@ -585,5 +587,93 @@ export default function Optimize() {
         <NewExperiment report={report} onClose={() => setShowExperiment(false)} />
       )}
     </div>
+  );
+}
+
+/**
+ * What the same comparison says with the answer key withheld (UPGRADE_V3.md U1).
+ *
+ * The row that matters is the middle one: what the cheap judge claimed on its own, and how far
+ * that was from the corrected estimate. That gap is the judge's bias, *measured* rather than
+ * assumed away, and showing it is the only reason anyone should believe the corrected number.
+ */
+function JudgedPanel({ judged, margin }: { judged: JudgedView; margin: number }) {
+  if (!judged?.available) {
+    return (
+      <Section
+        title="Without the answer key"
+        subtitle="The estimate a workload that arrives unlabelled would get."
+        id="judged"
+      >
+        <p className="text-small text-graphite max-w-prose" data-testid="judged-unavailable">
+          {judged?.reason ?? "No judged estimate was computed for this report."}
+        </p>
+      </Section>
+    );
+  }
+
+  const annotation = judged.annotation;
+  const coverage = judged.coverage_check;
+  const tone =
+    judged.verdict.label === "non_inferior"
+      ? "better"
+      : judged.verdict.label === "worse"
+        ? "worse"
+        : "neutral";
+
+  return (
+    <Section
+      title="Without the answer key"
+      subtitle={`A cheap judge graded all ${count(annotation.n)} tasks; ${count(
+        annotation.n_annotated,
+      )} were re-graded by ${judged.strong_grader.source === "human" ? "a human reviewer" : judged.strong_grader.model_id}.`}
+      right={<Pill tone={tone}>{judged.verdict.display}</Pill>}
+      id="judged"
+    >
+      <p className="text-body max-w-prose" data-testid="judged-sentence">
+        {judged.verdict.sentence}
+      </p>
+      <IntervalPlot
+        interval={judged.delta_accuracy}
+        margin={margin}
+        testId="judged-interval-plot"
+      />
+      <dl className="mt-4 text-small grid grid-cols-[12rem_1fr] gap-x-4 gap-y-1">
+        <dt className="text-graphite">The judge alone</dt>
+        <dd className="tabular-nums" data-testid="judge-bias">
+          {points(judged.judge_only.delta_accuracy.point)} pt (
+          {intervalPoints(judged.judge_only.delta_accuracy)}) — {points(judged.judge_only.bias_vs_corrected)} pt
+          of judge bias, measured against the strong grader
+        </dd>
+        <dt className="text-graphite">Annotation</dt>
+        <dd className="tabular-nums" data-testid="annotation-row">
+          {count(annotation.n_annotated)} of {count(annotation.n)} items ({pct(annotation.annotated_share, 0)})
+          at {usd(annotation.annotation_cost_usd, 4)}, judge {usd(annotation.judge_cost_usd, 4)}
+          {annotation.strong_only_items_for_same_width !== null &&
+            ` · strong-only grading needs ${count(annotation.strong_only_items_for_same_width)} items at ${usdShort(annotation.strong_only_cost_usd ?? "0")} for the same interval width`}
+        </dd>
+        <dt className="text-graphite">Cost-optimal rate</dt>
+        <dd className="tabular-nums">{pct(annotation.cost_optimal_rate, 0)}</dd>
+        {coverage && (
+          <>
+            <dt className="text-graphite">Against the answer key</dt>
+            <dd className="tabular-nums" data-testid="judged-coverage">
+              gold {points(coverage.gold_delta_accuracy)} pt —{" "}
+              {coverage.judged_interval_covers_gold ? "inside" : "outside"} the gold-free interval
+            </dd>
+          </>
+        )}
+      </dl>
+      <p className="mt-3 text-small text-graphite max-w-prose">
+        {annotation.cost_optimal_rate_note}
+      </p>
+      <ul className="mt-3 text-small text-graphite max-w-prose list-disc pl-5 space-y-1">
+        {judged.caveats.map((caveat) => (
+          <li key={caveat}>{caveat}</li>
+        ))}
+      </ul>
+      <p className="mt-3 text-micro text-graphite max-w-prose">{annotation.method}</p>
+      <Legend kinds={["estimated", "simulated"]} />
+    </Section>
   );
 }

@@ -84,3 +84,55 @@ class TestProveIsUsableFromCI:
         result = prove("--margin", "0.10")
         assert result.returncode == 0, result.stdout + result.stderr
         assert "API_KEY" not in result.stderr
+
+
+class TestTheJudgedGate:
+    """`--grading judged` gates on the estimate a workload without labels would get.
+
+    The exit code is the whole interface here too, and it must come from the *judged* verdict
+    rather than the gold one — otherwise a user with no labels would be gated on a number they
+    could never have computed.
+    """
+
+    def test_the_judged_verdict_decides_the_exit_code(self) -> None:
+        gold, judged = prove(), prove("--grading", "judged")
+        assert "WITHOUT GOLD" in judged.stdout
+        # Both are inconclusive at the demo's 3-point margin, for different reasons: the gold
+        # interval straddles the margin narrowly, the judged one widely.
+        assert gold.returncode == 1
+        assert judged.returncode == 1
+
+    def test_a_wide_enough_margin_clears_the_judged_verdict_too(self) -> None:
+        result = prove("--grading", "judged", "--margin", "0.20")
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "WITHOUT GOLD:  Non-inferior" in result.stdout
+
+    def test_the_gold_and_judged_gates_can_disagree(self) -> None:
+        """The point of having both. At a margin the gold interval clears and the judged one
+        does not, the judged gate fails — the label-free evidence is genuinely weaker, and a
+        gate that hid that would be advertising a proof nobody ran."""
+        gold = prove("--margin", "0.05")
+        judged = prove("--grading", "judged", "--margin", "0.05")
+        assert gold.returncode == 0, gold.stdout + gold.stderr
+        assert judged.returncode == 1, judged.stdout + judged.stderr
+
+    def test_an_unknown_grading_mode_is_refused(self) -> None:
+        result = prove("--grading", "vibes")
+        assert result.returncode == 2
+        assert "gold" in result.stderr and "judged" in result.stderr
+
+    def test_the_report_names_what_the_annotation_cost_and_what_it_saved(self) -> None:
+        """UPGRADE_V3.md U1's third acceptance check, as a user meets it."""
+        result = prove()
+        assert "strong-only grading needs" in result.stdout
+        assert "judge bias, measured" in result.stdout
+
+    def test_a_budget_above_the_recorded_one_is_refused_rather_than_approximated(self) -> None:
+        result = prove("--grading", "judged", "--annotation-budget", "99")
+        assert result.returncode == 2
+        assert "tokop annotate" in result.stdout + result.stderr
+
+    def test_a_smaller_budget_replays_a_cheaper_annotation_set(self) -> None:
+        result = prove("--annotation-budget", "0.30")
+        assert result.returncode == 1
+        assert "WITHOUT GOLD" in result.stdout

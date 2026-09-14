@@ -34,8 +34,10 @@ from tokop.core.stats import (
     cost_per_successful_task,
     cost_per_successful_task_interval,
     cost_ratio_interval,
+    delta_accuracy_interval,
     mcnemar,
     non_inferiority_verdict,
+    verdict_from_interval,
     wilson,
 )
 
@@ -507,3 +509,333 @@ def build_waterfall(
             )
         )
     return steps
+
+
+# --------------------------------------------------------------- the proof without gold
+
+
+@dataclass
+class JudgedDelta:
+    """The accuracy comparison when nobody labelled the workload (UPGRADE_V3.md U1).
+
+    Three numbers sit side by side here on purpose, because the difference between them is the
+    entire argument:
+
+    * **judge-only** — what you get by believing a cheap verifier. Whatever bias the judge has
+      is in this number at full strength, and it is reported so a reader can see how big that
+      bias was rather than being told it was handled.
+    * **active** — the same judge, corrected on a sampled subset of strong labels. Unbiased for
+      the strong grader's mean whatever the judge does, because the inverse-probability weight
+      makes the correction term's expectation ``E[H - G]``.
+    * **annotation** — what the correction cost, and what buying the same interval width from
+      the strong grader alone would have cost.
+
+    The verdict is read off the active interval by the same rule the gold path uses.
+    """
+
+    baseline_pipeline: str
+    candidate_pipeline: str
+    margin: float
+    #: The corrected estimate of candidate accuracy minus baseline accuracy.
+    delta: Interval
+    verdict: Verdict
+    #: Candidate and baseline accuracy, each corrected the same way.
+    baseline_accuracy: Interval
+    candidate_accuracy: Interval
+    #: What the cheap judge alone would have claimed, with its own interval.
+    judge_only_delta: Interval
+    judge_only_baseline_accuracy: float
+    judge_only_candidate_accuracy: float
+    n: int
+    n_sampled: int
+    n_annotated: int
+    annotation_cost_usd: Decimal
+    judge_cost_usd: Decimal
+    #: Items the strong grader was paid for and produced nothing readable on.
+    failed_annotations: int
+    policy: dict[str, Any]
+    judge: dict[str, Any]
+    strong_grader: dict[str, Any]
+    #: Items strong-only grading would need for the same standard error, and what that costs.
+    strong_only_items: int | None
+    strong_only_cost_usd: Decimal | None
+    variance_of_strong_delta: float
+    standard_error: float
+    #: ``E[(d_H - d_G)^2]``: how far the cheap judge sits from the strong grader, per item.
+    #: The quantity the cost-optimal rate is a function of.
+    judge_mean_square_error: float
+    #: The fixed sampling rate that would buy the most precision per dollar at this judge
+    #: quality and this price ratio. 1.0 means "grade everything": the judge is wrong often
+    #: enough that the cheap pass is not buying variance reduction.
+    cost_optimal_rate: float
+    cheap_cost_per_item_usd: Decimal
+    strong_cost_per_item_usd: Decimal
+    #: Stated limitations. Rendered verbatim; never summarised away.
+    caveats: list[str] = field(default_factory=list)
+
+    @property
+    def annotation_share(self) -> float:
+        return self.n_annotated / self.n if self.n else 0.0
+
+    @property
+    def judge_bias(self) -> float:
+        """How far the judge-only delta sits from the corrected one, in accuracy points.
+
+        Named ``bias`` rather than ``error`` because that is what it estimates: the correction
+        term's whole job is to measure it.
+        """
+        return self.judge_only_delta.point - self.delta.point
+
+    def rate_note(self) -> str:
+        """What the cost-optimal rate is telling you about this judge.
+
+        Reported because the answer is allowed to be unflattering. The mixed design pays off
+        when the judge's error is small relative to the variance it is trying to explain; when
+        it is not, the formula returns 1 and the honest advice is to grade everything.
+        """
+        if self.cost_optimal_rate >= 1.0:
+            return (
+                "The cost-optimal sampling rate is 1: on this workload the cheap judge "
+                f"disagrees with the strong grader often enough (mean square error "
+                f"{self.judge_mean_square_error:.3f} against a strong-grader variance of "
+                f"{self.variance_of_strong_delta:.3f}) that it buys no variance reduction, and "
+                "grading every item is the cheapest way to a given interval width. The "
+                "estimate above is still unbiased; it is just paying for a cheap pass that is "
+                "not earning its place. A judge that agreed more often — which is what a "
+                "checkable output contract buys — would move this below 1."
+            )
+        return (
+            f"The cost-optimal sampling rate at this judge quality and price ratio is "
+            f"{self.cost_optimal_rate:.0%}; this run sampled "
+            f"{float(self.policy.get('mean_rate', 0.0)):.0%} under its budget."
+        )
+
+    def sentence(self) -> str:
+        points = self.delta.point * 100
+        low, high = self.delta.low * 100, self.delta.high * 100
+        return (
+            f"Without labels: accuracy difference {points:+.1f} points, 95% CI "
+            f"[{low:+.1f}, {high:+.1f}], n = {self.n}, from a cheap judge on every task "
+            f"corrected by {self.n_annotated} strong-graded tasks "
+            f"({self.annotation_share:.0%}) costing ${self.annotation_cost_usd}. "
+            f"The judge alone would have said {self.judge_only_delta.point * 100:+.1f}."
+        )
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "baseline_pipeline": self.baseline_pipeline,
+            "candidate_pipeline": self.candidate_pipeline,
+            "margin": self.margin,
+            "delta_accuracy": self.delta.as_dict(),
+            "verdict": {
+                "label": self.verdict.label,
+                "display": self.verdict.display,
+                "margin": self.margin,
+                "additional_tasks_needed": self.verdict.additional_tasks_needed,
+                "note": self.verdict.note,
+                "sentence": self.sentence(),
+            },
+            "baseline_accuracy": self.baseline_accuracy.as_dict(),
+            "candidate_accuracy": self.candidate_accuracy.as_dict(),
+            "judge_only": {
+                "delta_accuracy": self.judge_only_delta.as_dict(),
+                "baseline_accuracy": self.judge_only_baseline_accuracy,
+                "candidate_accuracy": self.judge_only_candidate_accuracy,
+                "bias_vs_corrected": self.judge_bias,
+            },
+            "annotation": {
+                "n": self.n,
+                "n_sampled": self.n_sampled,
+                "n_annotated": self.n_annotated,
+                "annotated_share": self.annotation_share,
+                "failed_annotations": self.failed_annotations,
+                "annotation_cost_usd": str(self.annotation_cost_usd),
+                "judge_cost_usd": str(self.judge_cost_usd),
+                "total_cost_usd": str(self.annotation_cost_usd + self.judge_cost_usd),
+                "policy": self.policy,
+                "strong_only_items_for_same_width": self.strong_only_items,
+                "strong_only_cost_usd": (
+                    str(self.strong_only_cost_usd)
+                    if self.strong_only_cost_usd is not None
+                    else None
+                ),
+                "variance_of_strong_delta": self.variance_of_strong_delta,
+                "standard_error": self.standard_error,
+                "judge_mean_square_error": self.judge_mean_square_error,
+                "cost_optimal_rate": self.cost_optimal_rate,
+                "cheap_cost_per_item_usd": str(self.cheap_cost_per_item_usd),
+                "strong_cost_per_item_usd": str(self.strong_cost_per_item_usd),
+                "cost_optimal_rate_note": self.rate_note(),
+                "method": (
+                    "cost-optimal active evaluation (Angelopoulos et al., arXiv:2506.07949): a "
+                    "cheap judge scores every task, a strong grader scores a sample drawn with "
+                    "probability pi(x), and the inverse-probability-weighted correction makes "
+                    "the estimate unbiased for the strong grader's mean whatever the judge does"
+                ),
+            },
+            "judge": self.judge,
+            "strong_grader": self.strong_grader,
+            "caveats": self.caveats,
+        }
+
+
+def _horvitz_thompson_mean(
+    values: Sequence[float | None],
+    sampled: Sequence[int],
+    rates: Sequence[float],
+) -> float:
+    """``(1/T) sum xi_t * v_t / pi_t`` — the inverse-probability estimate of ``E[v]``.
+
+    The one estimator shape this module uses for anything measured on the sampled subset. The
+    annotated items are deliberately not a simple random sample, so a plain average over them
+    would be weighted towards whatever the policy found interesting.
+    """
+    n = len(sampled)
+    if n == 0:
+        return 0.0
+    total = 0.0
+    for value, drawn, rate in zip(values, sampled, rates, strict=True):
+        if drawn and value is not None:
+            total += value / rate
+    return total / n
+
+
+def _horvitz_thompson_variance(
+    diff_strong: Sequence[float | None],
+    sampled: Sequence[int],
+    rates: Sequence[float],
+    mean: float,
+) -> float:
+    """Var(H_candidate - H_baseline) from a pi-weighted sample.
+
+    The annotated items are not a simple random sample — the policy deliberately over-samples
+    the informative ones — so a plain variance over them would be biased upward. The second
+    moment is estimated the same way the mean is, ``(1/T) sum xi_t * d_t^2 / pi_t``, and the
+    variance follows as ``E[d^2] - E[d]^2``.
+    """
+    squares: list[float | None] = [None if v is None else v**2 for v in diff_strong]
+    return max(0.0, _horvitz_thompson_mean(squares, sampled, rates) - mean**2)
+
+
+def build_judged_delta(
+    annotations: Any,
+    *,
+    margin: float = DEFAULT_MARGIN,
+    seed: int = DEFAULT_SEED,
+    resamples: int = DEFAULT_RESAMPLES,
+    caveats: Sequence[str] = (),
+) -> JudgedDelta:
+    """Turn an annotation set into the gold-free comparison.
+
+    ``annotations`` is an ``optimize.annotation.AnnotationSet``; it is typed loosely here for
+    the same reason ``build_proof`` takes ``items_by_id`` loosely — this module is the statistics
+    assembly and must not import the artifact layer back.
+    """
+    from tokop.core.stats import (
+        active_eval_estimate,
+        optimal_fixed_rate,
+        paired_active_eval_estimate,
+    )
+    from tokop.optimize.annotation import AnnotationError, strong_only_items_for_width
+
+    items = list(annotations.items)
+    if not items:
+        raise AnnotationError("the annotation set holds no items; there is nothing to estimate")
+
+    task_ids = [item.task_id for item in items]
+    g_base = [float(item.baseline.judge_correct) for item in items]
+    g_cand = [float(item.candidate.judge_correct) for item in items]
+    rates = [item.rate for item in items]
+    # An item is sampled *for the estimator* only when both arms actually came back with a
+    # strong label. A drawn item whose strong grading failed is not a cheaper observation, it is
+    # no observation, and counting it as sampled with a missing value would silently bias the
+    # correction towards whichever arm failed less often.
+    sampled = [1 if (item.sampled and item.has_strong) else 0 for item in items]
+    h_base: list[float | None] = [
+        float(item.baseline.strong_correct) if drawn else None
+        for item, drawn in zip(items, sampled, strict=True)
+    ]
+    h_cand: list[float | None] = [
+        float(item.candidate.strong_correct) if drawn else None
+        for item, drawn in zip(items, sampled, strict=True)
+    ]
+    if not any(sampled):
+        raise AnnotationError(
+            "no item in this annotation set has a strong label on both arms, so there is "
+            "nothing to correct the judge with. The estimate would be the judge's own opinion "
+            "wearing a confidence interval, which is the failure this estimator exists to "
+            "prevent. Raise the annotation budget, or complete the human review queue."
+        )
+
+    paired = paired_active_eval_estimate(g_base, g_cand, h_base, h_cand, sampled, rates)
+    base_arm = active_eval_estimate(g_base, h_base, sampled, rates)
+    cand_arm = active_eval_estimate(g_cand, h_cand, sampled, rates)
+
+    # What the judge alone claims, through the same bootstrap the gold path uses, so the two
+    # intervals are comparable rather than merely adjacent.
+    judge_only = delta_accuracy_interval(
+        [int(v) for v in g_base], [int(v) for v in g_cand], resamples=resamples, seed=seed
+    )
+
+    n = len(items)
+    p10 = sum(1 for b, c in zip(g_base, g_cand, strict=True) if b == 1 and c == 0) / n
+    p01 = sum(1 for b, c in zip(g_base, g_cand, strict=True) if b == 0 and c == 1) / n
+    verdict = verdict_from_interval(paired.interval, margin=margin, p10=p10, p01=p01, n=n)
+
+    diff_strong: list[float | None] = [
+        None if hb is None or hc is None else hc - hb for hb, hc in zip(h_base, h_cand, strict=True)
+    ]
+    variance = _horvitz_thompson_variance(diff_strong, sampled, rates, paired.estimate)
+    diff_cheap = [gc - gb for gb, gc in zip(g_base, g_cand, strict=True)]
+    residuals: list[float | None] = [
+        None if d is None else (d - cheap) ** 2
+        for d, cheap in zip(diff_strong, diff_cheap, strict=True)
+    ]
+    mse = _horvitz_thompson_mean(residuals, sampled, rates)
+    strong_only = strong_only_items_for_width(variance, paired.standard_error)
+    cost_per_item = Decimal(str(annotations.policy["cost_per_item_usd"]))
+    judge_cost = Decimal(str(annotations.cost["judge_usd"]))
+    cheap_per_item = (judge_cost / n).quantize(Decimal("0.00000001")) if n else Decimal(0)
+    rate = optimal_fixed_rate(mse, variance, float(cheap_per_item), float(cost_per_item))
+    strong_only_cost = (
+        (Decimal(strong_only) * cost_per_item).quantize(Decimal("0.00001"))
+        if strong_only is not None
+        else None
+    )
+
+    failed = sum(
+        1
+        for item in items
+        if item.sampled and (item.baseline.strong_failed or item.candidate.strong_failed)
+    )
+    assert len(task_ids) == n
+    return JudgedDelta(
+        baseline_pipeline=annotations.baseline_pipeline,
+        candidate_pipeline=annotations.candidate_pipeline,
+        margin=margin,
+        delta=paired.interval,
+        verdict=verdict,
+        baseline_accuracy=base_arm.interval,
+        candidate_accuracy=cand_arm.interval,
+        judge_only_delta=judge_only,
+        judge_only_baseline_accuracy=sum(g_base) / n,
+        judge_only_candidate_accuracy=sum(g_cand) / n,
+        n=n,
+        n_sampled=sum(item.sampled for item in items),
+        n_annotated=sum(sampled),
+        annotation_cost_usd=Decimal(str(annotations.cost["strong_usd"])),
+        judge_cost_usd=Decimal(str(annotations.cost["judge_usd"])),
+        failed_annotations=failed,
+        policy=dict(annotations.policy),
+        judge=dict(annotations.judge),
+        strong_grader=dict(annotations.strong_grader),
+        strong_only_items=strong_only,
+        strong_only_cost_usd=strong_only_cost,
+        variance_of_strong_delta=variance,
+        standard_error=paired.standard_error,
+        judge_mean_square_error=mse,
+        cost_optimal_rate=rate,
+        cheap_cost_per_item_usd=cheap_per_item,
+        strong_cost_per_item_usd=cost_per_item,
+        caveats=list(caveats),
+    )

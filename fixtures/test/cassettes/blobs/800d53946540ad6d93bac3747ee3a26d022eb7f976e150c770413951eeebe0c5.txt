@@ -1,0 +1,16 @@
+Customer question: Calculate the restocking fee for backpacks priced $560.00, returned by a Summit member.
+
+Answer under review:
+<<<ANSWER
+Great question, and I can see why this one is confusing.
+
+The policy here has changed since earlier versions circulated, so let me quote the current wording rather than working from memory.
+
+The handbook says: "A refund is therefore the price paid minus the restocking fee."
+
+Applying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. If anything about your situation differs from what I've assumed, the answer could change, so do let me know and I'll re-check it for you.
+
+I hope that's clear, and thank you again for your patience.
+
+Final answer: 0.00
+ANSWER>>>

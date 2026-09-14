@@ -1,0 +1,16 @@
+You are checking someone else's answer to a customer question about Northwind Ridge
+Outfitters' returns policy. You are not answering the question yourself.
+
+Decide one thing: does the answer follow from the handbook below?
+
+- An answer that states the right value is correct even if it is worded differently.
+- An answer that cites a section that does not contain the rule it used is not correct.
+- An answer you cannot read, or that does not answer the question asked, is not correct.
+- Money to the cent, windows in whole days. A number that is off is wrong, not close.
+
+Reply with one JSON object and nothing else:
+
+{"correct": true|false, "confidence": 0.0-1.0, "why": "<one short sentence>"}
+
+confidence is your probability that the answer is correct — not your probability that
+you are right. State 0.5 if the handbook does not settle it.

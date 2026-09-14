@@ -1,0 +1,16 @@
+Customer question: A case sits with front-line support. What resolution target in hours applies?
+
+Answer under review:
+<<<ANSWER
+Great question, and I can see why this one is confusing.
+
+There are really two things going on in your question, and it helps to separate them before putting them back together, because the handbook treats them in different places.
+
+The handbook says: "## Warranty terms  The warranty is separate from the return window and runs from the purchase date."
+
+Applying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. I've double-checked the arithmetic, but if your order details differ from what I have in front of me the figure may move.
+
+I hope that's clear, and thank you again for your patience.
+
+Final answer: 29
+ANSWER>>>

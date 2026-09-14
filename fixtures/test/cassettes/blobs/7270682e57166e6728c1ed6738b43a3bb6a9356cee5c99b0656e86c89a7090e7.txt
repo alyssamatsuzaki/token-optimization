@@ -1,0 +1,16 @@
+Customer question: How many extra return days does the Alpine tier add?
+
+Answer under review:
+<<<ANSWER
+Great question, and I can see why this one is confusing.
+
+There are really two things going on in your question, and it helps to separate them before putting them back together, because the handbook treats them in different places.
+
+The handbook says: "## Loyalty tiers  Every customer sits in one of three tiers."
+
+Applying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. I've double-checked the arithmetic, but if your order details differ from what I have in front of me the figure may move.
+
+I hope that's clear, and thank you again for your patience.
+
+Final answer: 30
+ANSWER>>>

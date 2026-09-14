@@ -180,9 +180,28 @@ class TestFixtureRuns:
             assert "input_tokens" in cassette.raw_usage
 
     def test_blobs_deduplicate_the_handbook(self, fixture_store) -> None:
-        """The handbook appears in every request; it is stored once."""
-        assert fixture_store.blob_count() < 20
+        """The handbook appears in every request; it is stored once.
+
+        Asserted as the dedup property rather than as a blob count. A blob is any block longer
+        than the threshold, and the judge prompts added by UPGRADE_V3.md U1 carry the answer
+        under review — B0's uncapped answers are essays, and a long *unique* string correctly
+        gets a blob of its own. A cap on the total would have been a cap on how many long
+        strings the fixtures may contain, which is not what this test is about.
+        """
+        from tokop.paths import repo_root
+
+        handbook = (repo_root() / "data/demo/handbook.md").read_text()
+        blobs = [blob.read_text() for blob in fixture_store.blob_dir.glob("*.txt")]
+        carrying = [text for text in blobs if handbook in text]
+        # One per distinct wrapper: B0 opens "Here is the handbook material…" and the others
+        # open "Handbook:". Anything more means the same text is being stored per call.
+        assert 1 <= len(carrying) <= 3, (
+            f"the handbook is stored in {len(carrying)} distinct blobs across "
+            f"{len(fixture_store)} calls"
+        )
         assert len(fixture_store) > 1000
+        # Still far fewer blobs than calls: the big shared prefix really is shared.
+        assert fixture_store.blob_count() < len(fixture_store) / 10
 
     def test_a_cassette_rehydrates_to_its_full_request(self, fixture_store) -> None:
         """B0 carries the handbook in the user message and B1/B2 in the system prompt; both

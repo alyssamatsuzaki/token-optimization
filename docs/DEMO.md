@@ -41,7 +41,7 @@ cascade, each edge labelled with the share of tasks that flows along it.
 > vouch for."
 
 The cascade summary underneath shows the search: **2,601 threshold settings
-evaluated in 0.26 seconds**, on recorded answers, costing nothing.
+evaluated in 0.27 seconds**, on recorded answers, costing nothing.
 
 ## 0:45 — Run the proof (25 s)
 
@@ -96,6 +96,28 @@ Close with the honest part:
 
 ---
 
+## 1:30 — The part that makes it usable on a real workload (20 s)
+
+Scroll to **Without the answer key**.
+
+> "Everything above rests on 200 tasks with known answers. Almost nobody has that. So: a cheap
+> judge — claude-haiku-4-5-20251001 — grades every task, and a strong grader re-grades
+> **44 of them (22%)**, chosen where a strong label buys the most
+> interval. The judge on its own says **+5.5 points**. Corrected, it says
+> **-3.5 points**, interval **-12.5 to +5.6**. The gap
+> between those two — **+9.0 points** — is the judge's bias, and Tokop measured it
+> rather than assuming it away."
+
+> "This demo happens to have gold answers, so we can check: the gold-graded difference is +0.5 points, and the gold-free interval covers it. A real unlabelled workload never gets to run that check, which is exactly why it is run here."
+
+> "The estimator is unbiased for the strong grader's mean no matter how bad the cheap judge is.
+> A bad judge costs interval width, never correctness. That is the whole argument, and it is why
+> the wide interval here is honest rather than embarrassing: on this workload the judge is wrong
+> often enough that the cost-optimal sampling rate is 100%, and the report
+> says so instead of selling a saving that is not there."
+
+---
+
 ## If you have 30 seconds more
 
 - **Inspect** — paste any prompt, see cost per 1,000 calls across the registry, press **Apply
@@ -121,6 +143,12 @@ is **exception**, at
 90% against the baseline's
 95% over 20 tasks. That gap is visible on the
 screen rather than averaged away.
+
+**"Your judge is an LLM. Why should I trust it?"**
+You should not, and the design does not. Run the adversarial judge test: it injects a judge that
+marks 20% of one class of correct answers wrong. The naive judge-only interval stops covering the
+true accuracy; the corrected interval still covers it, at every committed seed. That test is a
+release blocker — `make verify` runs it by name.
 
 **"Why is the verdict inconclusive rather than a pass?"**
 Because the interval straddles the margin by a fraction of a point. Reporting that as a pass is

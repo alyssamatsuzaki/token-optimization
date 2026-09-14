@@ -377,6 +377,45 @@ def required_n(p10: float, p01: float, delta_hat: float, margin: float) -> int |
     return math.ceil(Z_95**2 * v / slack**2)
 
 
+def verdict_from_interval(
+    delta: Interval,
+    *,
+    margin: float = DEFAULT_MARGIN,
+    p10: float = 0.0,
+    p01: float = 0.0,
+    n: int | None = None,
+) -> Verdict:
+    """Where a delta-accuracy interval sits relative to the margin.
+
+    Split out from ``non_inferiority_verdict`` so that an interval produced some other way —
+    the active estimator of UPGRADE_V3.md U1, whose interval comes from the empirical variance
+    of its per-item terms rather than from a bootstrap — reaches the same verdict by the same
+    rule. A second rule for the judged path would be a second place for the product to be
+    generous about what counts as proven.
+
+    ``p10`` and ``p01`` are the discordant proportions used to size how many more tasks would
+    settle an inconclusive result. They are optional because not every estimator has them; with
+    both at zero the answer is the smallest n that clears the margin at the observed delta.
+    """
+    if margin <= 0:
+        raise StatsError("margin must be positive; a zero margin can never be proven")
+    if delta.low > -margin:
+        return Verdict("non_inferior", margin, delta)
+    if delta.high < -margin:
+        return Verdict("worse", margin, delta)
+    needed = required_n(p10, p01, delta.point, margin)
+    if needed is None:
+        return Verdict(
+            "inconclusive",
+            margin,
+            delta,
+            None,
+            "The observed accuracy difference is already at or beyond the margin, so more "
+            "tasks are unlikely to change the verdict.",
+        )
+    return Verdict("inconclusive", margin, delta, max(0, needed - (delta.n if n is None else n)))
+
+
 def non_inferiority_verdict(
     baseline: Sequence[int | bool],
     candidate: Sequence[int | bool],
@@ -393,25 +432,9 @@ def non_inferiority_verdict(
     b = _as_binary(baseline, "baseline")
     c = _as_binary(candidate, "candidate")
     n = len(b)
-
-    if delta.low > -margin:
-        return Verdict("non_inferior", margin, delta)
-    if delta.high < -margin:
-        return Verdict("worse", margin, delta)
-
     p10 = float(((b == 1) & (c == 0)).sum()) / n
     p01 = float(((b == 0) & (c == 1)).sum()) / n
-    needed = required_n(p10, p01, delta.point, margin)
-    if needed is None:
-        return Verdict(
-            "inconclusive",
-            margin,
-            delta,
-            None,
-            "The observed accuracy difference is already at or beyond the margin, so more "
-            "tasks are unlikely to change the verdict.",
-        )
-    return Verdict("inconclusive", margin, delta, max(0, needed - n))
+    return verdict_from_interval(delta, margin=margin, p10=p10, p01=p01, n=n)
 
 
 # --------------------------------------------------------------------- active evaluation
@@ -563,7 +586,7 @@ def uncertainty_proportional_rates(
     *,
     floor: float = MIN_SAMPLING_RATE,
 ) -> np.ndarray:
-    """Per-item sampling rates proportional to an uncertainty score, clipped to [floor, 1].
+    """Per-item sampling rates proportional to an uncertainty score, bounded by [floor, 1].
 
     **This is a simplification of the paper's active policy**, not the policy itself:
     Angelopoulos et al. derive an input-dependent rate from a calibrated uncertainty model,
@@ -571,6 +594,14 @@ def uncertainty_proportional_rates(
     ``target_rate``. The floor is the important part — it bounds the inverse weight ``1/pi`` at
     ``1/floor``, so one unlucky draw on a near-zero-probability item cannot dominate the
     estimate.
+
+    The mean is preserved **after** bounding, not before. Scaling and then clipping does not
+    give the mean you asked for — the floor lifts the bottom of the distribution and the cap
+    flattens the top — and since the caller's ``target_rate`` is how a budget is expressed, a
+    drifted mean is a budget quietly overspent. So the scale is *solved for* rather than
+    computed: ``mean(clip(lambda * u, floor, 1))`` is continuous and non-decreasing in
+    ``lambda``, running from ``floor`` to 1, so bisection finds the ``lambda`` that hits the
+    target exactly.
     """
     u = np.asarray(uncertainty, dtype=float)
     if len(u) == 0:
@@ -581,7 +612,42 @@ def uncertainty_proportional_rates(
         raise StatsError("target_rate must be in (0, 1]")
     if not 0 < floor <= 1:
         raise StatsError("floor must be in (0, 1]")
-    mean_u = u.mean()
-    raw = np.full(len(u), target_rate) if mean_u == 0 else u * (target_rate / mean_u)
-    clipped: np.ndarray = np.clip(raw, floor, 1.0)
-    return clipped
+    if target_rate < floor:
+        raise StatsError(
+            f"a mean rate of {target_rate} is impossible with a floor of {floor}: every item is "
+            "sampled at least that often. Lower the floor or raise the budget."
+        )
+
+    n = len(u)
+    mean_u = float(u.mean())
+    if mean_u == 0:
+        # No uncertainty anywhere is not a reason to prefer one item over another.
+        return np.full(n, target_rate)
+
+    def mean_at(scale: float) -> float:
+        return float(np.clip(u * scale, floor, 1.0).mean())
+
+    low, high = 0.0, target_rate / mean_u
+    while mean_at(high) < target_rate and high < 1e12:
+        high *= 2
+    if mean_at(high) < target_rate:
+        # Every item with any uncertainty is already sampled every time and the mean is still
+        # short, which only happens when most of the weight is exactly zero. Scaling cannot
+        # reach the target, so the remainder is spread evenly over the items that are not yet
+        # at 1 — no longer proportional, and the alternative is silently under-spending.
+        rates = np.clip(u * high, floor, 1.0)
+        room = rates < 1.0
+        shortfall = target_rate * n - float(rates.sum())
+        if room.any() and shortfall > 0:
+            rates[room] = np.minimum(1.0, rates[room] + shortfall / float(room.sum()))
+        out: np.ndarray = rates
+        return out
+
+    for _ in range(200):
+        middle = (low + high) / 2
+        if mean_at(middle) < target_rate:
+            low = middle
+        else:
+            high = middle
+    solved: np.ndarray = np.clip(u * high, floor, 1.0)
+    return solved

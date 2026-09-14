@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import typer
 
@@ -129,20 +129,161 @@ def record(
 
 
 @app.command()
+def annotate(
+    workload: str = typer.Option("data/demo/workload.yaml", "--workload"),
+    budget: float = typer.Option(
+        -1.0, "--budget", help="Override the workload's annotation budget, in dollars."
+    ),
+    policy: str = typer.Option("", "--policy", help="cost-optimal or uniform."),
+    strong_grader: str = typer.Option("", "--strong-grader", help="frontier or human."),
+    queue: bool = typer.Option(
+        False, "--queue", help="Write a human review queue instead of calling a strong grader."
+    ),
+    queue_results: str = typer.Option(
+        "", "--queue-results", help="Fold a completed review queue back into the annotation set."
+    ),
+) -> None:
+    """Buy the strong labels the judged proof corrects a cheap judge with (UPGRADE_V3.md U1).
+
+    Runs the cheap judge over every answer in both arms, allocates the annotation budget across
+    tasks by the workload's policy, draws, and grades the drawn items with the strong grader.
+    Writes ``annotations.json`` next to the fixtures.
+    """
+    from decimal import Decimal as _Decimal
+
+    from tokop.annotate import AnnotationStopped, build_demo_annotations, merge_queue_results
+    from tokop.optimize.annotation import AnnotationError, AnnotationSet, annotations_path
+    from tokop.paths import fixtures_dir
+    from tokop.recording_state import describe
+
+    if workload != "data/demo/workload.yaml":
+        typer.echo(
+            f"this build can only annotate the demo workload; --workload {workload!r} is not "
+            "supported yet (DECISIONS.md D24).",
+            err=True,
+        )
+        raise typer.Exit(2)
+
+    root = fixtures_dir() / describe().fixture_source
+    if queue_results:
+        source = repo_root() / queue_results
+        if not source.exists():
+            typer.echo(f"no review queue at {source}", err=True)
+            raise typer.Exit(2)
+        try:
+            existing = AnnotationSet.read(annotations_path(root))
+            merged, filled = merge_queue_results(existing, source.read_text())
+        except AnnotationError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(2) from exc
+        merged.write(annotations_path(root))
+        typer.echo(f"folded {filled} reviewed items into {annotations_path(root).name}")
+        return
+
+    try:
+        run = build_demo_annotations(
+            budget_usd=None if budget < 0 else _Decimal(str(budget)),
+            policy=policy or None,
+            strong_grader=("human" if queue else (strong_grader or None)),
+        )
+    except (AnnotationStopped, AnnotationError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+
+    for step in run.steps:
+        typer.echo("  " + step)
+    if run.queue is not None:
+        typer.echo(f"\n{run.queue.reason}")
+        typer.echo(f"wrote {run.queue.path} ({run.queue.entries} answers to review)")
+    if run.annotations is not None and run.path is not None:
+        annotations = run.annotations
+        typer.echo(
+            f"\n{annotations.n_annotated} of {annotations.n} items strong-graded "
+            f"({annotations.n_annotated / annotations.n:.0%}), "
+            f"${annotations.cost['total_usd']} spent in total "
+            f"(judge ${annotations.cost['judge_usd']}, "
+            f"strong ${annotations.cost['strong_usd']}). "
+            f"Grading every item would have cost ${annotations.cost['grading_everything_usd']}."
+        )
+        typer.echo(f"wrote {run.path.relative_to(repo_root())}")
+        if annotations.origin != "recorded":
+            typer.echo("\nNOTE: simulated verdicts, not a recording (DECISIONS.md D1).", err=True)
+
+
+def _echo_judged(judged: dict[str, Any]) -> None:
+    """Print the same comparison with the answer key withheld."""
+    typer.echo("")
+    if not judged.get("available"):
+        typer.echo(f"WITHOUT GOLD: unavailable — {judged.get('reason', 'no reason given')}")
+        return
+    annotation = judged["annotation"]
+    judge_only = judged["judge_only"]
+    typer.echo(f"WITHOUT GOLD:  {judged['verdict']['display']}")
+    typer.echo(f"               {judged['verdict']['sentence']}")
+    typer.echo(
+        f"  judge alone: {judge_only['delta_accuracy']['point'] * 100:+.1f} points "
+        f"[{judge_only['delta_accuracy']['low'] * 100:+.1f}, "
+        f"{judge_only['delta_accuracy']['high'] * 100:+.1f}] — "
+        f"{judge_only['bias_vs_corrected'] * 100:+.1f} points of judge bias, measured"
+    )
+    typer.echo(
+        f"  annotation:  {annotation['n_annotated']} of {annotation['n']} items "
+        f"({annotation['annotated_share']:.0%}) at ${annotation['annotation_cost_usd']}; "
+        f"strong-only grading needs {annotation['strong_only_items_for_same_width']} items "
+        f"at ${annotation['strong_only_cost_usd']} for the same interval width"
+    )
+    typer.echo(f"  {annotation['cost_optimal_rate_note']}")
+    coverage = judged.get("coverage_check")
+    if coverage:
+        covers = "covers" if coverage["judged_interval_covers_gold"] else "MISSES"
+        typer.echo(
+            f"  check:       the gold-graded delta is "
+            f"{coverage['gold_delta_accuracy'] * 100:+.1f} points; the gold-free interval "
+            f"{covers} it"
+        )
+    for caveat in judged.get("caveats", []):
+        typer.echo(f"  - {caveat}")
+
+
+@app.command()
 def prove(
     workload: str = typer.Option("data/demo/workload.yaml", "--workload"),
     baseline: str = typer.Option("B0", "--baseline"),
     candidate: str = typer.Option("B3", "--candidate"),
     margin: float = typer.Option(0.03, "--margin"),
+    grading: str = typer.Option(
+        "gold",
+        "--grading",
+        help="gold reads the dataset's answer key; judged withholds it and uses the judge.",
+    ),
+    annotation_budget: float = typer.Option(
+        -1.0,
+        "--annotation-budget",
+        help="Replay the judged estimate at a smaller annotation budget, in dollars.",
+    ),
 ) -> None:
     """Run the proof for a candidate pipeline against a baseline.
 
-    Exits 0 when the verdict is non-inferior and 1 otherwise, so it can gate CI.
+    Exits 0 when the verdict is non-inferior and 1 otherwise, so it can gate CI. With
+    ``--grading judged`` the verdict comes from the gold-free estimate instead, which is what a
+    workload that arrives without labels gets.
     """
+    from decimal import Decimal as _Decimal
+
     from tokop.optimize.report import build_report
 
+    if grading not in ("gold", "judged"):
+        typer.echo(
+            f"--grading must be `gold` or `judged`, not {grading!r}.",
+            err=True,
+        )
+        raise typer.Exit(2)
+
     # The margin is applied, not echoed: the verdict below is computed against this number.
-    payload = build_report(margin=margin)
+    payload = build_report(
+        margin=margin,
+        annotation_budget=None if annotation_budget < 0 else _Decimal(str(annotation_budget)),
+    )
     proof = payload["proof"]
     if workload != "data/demo/workload.yaml":
         typer.echo(
@@ -176,11 +317,32 @@ def prove(
         typer.echo(f", repaid after {proof['repayment_tasks']:,} tasks")
     else:
         typer.echo("")
+    judged = payload["judged"]
+    if workload_has_judge(payload):
+        _echo_judged(judged)
     if payload["provenance"]["is_test_data"]:
         typer.echo("")
         typer.echo("NOTE: computed over simulated test data, not a recording.", err=True)
+
+    if grading == "judged":
+        if not judged.get("available"):
+            typer.echo(
+                f"\n--grading judged, but there is no usable judged estimate: "
+                f"{judged.get('reason', 'no reason given')}",
+                err=True,
+            )
+            raise typer.Exit(2)
+        # The gate reads the judged verdict, which is the one a workload without labels gets.
+        if judged["verdict"]["label"] != "non_inferior":
+            raise typer.Exit(1)
+        return
     if proof["verdict"]["label"] != "non_inferior":
         raise typer.Exit(1)
+
+
+def workload_has_judge(payload: ReportPayload) -> bool:
+    """Whether this report has anything to say about grading without gold."""
+    return bool(payload["judged"])
 
 
 def _echo_scorer_comparison(payload: ReportPayload) -> None:
@@ -311,6 +473,25 @@ def report(
     typer.echo(f"  {'ok  ' if current else 'FAIL'}  {message}")
     failures += 0 if current else 1
 
+    # 4. The gold-free estimate is available, and it lands where the labelled one does.
+    #    An annotation set drawn against a different operating point judges answers this
+    #    cascade did not give, so "unavailable" is a failure here rather than a note.
+    judged = payload["judged"]
+    if not judged.get("available"):
+        typer.echo(f"  FAIL  the judged estimate is unavailable: {judged.get('reason')}", err=True)
+        failures += 1
+    else:
+        coverage = judged["coverage_check"]
+        covers = coverage["judged_interval_covers_gold"]
+        typer.echo(
+            f"  {'ok  ' if covers else 'FAIL'}  the gold-free interval "
+            f"[{judged['delta_accuracy']['low'] * 100:+.1f}, "
+            f"{judged['delta_accuracy']['high'] * 100:+.1f}] "
+            f"{'covers' if covers else 'MISSES'} the gold-graded delta "
+            f"{coverage['gold_delta_accuracy'] * 100:+.1f}"
+        )
+        failures += 0 if covers else 1
+
     if failures:
         typer.echo(f"\nreport --check FAILED ({failures})", err=True)
         raise typer.Exit(1)
@@ -390,7 +571,7 @@ def fixtures_check() -> None:
         typer.echo(f"  {'ok  ' if ok else 'FAIL'}  {name}: {detail}")
         failures += 0 if ok else 1
 
-    for fixture_name, state, fixture_detail in _check_fixture_dirs():
+    for fixture_name, state, fixture_detail in [*_check_fixture_dirs(), *_check_annotations()]:
         # `state is None` is a note: something worth printing that is not a defect in the
         # repository. The token-counter line is the only one, and it reports a property of the
         # machine running the check, not of the fixtures (DECISIONS.md D26).
@@ -402,6 +583,63 @@ def fixtures_check() -> None:
         typer.echo(f"\nfixtures-check FAILED ({failures} check(s))", err=True)
         raise typer.Exit(1)
     typer.echo("\nfixtures-check passed")
+
+
+def _check_annotations() -> list[tuple[str, bool | None, str]]:
+    """Replay every verdict an annotation set records and assert it matches its cassette.
+
+    The annotation set is a committed artifact holding numbers that reach the screen, so it has
+    to be checkable the way the dataset is: regenerate from the source and compare. The source
+    here is the judge call itself. A verdict that no longer matches the reply it came from means
+    either the parser changed or the file was edited, and both are defects.
+    """
+    from tokop.adapters.cassette import CassetteStore
+    from tokop.optimize.annotation import AnnotationError, AnnotationSet, annotations_path
+    from tokop.paths import fixtures_dir
+    from tokop.workloads.verification import verifier_kind
+
+    checks: list[tuple[str, bool | None, str]] = []
+    for kind in ("demo", "test"):
+        root = fixtures_dir() / kind
+        path = annotations_path(root)
+        if not path.exists():
+            continue
+        try:
+            annotations = AnnotationSet.read(path)
+        except AnnotationError as exc:
+            checks.append((f"fixtures/{kind}: annotations.json", False, str(exc)))
+            continue
+        store = CassetteStore(root / "cassettes")
+        parse = verifier_kind(str(annotations.judge["kind"])).parse
+        missing: list[str] = []
+        disagreeing: list[str] = []
+        replayed = 0
+        for item in annotations.items:
+            for name, arm in (("baseline", item.baseline), ("candidate", item.candidate)):
+                pairs: list[tuple[str, int | None]] = [(arm.judge_cassette_key, arm.judge_correct)]
+                if arm.strong_cassette_key is not None:
+                    pairs.append((arm.strong_cassette_key, arm.strong_correct))
+                for key, recorded in pairs:
+                    cassette = store.get(key)
+                    if cassette is None:
+                        missing.append(f"{item.task_id}.{name}")
+                        continue
+                    replayed += 1
+                    verdict = parse(cassette.response_text)
+                    stored = recorded if recorded is not None else verdict.correct
+                    if verdict.correct != stored:
+                        disagreeing.append(f"{item.task_id}.{name}")
+        ok = not missing and not disagreeing
+        detail = f"{replayed} judge verdicts replayed from cassettes, all matching"
+        if missing:
+            detail = f"{len(missing)} verdicts name a cassette that is not there: {missing[:3]}"
+        elif disagreeing:
+            detail = (
+                f"{len(disagreeing)} verdicts disagree with the reply they came from: "
+                f"{disagreeing[:3]}"
+            )
+        checks.append((f"fixtures/{kind}: every recorded verdict matches its call", ok, detail))
+    return checks
 
 
 def _check_fixture_dirs() -> list[tuple[str, bool | None, str]]:

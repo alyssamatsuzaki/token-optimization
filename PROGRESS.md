@@ -13,12 +13,69 @@
 | M6 Remaining screens | **done** | Inspect+Brief, Compare, Spend, Settings, New experiment; 38 e2e pass |
 | M7 Finish | **done** | README, DEMO, ARCHITECTURE, Dockerfile, critique, spec review, CI gate |
 | M8 Pluggable scorers | **done** | scorer registry, `self-consistency-v1`, sampling charged, comparison |
+| M9 Proof without gold | **done** | `grading: judged`, `tokop annotate`, cost-optimal allocation, adversarial judge test |
 
 ## Next
 
-A live recording of a small split. It is now the blocker for two separate things rather than
-one: every number turns from simulated to recorded, *and* the scorer comparison in D27 becomes
-a real comparison instead of a statement about the simulator's noise model.
+**M10: U3 and U4** — calibrate the router when there are no labels either, and price a checkable
+output contract. M9 made the *test* comparison label-free; the cascade's thresholds and its
+scorer are still fitted against labelled calibration tasks, and the judged block says so on every
+surface it appears on. U3 closes that. U4 then makes the judge's job easier on purpose and prices
+what that buys, which on these fixtures is the difference between a cost-optimal sampling rate of
+100% and something below it.
+
+Still outstanding, and still the blocker for the same two things: **a live recording of a small
+split**. Every number turns from simulated to recorded, and the scorer comparison in D27 becomes
+a real comparison instead of a statement about the simulator's noise model. M9 adds a third: the
+judge's error rates are invented parameters, and only a recording can say what a real cheap judge
+costs in interval width.
+
+## Proving the demo without its answer key (M9, UPGRADE_V3.md U1 and U2)
+
+`grading: judged` is now a thing a workload can declare. The demo keeps its answer key and gains
+a judge, so the two estimates sit side by side and the interesting number is the relationship
+between them:
+
+| Estimate | Accuracy difference | 95% CI | What it cost |
+| --- | --- | --- | --- |
+| The cheap judge alone (`claude-haiku-4-5`, 400 answers) | +5.5 pt | [-1.5, +12.5] | $0.3907 |
+| Corrected by 44 strong-graded tasks (22%) | -3.5 pt | [-12.5, +5.6] | $0.6008 |
+| The gold answers, for comparison | +0.5 pt | [-3.0, +4.0] | not available to a real workload |
+
+The judge is biased by **+9.0 points** on this split, measured rather than assumed away, and the
+judge-only *accuracy* is 12 points low on the baseline arm. The corrected interval covers the
+gold-graded difference; `tokop report --check` fails if it stops doing so.
+
+**The uncomfortable number, reported rather than buried.** On this workload the cheap judge
+disagrees with the strong grader often enough — mean square error 0.239 against a strong-grader
+variance of 0.105 — that the cost-optimal sampling rate is **1.0**: grading everything is the
+cheapest route to a given interval width, and strong-only grading would have reached the same
+width with 50 items at $0.62 against the $0.60 spent here. The mixed design does not pay at this
+judge quality. Tokop says so and names the lever that would change it (U4's checkable output
+contract), rather than selling a saving that is not there.
+
+What does pay is **where** the budget goes: the cost-optimal policy cuts the estimator's variance
+by 64% against uniform sampling at the same expected spend, computed exactly rather than from a
+draw. The squared correction term averages 0.81 on pairs the two arms disagree about against 0.02
+on pairs they agree on, which is the whole reason the policy samples discordant pairs hard.
+
+**The release blocker.** `tests/test_judged_proof.py::TestTheAdversarialJudge` injects a judge
+that marks 20% of one class of correct answers wrong. The naive judge-only interval stops
+covering the true accuracy; the corrected interval still covers it at every committed seed. Two
+stronger versions run beside it: a judge that is wrong about *everything* (`G = 1 - H`) is still
+corrected to an unbiased estimate over 3,000 draws, and a judge whose error hits one arm only
+biases the naive delta by more than five points while the corrected interval holds. `make verify`
+runs the check by name. D30 records why the corrupted class is `number` rather than `yes_no`.
+
+Fixtures grew from 4,914 cassettes to 5,450: 400 cheap-judge calls, 88 strong-grader calls, and
+their pre-warming. `fixtures/test/annotations.json` records every rate, every draw, every verdict
+and every dollar, and `tokop fixtures-check` replays all 488 verdicts through the parser and
+fails if one disagrees with the call it came from.
+
+Two bugs the acceptance tests found, both real: `uncertainty_proportional_rates` did not produce
+the mean rate it promised once the floor clipped (D32), and the strong grader's price projection
+was 38% low because it carried the cheap model's token counts across a tokenizer-generation
+boundary (D29.6).
 
 ## Demo result (simulated test fixtures, 200-task test split)
 
@@ -34,7 +91,13 @@ These are simulated, not recorded (DECISIONS.md D1).
 
 ## Known issues
 
-- `make verify` runs all 12 checks with none skipped.
+- `make verify` runs all 15 checks with none skipped.
+- **The cascade's operating point is still calibrated against gold labels.** Only the test
+  comparison is label-free. That is U3 (M10), and until it lands the judged block carries the
+  limitation as a caveat rendered verbatim in the UI, the CLI and the README.
+- **A judged proof needs one sample per task.** The judge reviews the answer the cascade
+  returned, and only the first generation of each task has been judged, so `tokop annotate`
+  refuses an operating point that draws more. The demo's is `logistic-v1` at k=1.
 - The Dockerfile has never been built: Docker is unavailable in this environment (D22).
 - The GitHub workflows run green on GitHub Actions: `verify`'s run 6 passes all twelve checks on
   `ubuntu-latest` in 3m33s, and `proof gate` exits 1 on the inconclusive verdict as designed
@@ -97,7 +160,8 @@ everything around it.
   Playwright's own resolution when that path is absent, which is everywhere but here.
 
 438 engine tests, 39 Playwright tests, 91% line coverage on `core/` and `optimize/`.
-`make verify`: 12 checks, none skipped, green.
+`make verify`: 12 checks, none skipped, green. (At M9: 549 engine tests, 41 Playwright tests,
+91% coverage, 15 checks.)
 
 ## The tokenizer divergence (D26)
 
@@ -177,3 +241,8 @@ with its sampling charged honestly, and a documented reason not to believe its r
 
 Fixtures rebuilt at sample depth 5: 1,314 cassettes became 4,914, with all 1,314 originals
 byte-identical. 466 engine tests, 91% line coverage, `make verify` green on all 12 checks.
+
+## Where the build stands
+
+549 engine tests, 41 Playwright tests, 91% line coverage on `core/` and `optimize/`.
+`make verify`: 15 checks, none skipped, green.

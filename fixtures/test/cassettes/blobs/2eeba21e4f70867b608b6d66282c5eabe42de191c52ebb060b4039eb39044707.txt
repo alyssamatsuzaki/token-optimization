@@ -1,0 +1,16 @@
+Customer question: A customer reports that a transceiver failed during an avalanche search and asks for a $60 refund. Which escalation level key handles it?
+
+Answer under review:
+<<<ANSWER
+Let me walk you through how this works so the number makes sense.
+
+There are really two things going on in your question, and it helps to separate them before putting them back together, because the handbook treats them in different places.
+
+The handbook says: "A case with no customer response for 96 hours escalates automatically to the next level."
+
+Applying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. I've double-checked the arithmetic, but if your order details differ from what I have in front of me the figure may move.
+
+I hope that's clear, and thank you again for your patience.
+
+Final answer: tier_3
+ANSWER>>>

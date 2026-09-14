@@ -76,6 +76,61 @@ export interface DisagreementView {
   candidate_cost_usd: string;
 }
 
+/**
+ * The same comparison with the answer key withheld (UPGRADE_V3.md U1).
+ *
+ * `available: false` is a real state and carries its reason: an annotation set can be missing,
+ * or drawn against an operating point this report no longer uses. The screen shows the reason
+ * rather than an empty panel, because "we did not measure this" and "we measured nothing" look
+ * identical otherwise.
+ */
+export interface JudgedView {
+  available: boolean;
+  reason?: string;
+  stale?: boolean;
+  delta_accuracy: Interval;
+  verdict: VerdictView;
+  baseline_accuracy: Interval;
+  candidate_accuracy: Interval;
+  judge_only: {
+    delta_accuracy: Interval;
+    baseline_accuracy: number;
+    candidate_accuracy: number;
+    bias_vs_corrected: number;
+  };
+  annotation: {
+    n: number;
+    n_sampled: number;
+    n_annotated: number;
+    annotated_share: number;
+    failed_annotations: number;
+    annotation_cost_usd: string;
+    judge_cost_usd: string;
+    total_cost_usd: string;
+    policy: Record<string, unknown>;
+    strong_only_items_for_same_width: number | null;
+    strong_only_cost_usd: string | null;
+    variance_of_strong_delta: number;
+    standard_error: number;
+    judge_mean_square_error: number;
+    cost_optimal_rate: number;
+    cheap_cost_per_item_usd: string;
+    strong_cost_per_item_usd: string;
+    cost_optimal_rate_note: string;
+    method: string;
+  };
+  judge: { kind: string; model_id: string; method: string; calls: number; contract: string };
+  strong_grader: { source: string; model_id: string | null; method: string };
+  coverage_check?: {
+    gold_delta_accuracy: number;
+    judged_interval_covers_gold: boolean;
+    judge_only_interval_covers_gold: boolean;
+    gold_delta_minus_judged: number;
+    note: string;
+  };
+  caveats: string[];
+}
+
 export interface ProofView {
   baseline: ArmView;
   candidate: ArmView;
@@ -251,6 +306,7 @@ export interface Report {
   };
   provenance: ProvenanceView;
   proof: ProofView;
+  judged: JudgedView;
   waterfall: WaterfallStepView[];
   cascade: CascadeView;
   findings: FindingView[];

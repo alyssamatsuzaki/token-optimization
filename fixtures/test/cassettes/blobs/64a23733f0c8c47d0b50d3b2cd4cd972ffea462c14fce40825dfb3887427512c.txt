@@ -1,0 +1,16 @@
+Customer question: $60 refund and a safety complaint about equipment failure. Which level key takes the case?
+
+Answer under review:
+<<<ANSWER
+Thanks for reaching out, and I'm happy to help you get to the bottom of this.
+
+The policy here has changed since earlier versions circulated, so let me quote the current wording rather than working from memory.
+
+The handbook says: "A case with no customer response for 96 hours escalates automatically to the next level."
+
+Applying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. If anything about your situation differs from what I've assumed, the answer could change, so do let me know and I'll re-check it for you.
+
+I hope that's clear, and thank you again for your patience.
+
+Final answer: tier_3
+ANSWER>>>

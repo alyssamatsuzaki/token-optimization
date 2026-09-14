@@ -1,0 +1,16 @@
+Customer question: Calculate shipping for a 2 lb, $32 order to Zone 4 (Alaska and Hawaii) placed by an Alpine member.
+
+Answer under review:
+<<<ANSWER
+Thanks for reaching out, and I'm happy to help you get to the bottom of this.
+
+The policy here has changed since earlier versions circulated, so let me quote the current wording rather than working from memory.
+
+The handbook says: "## Shipping fees  Fees are charged per order, by the total shipped weight, not per item."
+
+Applying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. If anything about your situation differs from what I've assumed, the answer could change, so do let me know and I'll re-check it for you.
+
+I hope that's clear, and thank you again for your patience.
+
+Final answer: 0.00
+ANSWER>>>

@@ -1,0 +1,16 @@
+Customer question: How many years is the warranty on navigation electronics?
+
+Answer under review:
+<<<ANSWER
+Let me walk you through how this works so the number makes sense.
+
+Looking at the handbook material provided, the relevant rule is in the section that governs this situation, and it is worth reading carefully because there are a few interacting pieces here.
+
+The handbook says: "The two are commonly confused by customers and must not be confused by agents."
+
+Applying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. If anything about your situation differs from what I've assumed, the answer could change, so do let me know and I'll re-check it for you.
+
+I hope that's clear, and thank you again for your patience.
+
+Final answer: 2
+ANSWER>>>

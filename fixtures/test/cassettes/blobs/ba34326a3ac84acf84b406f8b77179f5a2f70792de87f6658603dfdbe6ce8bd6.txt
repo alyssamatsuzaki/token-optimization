@@ -1,0 +1,16 @@
+Customer question: Shipping fee, Zone 5 (international), over 25 lb up to 50 lb band — how much?
+
+Answer under review:
+<<<ANSWER
+I appreciate you checking rather than guessing on this one.
+
+The policy here has changed since earlier versions circulated, so let me quote the current wording rather than working from memory.
+
+The handbook says: "## Shipping fees  Fees are charged per order, by the total shipped weight, not per item."
+
+Applying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. Should you disagree with how this has been applied, I can pass it to a specialist who can take another look.
+
+I hope that's clear, and thank you again for your patience.
+
+Final answer: 154.95
+ANSWER>>>

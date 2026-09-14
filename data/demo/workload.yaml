@@ -29,6 +29,85 @@ workload:
     - question_numerals
     - evidence_quote_found        # demo-specific; see optimize/scorers.py
 
+# ------------------------------------------------------------------ the judge (U1)
+#
+# The gold-free half. This prompt is run twice over the same answers: once by the cheap model,
+# which grades every task, and once by the frontier model on the sampled subset the annotation
+# budget pays for. One prompt, two roles, on purpose — if the two saw different prompts, the
+# correction term `H - G` would mix a prompt difference into a rater difference and the
+# estimator would be correcting for the wrong thing.
+#
+# The handbook sits behind a cache breakpoint for the same reason B1's does: it is identical on
+# every judge call, and a verifier that re-pays for it on every task is the single most
+# expensive way to get a cheap judge wrong.
+judge:
+  kind: judge-v1
+  model_role: cheap
+  strong_model_role: frontier
+  contract: as-is           # U4 turns this into a lever; in M9 it records what was judged
+  max_tokens: 150
+  notes:
+    - >-
+      The judge never sees the gold answer, structurally: `workloads/verification.py` cannot
+      reach one and `tests/test_judge_isolation.py` fails if it grows a way to.
+    - >-
+      It sees the handbook, because a policy answer cannot be verified without the policy. That
+      is the same document the pipeline under review was given, so the judge is checking work,
+      not answering from memory.
+  system:
+    - label: instructions
+      text: |
+        You are checking someone else's answer to a customer question about Northwind Ridge
+        Outfitters' returns policy. You are not answering the question yourself.
+
+        Decide one thing: does the answer follow from the handbook below?
+
+        - An answer that states the right value is correct even if it is worded differently.
+        - An answer that cites a section that does not contain the rule it used is not correct.
+        - An answer you cannot read, or that does not answer the question asked, is not correct.
+        - Money to the cent, windows in whole days. A number that is off is wrong, not close.
+
+        Reply with one JSON object and nothing else:
+
+        {"correct": true|false, "confidence": 0.0-1.0, "why": "<one short sentence>"}
+
+        confidence is your probability that the answer is correct — not your probability that
+        you are right. State 0.5 if the handbook does not settle it.
+    - label: handbook
+      text: |
+        Handbook:
+
+        {{handbook}}
+      cache: 5m
+  user:
+    - label: review
+      text: |
+        Customer question: {{question}}
+
+        Answer under review:
+        <<<ANSWER
+        {{answer}}
+        ANSWER>>>
+
+# ------------------------------------------------------------------ annotation budget (U2)
+#
+# What the strong grader may spend, and how the sampling probability is allocated. The budget is
+# small because the demo's test split is small: at the recorded price of a strong-graded item it
+# buys roughly a quarter of them, which is enough to correct the judge and few enough that the
+# saving against grading everything is visible. `tokop annotate` stops at this figure and
+# reports what it actually spent.
+annotation:
+  budget_usd: 0.60
+  strong_grader: frontier
+  policy: cost-optimal
+  seed: 20260914
+  min_rate: 0.05
+  notes:
+    - >-
+      Every item keeps a positive sampling probability. At a rate of zero the inverse weight is
+      infinite and the estimator loses the unbiasedness that is the whole reason it is here;
+      `core/stats.py` refuses one outright.
+
 pipelines:
   # ------------------------------------------------------------------ B0
   B0:

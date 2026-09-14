@@ -362,3 +362,202 @@ scorer pays for the sampling it costs. The README already names the failure mode
    than $15.10 and 334 — money spent on the *comparison*, misattributed to the *proof*. Each
    configuration is now charged for the samples it draws, and what the deeper recording cost is
    reported separately as `search_recording_cost_usd`, where it was actually incurred.
+
+## D28 — UPGRADE_V3.md's milestones are numbered from M9 here, not M8
+
+`UPGRADE_V3.md` section 5 numbers its milestones M8 to M12. **M8 already exists**: it is the
+pluggable-scorer work in `PROGRESS.md` and D27, finished and committed before the upgrade brief
+arrived. Reusing the number would make `git log` and `PROGRESS.md` disagree about what M8 is.
+
+Reality wins over the document (CLAUDE.md), so the upgrade's milestones are shifted by one:
+
+| UPGRADE_V3.md | Here |
+| --- | --- |
+| M8 (U1, U2) | **M9** |
+| M9 (U3, U4) | **M10** |
+| M10 (U5, U8) | **M11** |
+| M11 (U6, U7) | **M12** |
+| M12 (U9) | **M13** |
+
+Nothing else moves. The upgrade numbers U1 to U9 are unchanged and are what the code and the
+tests cite, because those are stable identifiers and the milestone numbers are not.
+
+## D29 — M9: proving a workload nobody labelled
+
+**The goal.** `UPGRADE_V3.md` U1 and U2: a workload may be graded by a cheap judge whose bias is
+corrected by a small, cost-optimally allocated sample of strong labels, so the verdict stays
+valid even when the judge is wrong. The estimator for this — `active_eval_estimate` and
+`paired_active_eval_estimate` — has been in `core/stats.py` since M1 with no callers outside its
+own tests. M9 is mostly wiring, and the wiring is where all the decisions were.
+
+1. **A judge verdict is a recorded model call, not a function.** Non-negotiable 1 says every
+   number in the UI comes from engine code computing over traces, and a judge verdict is a
+   number on screen. So the cheap judge and the strong grader are a prompt in the workload YAML,
+   run through the same `Runner`, the same pre-warming, the same cassette store and the same
+   price snapshot as any other call. 5,450 cassettes now, up from 4,914. What the judging cost
+   is a measured figure, not an estimate: $0.39 for the cheap pass over 400 answers and $0.60
+   for 88 strong-grader calls.
+
+   The invented half — how often a simulated judge is wrong — lives in
+   `workloads/demo/judge_responder.py`, beside the responder that already invents how often a
+   model is right, and nowhere else.
+
+2. **Annotation is its own command, run after the operating point exists.** The allocation policy
+   reads disagreement between the two arms, and the candidate arm is a cascade whose answer on
+   each task comes from whichever tier the router stopped at — which is only known once
+   calibration has chosen a configuration. So `tokop record` cannot do it, and `tokop annotate`
+   does: it judges both arms, allocates the budget, draws, grades the drawn items, and commits
+   `fixtures/test/annotations.json`.
+
+   That is also the honest order for a real user. You run the proof, you see which items are
+   discordant, you spend the annotation budget where it buys something.
+
+3. **The annotation set is checked against its cassettes.** It holds numbers that reach the
+   screen, so `tokop fixtures-check` replays all 488 recorded verdicts through the verdict parser
+   and fails if any disagrees with the reply it came from. A committed artifact nobody can
+   regenerate is a committed artifact nobody can trust.
+
+4. **The draw is nested in the budget.** Each task carries a fixed uniform `u_t` keyed by task id
+   and seed, and `xi_t = 1[u_t < pi_t]`. Lowering the budget lowers every rate, so a smaller
+   budget selects a subset of what a larger one selected. `tokop prove --annotation-budget 0.30`
+   therefore replays a cheaper annotation set out of the committed one rather than needing a
+   fresh run. A budget *above* the recorded one is refused, with the command that would fix it:
+   the extra items were never graded and inventing a label for them is the exact failure this
+   product exists to prevent.
+
+5. **The budget bounds *expected* spend, and the report says what was actually spent.** Which
+   item is drawn is random and items differ in price, so a realised draw lands either side of the
+   figure. The alternative — stopping mid-run when the budget is hit — is worse: an item drawn
+   and then not graded is an item the estimator must treat as never sampled, which silently
+   changes `pi` after the fact. Nothing is dropped; the overrun is printed.
+
+   Pre-warming is handled separately because it is a fixed cost: it comes off the budget before
+   the per-item rate is set, and a budget that cannot cover it is refused rather than half-spent.
+
+6. **The strong grader's price is projected through the tokenizer ratio, and that was a 38% bug.**
+   The first version repriced the cheap judge's recorded usage at the strong grader's rates and
+   came in 38% low every time. Anthropic's tokenizer changed at Claude 4.7, so Opus 5 counts
+   about 30% more tokens for the same text than Haiku 4.5 does — the thing `core/ratios.py` was
+   built to measure and which nothing had needed until now. The projection scales usage by
+   `ratio(strong) / ratio(cheap)` before pricing, and now lands within 0.2% of what the run
+   costs. The projection and the actual are both recorded, so the next time it drifts it will be
+   visible rather than absorbed.
+
+7. **The demo keeps `grading: gold` and gains a judge.** Every headline number is unchanged. The
+   judged estimate is computed *beside* the gold one, which is the only way to show the thing
+   that matters: a gold-free interval covering the labelled truth. `tokop prove --grading judged`
+   takes the verdict from the judged estimate instead, which is what a workload with no labels
+   gets, and `tests/test_cli_gate.py` pins that the two gates can disagree — at a 5-point margin
+   the gold verdict passes and the judged one does not, because label-free evidence really is
+   weaker and a gate that hid that would be advertising a proof nobody ran.
+
+8. **The operating point is still calibrated on gold.** The cascade's thresholds and its scorer
+   are fitted against labelled calibration tasks. Only the *test* comparison is label-free in M9.
+   That is U3's job (M10), and until it is done the judged block carries the limitation as a
+   caveat rendered verbatim on screen, in the CLI and in the README, rather than implying the
+   whole pipeline is label-free.
+
+9. **One sample per task, or it refuses.** The judge reviews the answer the cascade *returned*,
+   and under a sampling scorer that is one of k generations chosen by the scorer. Judge cassettes
+   cover the first generation of each task. `arms_for_annotation` refuses when the operating
+   point draws more than one, naming what would have to be recorded. The demo's operating point
+   is `logistic-v1` at k=1, so it runs; a workload that adopted `self-consistency-v1` would get
+   the refusal rather than a verdict about an answer the cascade did not give.
+
+10. **A drawn item whose strong grading failed is not sampled.** It is not a cheaper observation,
+    it is no observation. Counting it with a missing value would bias the correction towards
+    whichever arm failed less often. The failed count and what it cost are reported.
+
+**What M9 does not establish.** The judge error rates in `judge_responder.py` are invented
+parameters, and no claim about real judges is derived from them. The property U1 rests on — that
+the estimate stays unbiased however bad the judge is — is proved in `tests/test_judged_proof.py`
+against an *injected* judge, not against the simulator, precisely so the guarantee does not
+depend on a table that could have been tuned to flatter it.
+
+## D30 — The adversarial judge test corrupts numeric answers, not yes/no ones
+
+`UPGRADE_V3.md` U1 names the construction: "Inject a judge that marks 20% of correct yes-answers
+wrong. The naive judge-only accuracy estimate must fall outside its own interval; the active
+estimate must stay inside." Two readings had to be settled.
+
+1. **"Falls outside its own interval" is read as "its interval fails to cover the truth".** A
+   point estimate always sits inside an interval centred on it, so the literal sentence cannot be
+   what is meant. The testable claim is that the naive interval stops covering the true accuracy
+   while the active one still covers it, and that is what `tests/test_judged_proof.py` asserts.
+
+2. **The corrupted class is `number`, not `yes_no`, and the arithmetic is why.** The demo's test
+   split holds 29 yes/no items against 91 numeric ones. 20% of the 28 correct yes-answers is six
+   items — three accuracy points — against a Wilson half-width of about three points at n = 200.
+   The effect would be real and undetectable, so a release blocker would pass or fail on
+   rounding. Corrupting 20% of the correct numeric answers flips 18 items, moves the naive
+   estimate from 95.5% to 86.5%, and puts the truth five points outside a [81.5, 90.6] interval.
+   Same construction, same share, a class the split actually contains.
+
+   The version UPGRADE_V3.md writes verbatim runs too, next to it, asserting what 29 items can
+   support: the naive point estimate moves by the full corrupted share and the corrected one does
+   not. Both are in the release-blocking class, and `make verify` runs it by name so a failure is
+   not buried in a count of "N tests failed".
+
+3. **Two stronger versions run beside it,** because the interesting claim is general: a judge that
+   is wrong about *everything* (`G = 1 - H`) still yields an unbiased estimate over 3,000 draws,
+   and a judge whose error hits one arm only — the case a cascade actually meets, since the two
+   arms return different answers — biases the naive delta by more than five points while the
+   corrected interval still covers the truth.
+
+## D31 — The simulated judge's confidence is a posterior, and it had to be
+
+The allocation policy reads the judge's stated confidence. The first version of the simulated
+judge derived that confidence from its own hit rate, which depends on whether the answer is
+*actually* right — so items the judge was wrong about carried visibly higher uncertainty, and the
+policy would have been sampling a gold label in disguise. Its measured advantage over uniform
+sampling would have been an artefact of the simulator. That is the mistake D27 caught in the
+sampling scorer, one layer up.
+
+The confidence is now the Bayes posterior `P(answer is right | verdict, sensitivity, specificity,
+prior)`. It depends on the judge's role, the question type and the verdict it gave, and on nothing
+about the particular item.
+
+The cost of that is worth stating rather than discovering later: on these fixtures the judge's
+uncertainty carries information about *question type* and nothing finer, so the policy's per-item
+signal comes from disagreement between the two arms. A real judge's confidence would vary task by
+task and the policy would have more to work with, not less. `tests/test_verification.py` asserts
+the posterior cannot see the truth, by signature and by behaviour.
+
+Even so, the policy earns its place on these fixtures: at the demo's budget it cuts the paired
+estimator's variance by 64% against uniform sampling at the same expected spend, computed exactly
+rather than from a draw. The discordance feature is doing most of that work — the squared
+correction term averages 0.81 on discordant pairs against 0.02 on concordant ones.
+
+## D32 — `uncertainty_proportional_rates` did not produce the mean rate it promised
+
+Found by the U2 acceptance test, which asserted that two policies at the same budget have the same
+expected spend and got $0.326 against $0.300.
+
+The function scaled an uncertainty score to a target mean and then clipped to `[floor, 1]`. The
+floor lifts the bottom of the distribution and nothing gives it back, so the realised mean came
+out above the target — 8.5% high on the test's population at the smallest budget it checks, and
+1.9% high on the demo's own recorded verdicts at half the demo budget. Since the caller's target
+rate is how an annotation budget is expressed, a drifted mean is money quietly overspent, and the
+drift grows as the budget shrinks and the floor binds on more items. At the demo's own budget it
+happened to round to zero, which is exactly why a test that measured it rather than an eye that
+looked at it was needed.
+
+The scale is now *solved for* rather than computed: `mean(clip(lambda * u, floor, 1))` is
+continuous and non-decreasing in `lambda`, running from `floor` to 1, so bisection finds the value
+that hits the target exactly. When the target cannot be reached by scaling at all — most of the
+weight exactly zero — the remainder is spread evenly over the items not yet at 1, which is no
+longer proportional and is documented as such; under-spending silently would be worse.
+
+Every existing test of the function still passes; the ones that existed were named "when nothing
+clips", so the gap was known and unfixed rather than unnoticed.
+
+## D33 — The annotation row is on Optimize, not Inspect
+
+`UPGRADE_V3.md` U1 says "`report.py` and the Inspect screen gain an annotation row." In this
+build Inspect is the paste-a-prompt-and-price-it screen (SPEC.md 5.2); the proof and its verdict
+live on Optimize. An annotation row on Inspect would sit next to a prompt that has nothing to do
+with the split it was computed over.
+
+So the row is on Optimize, immediately under the verdict it qualifies, as a section titled
+**Without the answer key**. Reality wins over the document (CLAUDE.md), and the conservative
+option is the one that puts a number next to the thing it is about.

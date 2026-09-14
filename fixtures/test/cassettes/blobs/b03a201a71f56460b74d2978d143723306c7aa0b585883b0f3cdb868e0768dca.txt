@@ -1,0 +1,16 @@
+Customer question: Calculate the restocking fee for hiking footwear priced $315.00, returned by a Standard member.
+
+Answer under review:
+<<<ANSWER
+Let me walk you through how this works so the number makes sense.
+
+Looking at the handbook material provided, the relevant rule is in the section that governs this situation, and it is worth reading carefully because there are a few interacting pieces here.
+
+The handbook says: "A refund is therefore the price paid minus the restocking fee."
+
+Applying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. I've double-checked the arithmetic, but if your order details differ from what I have in front of me the figure may move.
+
+I hope that's clear, and thank you again for your patience.
+
+Final answer: 0.00
+ANSWER>>>

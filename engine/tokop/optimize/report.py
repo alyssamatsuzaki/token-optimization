@@ -32,7 +32,7 @@ from typing import Any
 from tokop.adapters.cassette import CassetteStore, ReplayAdapter
 from tokop.core.pricing import PriceSnapshot
 from tokop.core.registry import Registry, load_registry
-from tokop.core.stats import DEFAULT_SEED
+from tokop.core.stats import DEFAULT_SEED, StatsError
 from tokop.core.tokenize import base_counter_name, counter_named
 from tokop.optimize.cascade import (
     OBJECTIVE_COST,
@@ -53,7 +53,14 @@ from tokop.optimize.findings import (
     workload_findings,
 )
 from tokop.optimize.lint import Finding, LintContext, clear_score, lint
-from tokop.optimize.proof import ArmResult, ProofCost, build_proof, build_waterfall
+from tokop.optimize.proof import (
+    ArmResult,
+    Proof,
+    ProofCost,
+    build_judged_delta,
+    build_proof,
+    build_waterfall,
+)
 from tokop.optimize.scorers import (
     FEATURE_REGISTRY,
     Scorer,
@@ -488,12 +495,149 @@ class ReportPayload:
         }
 
 
+def _judged_block(
+    workload: WorkloadSpec,
+    root: Path,
+    operating_point: dict[str, Any],
+    proof: Proof,
+    *,
+    margin: float,
+    seed: int,
+    resamples: int,
+    annotation_budget: Decimal | None,
+    origin: str,
+) -> dict[str, Any]:
+    """The same comparison with the answer key withheld (UPGRADE_V3.md U1).
+
+    Reported beside the gold one rather than instead of it, because the interesting number is
+    the relationship between the two: an estimate that never sees a label, and the labelled
+    truth it is supposed to land on. A workload that arrives with no labels gets only the first
+    half, which is the point of the whole upgrade.
+
+    Never raises. An annotation set that is missing or was drawn against a different operating
+    point makes the block unavailable *with the reason and the command that fixes it*; a report
+    that could not be built at all would hide which of those happened. ``make verify`` fails on
+    an unavailable block for the demo, so a stale set cannot ship.
+    """
+    from tokop.optimize.annotation import AnnotationError, AnnotationSet, annotations_path
+
+    if workload.judge is None:
+        return {
+            "available": False,
+            "reason": f"workload {workload.id!r} defines no `judge:` block.",
+        }
+    path = annotations_path(root)
+    if not path.exists():
+        return {
+            "available": False,
+            "reason": (
+                f"no annotation set at {path.name}. Run `tokop annotate` to buy the strong "
+                "labels the estimator corrects the judge with."
+            ),
+        }
+    try:
+        annotations = AnnotationSet.read(path)
+    except AnnotationError as exc:
+        return {"available": False, "reason": str(exc)}
+
+    drawn_for = annotations.operating_point
+    mismatched = [
+        key
+        for key in ("scorer", "k", "thresholds", "protect_scarce")
+        if drawn_for.get(key) != operating_point.get(key)
+    ]
+    if mismatched:
+        return {
+            "available": False,
+            "stale": True,
+            "reason": (
+                f"the annotation set was drawn against a different operating point "
+                f"({', '.join(mismatched)} differ: {drawn_for.get('label')} vs "
+                f"{operating_point.get('label')}). The cascade answers different tasks at "
+                "different tiers under a different operating point, so those verdicts are "
+                "about answers this cascade did not give. Re-run `tokop annotate`."
+            ),
+        }
+    if (
+        annotations.baseline_pipeline != proof.baseline.pipeline_id
+        or annotations.candidate_pipeline != proof.candidate.pipeline_id
+    ):
+        return {
+            "available": False,
+            "stale": True,
+            "reason": (
+                f"the annotation set judged {annotations.baseline_pipeline} against "
+                f"{annotations.candidate_pipeline}; this report compares "
+                f"{proof.baseline.pipeline_id} with {proof.candidate.pipeline_id}."
+            ),
+        }
+
+    try:
+        if annotation_budget is not None:
+            annotations = annotations.restrict_to_budget(annotation_budget)
+        judged = build_judged_delta(
+            annotations,
+            margin=margin,
+            seed=seed,
+            resamples=resamples,
+            caveats=_judged_caveats(workload, annotations, origin),
+        )
+    except (AnnotationError, StatsError) as exc:
+        return {"available": False, "reason": str(exc)}
+
+    payload = {"available": True, **judged.as_dict()}
+    # Only computable here because this demo happens to have gold. A workload that arrives
+    # unlabelled has no such check, which is exactly why the demo runs it: it is the evidence
+    # that the gold-free path lands where the labelled one does.
+    gold_delta = proof.delta_accuracy.point
+    payload["coverage_check"] = {
+        "gold_delta_accuracy": gold_delta,
+        "judged_interval_covers_gold": judged.delta.contains(gold_delta),
+        "judge_only_interval_covers_gold": judged.judge_only_delta.contains(gold_delta),
+        "gold_delta_minus_judged": gold_delta - judged.delta.point,
+        "note": (
+            "This demo has gold answers, so the gold-free estimate can be checked against the "
+            "labelled one. A workload that arrives unlabelled cannot run this check; it is "
+            "here as evidence that the estimator lands where it claims to."
+        ),
+    }
+    return payload
+
+
+def _judged_caveats(workload: WorkloadSpec, annotations: Any, origin: str) -> list[str]:
+    """What the judged estimate does not establish. Rendered verbatim wherever it appears."""
+    caveats = [
+        "The estimate is unbiased for the **strong grader's** mean, not for a perfect one. A "
+        "strong grader that is itself wrong moves the target, and the inverse-probability "
+        "weight cannot correct for that. What it does correct for, completely, is the cheap "
+        "judge.",
+        "The cascade's operating point was still calibrated against gold labels on the "
+        "calibration split. Only the *test* comparison here is label-free. Calibrating without "
+        "labels is UPGRADE_V3.md U3 and is not built yet.",
+    ]
+    if annotations.strong_grader.get("source") == "human":
+        caveats.append(
+            "The strong labels came from a human review queue, so they are as good as the "
+            "review was. Tokop records who produced them and nothing about their quality."
+        )
+    if origin != "recorded":
+        caveats.append(
+            "Both the answers and the judge verdicts come from the deterministic simulated "
+            "provider, not from a recording (DECISIONS.md D1). The judge's error rates are "
+            "invented parameters; the estimator's unbiasedness does not depend on them, which "
+            "is what `tests/test_judged_proof.py`'s adversarial judge demonstrates against an "
+            "injected judge rather than against these fixtures."
+        )
+    return caveats
+
+
 def build_report(
     *,
     protect_scarce: bool = False,
     seed: int = DEFAULT_SEED,
     resamples: int = 5000,
     margin: float | None = None,
+    annotation_budget: Decimal | None = None,
 ) -> ReportPayload:
     """Recompute every headline metric from the committed fixtures."""
     registry = load_registry()
@@ -784,6 +928,27 @@ def build_report(
         waterfall_arms, margin=effective_margin, seed=seed, resamples=resamples
     )
 
+    # ------------------------------------------------- 6a. the same proof, without gold
+    operating_point = {
+        "scorer": config.scorer,
+        "k": config.k,
+        "label": config.label,
+        "thresholds": list(search.thresholds),
+        "protect_scarce": protect_scarce,
+        "chosen_on": "calibration",
+    }
+    judged = _judged_block(
+        workload,
+        root,
+        operating_point,
+        proof,
+        margin=effective_margin,
+        seed=seed,
+        resamples=resamples,
+        annotation_budget=annotation_budget,
+        origin=origin,
+    )
+
     # ------------------------------------------------- 6b. the same proof, scorer by scorer
     #
     # Every configuration the calibration search considered, carried through to a full test
@@ -980,6 +1145,7 @@ def build_report(
             "git_sha": manifest.get("runs", [{}])[0].get("git_sha", "unknown"),
         },
         "proof": proof.as_dict(),
+        "judged": judged,
         "waterfall": [step.as_dict() for step in waterfall],
         "cascade": {
             **search.as_dict(),
@@ -1010,6 +1176,18 @@ def build_report(
                 for i, tier in enumerate(tiers)
             ],
             "reached_frontier_share": cascade_outcome.tier_shares(len(tiers))[-1],
+            # Which tier actually answered each task. `tokop annotate` needs it: the judged
+            # proof reviews the answer the cascade *returned*, and that is a different tier's
+            # output on every task. Small enough to carry (one short string per task) and the
+            # alternative is re-running the calibration search to re-derive it.
+            "resolved_tier_by_task": {
+                task_id: tiers[index]
+                for task_id, index in zip(
+                    cascade_outcome.task_ids,
+                    cascade_outcome.resolved_tier_index,
+                    strict=True,
+                )
+            },
             "scorer_choice": {
                 **config.as_dict(),
                 "chosen_on": "calibration",
@@ -1150,6 +1328,81 @@ def fitted_cascade(
         scorers[tier] = scorer
     thresholds = tuple(float(t) for t in payload["cascade"]["thresholds"])
     return ScorerBundle(scorers=scorers), thresholds, tiers
+
+
+def arms_for_annotation(protect_scarce: bool = False) -> dict[str, Any]:
+    """The two arms' answers on the test split, ready for a judge (UPGRADE_V3.md U1).
+
+    The baseline arm is one pipeline, so its answer is whatever it said. The candidate arm is a
+    cascade: the answer it *returned* is the output of whichever tier the router stopped at, and
+    that is a different tier on every task. Judging the frontier's answer on a task the cascade
+    answered at the cheap tier would grade a pipeline nobody is proposing to run.
+
+    Refuses rather than approximates when the operating point draws more than one sample per
+    task: which of k generations the scorer returned is the scorer's own decision, the judge
+    cassettes cover the first, and guessing here would judge an answer the cascade did not give.
+    """
+    payload = cached_report(protect_scarce)
+    cascade = payload["cascade"]
+    choice = cascade["scorer_choice"]
+    if int(choice["k"]) > 1:
+        raise ReportError(
+            f"the operating point is {choice['label']}, which returns one of "
+            f"{choice['k']} generations per task. Annotation judges the answer the cascade "
+            "returned, and only the first generation of each task has been judged. Record "
+            "judge calls for every sample, or annotate an operating point that draws one."
+        )
+
+    registry = load_registry()
+    workload = load_workload(repo_root() / "data/demo/workload.yaml")
+    bundle = build_dataset(
+        size=workload.dataset.size,
+        calibration_size=workload.dataset.calibration_size,
+        seed=workload.dataset.seed,
+    )
+    cascade_spec = workload.cascade(CANDIDATE_CASCADE)
+    tiers = list(cascade_spec.tiers)
+    root = _fixture_root()
+    manifest = _load_manifest(root)
+    store = CassetteStore(root / "cassettes")
+    snapshot = registry.snapshot(list(registry.roles.values()), date(2026, 9, 11))
+    origin = str(manifest.get("origin", "simulated"))
+
+    def replay(pipeline_id: str, tier: str) -> ReplayedRun:
+        return replay_run(
+            workload, registry, bundle, snapshot, store, pipeline_id, "test", tier, origin
+        )
+
+    baseline_run = replay(BASELINE_PIPELINE, tiers[-1])
+    by_tier = {tier: replay(cascade_spec.base_pipeline, tier) for tier in tiers}
+    outputs_by_tier = {
+        tier: dict(zip(run.task_ids, run.outputs, strict=True)) for tier, run in by_tier.items()
+    }
+    resolved: dict[str, str] = dict(cascade["resolved_tier_by_task"])
+    questions = {item.id: item.question for item in bundle.test}
+
+    return {
+        "task_ids": list(baseline_run.task_ids),
+        "questions": {task_id: questions[task_id] for task_id in baseline_run.task_ids},
+        "baseline_answers": dict(zip(baseline_run.task_ids, baseline_run.outputs, strict=True)),
+        "candidate_answers": {
+            task_id: outputs_by_tier[resolved[task_id]][task_id]
+            for task_id in baseline_run.task_ids
+        },
+        "candidate_tiers": {task_id: resolved[task_id] for task_id in baseline_run.task_ids},
+        "baseline_tier": tiers[-1],
+        "baseline_pipeline": BASELINE_PIPELINE,
+        "candidate_pipeline": CANDIDATE_CASCADE,
+        "operating_point": {
+            "scorer": choice["scorer"],
+            "k": choice["k"],
+            "label": choice["label"],
+            "thresholds": list(cascade["thresholds"]),
+            "protect_scarce": protect_scarce,
+            "chosen_on": choice["chosen_on"],
+        },
+        "origin": origin,
+    }
 
 
 def trace_for(task_id: str) -> dict[str, Any]:
@@ -1300,6 +1553,77 @@ METRICS_START = "<!-- metrics:start -->"
 METRICS_END = "<!-- metrics:end -->"
 
 
+def _judged_metrics_lines(payload: ReportPayload) -> list[str]:
+    """The same comparison without the answer key, for the README (UPGRADE_V3.md U1).
+
+    Generated like everything else between the markers: a workload without labels is the case
+    the upgrade exists for, so the number it would get belongs in the README rather than in a
+    paragraph claiming it works.
+    """
+    judged = payload["judged"]
+    if not judged.get("available"):
+        return [
+            "**Without the answer key:** not computed — "
+            + str(judged.get("reason", "no reason given")),
+            "",
+        ]
+    delta = judged["delta_accuracy"]
+    judge_only = judged["judge_only"]["delta_accuracy"]
+    annotation = judged["annotation"]
+    coverage = judged.get("coverage_check") or {}
+    lines = [
+        "**Without the answer key** — the same test split graded by "
+        f"{judged['judge']['model_id']} on every task, corrected from "
+        f"{annotation['n_annotated']} tasks re-graded by "
+        + (
+            "a human reviewer"
+            if judged["strong_grader"]["source"] == "human"
+            else str(judged["strong_grader"]["model_id"])
+        )
+        + ":",
+        "",
+        "| Estimate | Accuracy difference | 95% CI | What it cost |",
+        "| --- | --- | --- | --- |",
+        f"| The cheap judge alone | {judge_only['point'] * 100:+.1f} pt | "
+        f"{judge_only['low'] * 100:+.1f} to {judge_only['high'] * 100:+.1f} | "
+        f"${float(annotation['judge_cost_usd']):.4f} |",
+        f"| Corrected (active evaluation) | {delta['point'] * 100:+.1f} pt | "
+        f"{delta['low'] * 100:+.1f} to {delta['high'] * 100:+.1f} | "
+        f"${float(annotation['annotation_cost_usd']):.4f} for "
+        f"{annotation['annotated_share'] * 100:.0f}% of tasks |",
+    ]
+    if coverage:
+        lines.append(
+            f"| The answer key, for comparison | "
+            f"{coverage['gold_delta_accuracy'] * 100:+.1f} pt | — | "
+            "not available to a real unlabelled workload |"
+        )
+    lines += [
+        "",
+        f"- The judge's bias is {judged['judge_only']['bias_vs_corrected'] * 100:+.1f} points, "
+        "measured rather than assumed away. The correction removes it; a biased judge costs "
+        "interval width, never correctness.",
+    ]
+    if coverage:
+        lines.append(
+            "- The gold-free interval "
+            + ("covers" if coverage["judged_interval_covers_gold"] else "does **not** cover")
+            + f" the gold-graded difference of {coverage['gold_delta_accuracy'] * 100:+.1f} "
+            "points. That check exists only because this demo happens to have labels."
+        )
+    if annotation["strong_only_items_for_same_width"] is not None:
+        lines.append(
+            f"- Strong-only grading would need "
+            f"{annotation['strong_only_items_for_same_width']} items at "
+            f"${float(annotation['strong_only_cost_usd']):.4f} for the same interval width, "
+            f"against ${float(annotation['annotation_cost_usd']):.4f} spent here. The "
+            f"cost-optimal sampling rate at this judge quality is "
+            f"{annotation['cost_optimal_rate'] * 100:.0f}%."
+        )
+    lines.append("")
+    return lines
+
+
 def metrics_block(payload: ReportPayload) -> str:
     """The README's metrics block, generated from the report.
 
@@ -1368,6 +1692,7 @@ def metrics_block(payload: ReportPayload) -> str:
             else f"unverified for {', '.join(provenance['unverified_models'])}."
         ),
         "",
+        *_judged_metrics_lines(payload),
         f"<sub>{mark} "
         + (
             "simulated: these numbers are real engine output computed over simulated traces, "

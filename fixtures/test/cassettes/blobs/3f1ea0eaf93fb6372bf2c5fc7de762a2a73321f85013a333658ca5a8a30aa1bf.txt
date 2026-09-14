@@ -1,0 +1,16 @@
+Customer question: Work out the refund on a $129.00 climbing rope returned by a Summit member when there is no defect.
+
+Answer under review:
+<<<ANSWER
+Let me walk you through how this works so the number makes sense.
+
+There are really two things going on in your question, and it helps to separate them before putting them back together, because the handbook treats them in different places.
+
+The handbook says: "It is never charged on a defect return, and never charged to an Alpine member."
+
+Applying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. If anything about your situation differs from what I've assumed, the answer could change, so do let me know and I'll re-check it for you.
+
+I hope that's clear, and thank you again for your patience.
+
+Final answer: 103.20
+ANSWER>>>

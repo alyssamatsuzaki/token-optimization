@@ -1,0 +1,16 @@
+Customer question: A customer asks what Standard costs annually. How much?
+
+Answer under review:
+<<<ANSWER
+Great question, and I can see why this one is confusing.
+
+There are really two things going on in your question, and it helps to separate them before putting them back together, because the handbook treats them in different places.
+
+The handbook says: "This is the single most common source of disputed charges, so check the tier before quoting a fee."
+
+Applying that to your question: the relevant category and tier determine the outcome, and working through it step by step gives the result below. I've double-checked the arithmetic, but if your order details differ from what I have in front of me the figure may move.
+
+I hope that's clear, and thank you again for your patience.
+
+Final answer: 0.00
+ANSWER>>>
