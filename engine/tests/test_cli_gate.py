@@ -218,3 +218,72 @@ class TestTheCanaryGate:
         assert result.returncode == 0, result.stdout + result.stderr
         assert "CERTIFIABLE: no" in result.stdout
         assert "no real recorded traffic" in result.stdout
+
+
+class TestRecordRefusesBeforeItSpends:
+    """The gates in front of a charge, exercised through the real CLI (UPGRADE_V4.md M13).
+
+    No network call is made and none could be: every assertion here is about a refusal that
+    happens before any adapter is built. The key in the environment is a string, not a
+    credential — it exists only to get past the consent gate so the gate behind it can be seen.
+    """
+
+    def record(self, *args: str, **env_overrides: str) -> subprocess.CompletedProcess[str]:
+        if not TOKOP.exists():
+            pytest.skip("the tokop CLI is not installed; run make setup")
+        env = {**os.environ, "TOKOP_MODE": "live", **env_overrides}
+        return subprocess.run(
+            [str(TOKOP), "record", *args],
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=repo_root(),
+            timeout=600,
+        )
+
+    def test_replay_mode_refuses(self) -> None:
+        result = self.record(TOKOP_MODE="replay")
+        assert result.returncode == 2
+        assert "only runs with TOKOP_MODE=live" in result.stderr
+
+    def test_no_key_refuses(self) -> None:
+        env = dict(os.environ)
+        env.pop("ANTHROPIC_API_KEY", None)
+        result = subprocess.run(
+            [str(TOKOP), "record"],
+            capture_output=True,
+            text=True,
+            env=dict(env, TOKOP_MODE="live", RECORD_BUDGET_USD="25"),
+            cwd=repo_root(),
+            timeout=600,
+        )
+        assert result.returncode == 2
+        assert "ANTHROPIC_API_KEY is not set" in result.stderr
+
+    def test_a_key_without_a_budget_refuses(self) -> None:
+        """Setting RECORD_BUDGET_USD *is* the consent to spend. Its absence is a refusal."""
+        env = dict(os.environ)
+        env.pop("RECORD_BUDGET_USD", None)
+        result = subprocess.run(
+            [str(TOKOP), "record"],
+            capture_output=True,
+            text=True,
+            env=dict(env, TOKOP_MODE="live", ANTHROPIC_API_KEY="not-a-real-key"),
+            cwd=repo_root(),
+            timeout=600,
+        )
+        assert result.returncode == 2
+        assert "RECORD_BUDGET_USD is not set" in result.stderr
+
+    def test_an_underpowered_split_refuses_before_any_adapter_is_built(self) -> None:
+        """The gate that matters most: it fires after consent and before anything is priced.
+
+        The demo's test split is 200 tasks and needs 204 at its observed discordance, so this
+        is the real refusal rather than a contrived one. Recording it would spend the whole
+        budget to reproduce the "inconclusive" the repository already has.
+        """
+        result = self.record(ANTHROPIC_API_KEY="not-a-real-key", RECORD_BUDGET_USD="25")
+        assert result.returncode == 2, result.stdout + result.stderr
+        assert "204" in result.stdout + result.stderr
+        assert "--underpowered" in result.stderr
+        assert "inconclusive" in result.stderr

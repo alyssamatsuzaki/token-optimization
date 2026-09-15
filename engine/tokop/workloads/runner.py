@@ -29,6 +29,7 @@ from typing import Any, Protocol
 
 from tokop.adapters.anthropic import prewarm_request
 from tokop.adapters.base import AdapterError, LLMRequest, LLMResponse
+from tokop.core.budget import BudgetExceeded
 from tokop.core.pricing import PriceSnapshot, cost_disagreement
 from tokop.core.registry import Registry
 from tokop.core.usage import TokenUsage
@@ -111,6 +112,19 @@ def git_sha() -> str:
     except (OSError, subprocess.SubprocessError):
         return "unknown"
     return out.stdout.strip() if out.returncode == 0 else "unknown"
+
+
+def _stop_on_budget(outcomes: Sequence[Any]) -> None:
+    """Let a budget refusal end the run instead of becoming a split of failed tasks.
+
+    A provider failure is a task outcome and stays one: it counts as unsuccessful and shows in
+    the trace (non-negotiable 8). A cap being reached is not a model failure but the operator's
+    own limit, and absorbing it here would record every remaining task as unsuccessful, spend
+    the whole budget doing so, and hand the report an accuracy figure that describes a budget.
+    """
+    for outcome in outcomes:
+        if isinstance(outcome, BudgetExceeded):
+            raise outcome
 
 
 class Runner:
@@ -215,6 +229,7 @@ class Runner:
         responses = await asyncio.gather(
             *(self._call(request) for request in requests), return_exceptions=True
         )
+        _stop_on_budget(responses)
 
         tasks: list[TaskResult] = []
         for position, item in enumerate(items):
@@ -293,6 +308,7 @@ class Runner:
         outcomes = await asyncio.gather(
             *(self._call(request) for request in requests), return_exceptions=True
         )
+        _stop_on_budget(outcomes)
         calls: list[tuple[AnswerView, LLMRequest, LLMResponse]] = []
         for view, request, outcome in zip(views, requests, outcomes, strict=True):
             if isinstance(outcome, BaseException):
@@ -363,6 +379,7 @@ class Runner:
         outcomes = await asyncio.gather(
             *(self._call(request) for request in requests), return_exceptions=True
         )
+        _stop_on_budget(outcomes)
         calls: list[tuple[AnswerView, LLMRequest, LLMResponse]] = []
         for view, request, outcome in zip(views, requests, outcomes, strict=True):
             if isinstance(outcome, BaseException):

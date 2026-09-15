@@ -17,19 +17,32 @@
 | M10 Label-free calibration, priced checkability | **done** | `penalized-v1` pseudo-labels, B2c contract lever, negative-delta disclosure |
 | M11 Expiry and provenance | **done** | certificates with a canary and alpha spending, dataset provenance that refuses |
 | M12 Meaning and ties | **done** | `semantic-entropy-v1` with effective-k, `sep-v1` refuses, the report names every tie |
+| M13 One real recording | **blocked on a key** | the four gates are built and tested; no generation request has been made |
 
 ## Next
 
-**M13: U9**, and only if a self-hosted tier is actually in scope — a serving-cost basis that
-prices a hosted tier in GPU-hours over achieved throughput, so a cascade can mix an API tier with
-a hosted one honestly. Nothing in this build has a self-hosted tier, so the milestone is not
-started and would be a fake column if it were.
+**M13b: the recording itself.** Everything that decides whether it should happen is built,
+tested and green. What is missing is consent: `ANTHROPIC_API_KEY` and `RECORD_BUDGET_USD` are
+both unset here, there is no `.env`, and Tokop never sets either. `api.anthropic.com` is
+reachable from this environment — an unauthenticated POST to `/v1/messages` returns 401 — so the
+blocker is a decision, not a network.
 
-Still outstanding, and still the blocker for the same two things: **a live recording of a small
-split**. Every number turns from simulated to recorded, and the scorer comparison in D27 becomes
-a real comparison instead of a statement about the simulator's noise model. M9 adds a third: the
-judge's error rates are invented parameters, and only a recording can say what a real cheap judge
-costs in interval width.
+One command changes it:
+
+    ANTHROPIC_API_KEY=... RECORD_BUDGET_USD=25 TOKOP_MODE=live make record
+
+It will refuse before spending if the test split cannot produce a verdict, print what it expects
+to cost against the cap, ask, run ten tasks per step, re-project from their real answer lengths,
+refuse again if that lands over the cap, and only then record. Until it runs, every number in
+this repository is simulated and labelled so.
+
+**M14 is next after that, and does not wait for it** — the README restructure, `docs/METHOD.md`
+and the evidence grade are all doable on simulated fixtures, and the grade is what will read
+`recording` rather than `simulated` the moment M13b lands.
+
+**U9, the serving-cost basis**, is deferred rather than renumbered (D41). It prices a hosted tier
+in GPU-hours over achieved throughput so a cascade can mix an API tier with a hosted one. Nothing
+in this build has a self-hosted tier, so it would be a fake column.
 
 ## Proving the demo without its answer key (M9, UPGRADE_V3.md U1 and U2)
 
@@ -224,6 +237,77 @@ fallback that shares the constraint it is meant to survive is not a fallback.
 Both land in the README's generated block — the comparison with its effective-sample column, and
 the tie with its note and its missing fallback — so no M12 number in the README is typed by hand
 (non-negotiable 1), and `tokop report --check` fails the build when one moves.
+
+## A cap that was a cap, and a price before the first call (M13a, UPGRADE_V4.md M13)
+
+M13 is the milestone that turns every number here from a statement about a simulator into
+evidence. It splits at the money: everything that decides whether a recording should happen
+spends nothing and is finished; the recording itself needs a key and a budget nobody has set.
+
+**The finding that came first.** `SpendGuard` is written for per-call use — "Every adapter call
+passes through here twice", says its docstring — and nothing called it. A grep for `preflight(`
+over the engine returned its own definition, one call in `Recorder._step` passing a projection of
+zero under a comment claiming the live adapter checked each call, and nothing else. Measured
+before the fix, on the plan a real recording would run:
+
+    cap $0.01, step cost $0.0309, guard spent $0.0309, 25 calls paid for, no refusal
+
+At full size that is B0 on the test split as a single uninterruptible $9.88 purchase.
+`RECORD_BUDGET_USD` could be observed to have been passed; it could not stop anything. The same
+probe after the fix refuses after one call. A second defect sat behind it: all three of the
+runner's gathers use `return_exceptions=True`, which is right for a provider failure and wrong
+for a budget refusal — it would have spent the whole cap and then recorded every remaining task
+as unsuccessful, handing the report an accuracy figure that describes a budget. D42 has both.
+
+**What `tokop record` does now.** Four gates, then it asks:
+
+| Gate | What it refuses |
+| --- | --- |
+| Consent | No key, or no `RECORD_BUDGET_USD`. Tokop never sets either |
+| Power | A test split too small to produce a verdict. `--underpowered` overrides, and the override is stored in the run record and printed in the report |
+| Projection | A plan whose counted input alone costs more than the cap |
+| Pilot | Ten tasks per step, whose measured answer lengths re-project the total. Over the cap, it stops — and the pilot's calls are cassettes the next run replays, so they are not lost |
+
+**`tokop power`, on the demo's own fixtures:**
+
+    split as recorded            200 tasks
+    the arms disagree on         13 of them (6.5%)
+    accuracy difference          +0.5 points (candidate ahead on 7, behind on 6)
+    tasks needed                 204
+    204 tasks at the observed discordance, 4 more than the 200 in the split.
+
+Which is the same 4 the README's verdict line has been quoting all along, now available before a
+recording rather than after one. It prints its own caveat: a discordance rate measured on
+simulated arms whose errors are drawn independently is the optimistic case, and two real models
+that fail on the same hard tasks will be more concordant and need more tasks.
+
+**The projection is a band.** Input is counted — exactly, through the provider's counting
+endpoint, which M13 is the first caller of — with the cache modelled as the recorder runs it.
+Output cannot be counted before the call, so the ceiling prices every call at `max_tokens` and
+the floor at zero. The acceptance check is that the committed recording lands inside it, step by
+step:
+
+| Step | floor | recorded | ceiling |
+| --- | --- | --- | --- |
+| B2 calibration cheap | $0.35 | $0.50 | $0.85 |
+| B2 test frontier | $4.47 | $6.37 | $9.47 |
+| B0 test frontier | $8.72 | $9.88 | $18.72 |
+| B1 test frontier | $0.98 | $2.13 | $10.98 |
+| **whole plan** | **$21.15** | **$28.43** | **$54.75** |
+
+Getting there needed one correction worth remembering: subtracting a base-counter count of the
+cacheable prefix from an exact count of the whole request books the ~30% tokenizer-generation gap
+(D3, D26) as text that changes every call, and prices thousands of cached tokens at the full
+input rate. The first projection read $42.72 against a recorded $28.43. The base counter now
+supplies the cacheable *share* and the exact count supplies the magnitude; the projected prefix
+then reproduces the recording's own cache-write figures to within one token on every step.
+
+**What is checkable now that was not.** `fixtures/*/manifest.json` carries a `cassette_digest`
+over every cassette and blob, and `tokop fixtures-check` compares it to the bytes on disk —
+cassette keys hash the request, so a key set alone cannot notice an edited answer. And the resume
+path is demonstrated on the money rather than assumed: a recording stopped at its cap, resumed
+under a larger one, pays for exactly the remainder, with the two runs together paying for the
+step once.
 
 ## Demo result (simulated test fixtures, 200-task test split)
 

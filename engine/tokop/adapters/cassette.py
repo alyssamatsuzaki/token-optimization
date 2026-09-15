@@ -211,6 +211,25 @@ class CassetteStore:
         self.put(cassette)
         return cassette
 
+    def digest(self) -> str:
+        """A content hash over every cassette and blob in the store.
+
+        Committed into the manifest so that the recording a repository *claims* to hold can be
+        checked against the bytes it actually holds. Cassette keys hash the request, not the
+        response, so a key set alone would not notice an edited answer; this covers both, plus
+        the blob store that large payloads are spilled into.
+        """
+        digest = hashlib.sha256()
+        for key in self.keys():
+            digest.update(key.encode("utf-8"))
+            digest.update(self.path_for(key).read_bytes())
+        blobs = self.blob_dir
+        if blobs.exists():
+            for blob in sorted(blobs.glob("*")):
+                digest.update(blob.name.encode("utf-8"))
+                digest.update(blob.read_bytes())
+        return digest.hexdigest()
+
     def keys(self) -> list[str]:
         if not self.root.exists():
             return []

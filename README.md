@@ -121,7 +121,8 @@ make verify    # every check in SPEC.md section 10, in order
 tokop report   # recompute every headline metric from the fixtures
 tokop lint B0  # the prompt lint over a pipeline
 tokop prove    # exits nonzero unless the verdict is non-inferior — a CI gate
-make record    # stops before spending — the live path has never run (DECISIONS.md D24)
+make record    # four gates, then it records — needs a key and RECORD_BUDGET_USD
+tokop power    # how many test tasks a conclusive verdict needs, before recording any
 tokop build-test-fixtures   # rebuild fixtures/test/ from the simulator; spends nothing
 ```
 
@@ -474,9 +475,17 @@ engine is what would make savings billable — you cannot invoice against "it se
   whose cost interval overlaps the cheapest instead of ranking them, and computes uniform
   exploration weights over the tie — but nothing in this build explores online, so those weights
   are tested and never spent.
-- **No live recording has ever run.** The live path is wired and tested up to the request, but
-  this build had no credentials and no budget, so every number here is simulated and labelled
-  simulated. `make record` stops before spending. `DECISIONS.md` D24.
+- **No live recording has ever run.** Every number here is simulated and labelled simulated,
+  because this build has no API key and no `RECORD_BUDGET_USD` — and Tokop never sets either.
+  What stands between the command and a recording is now consent rather than a stub: `make
+  record` sizes the test split, prints what it expects to cost against the cap, asks, runs ten
+  tasks per step, re-projects from their real answer lengths, and records. `DECISIONS.md` D24
+  and D41.
+- **The spend cap was not a cap until M13.** `SpendGuard` was written to be called before every
+  call and nothing called it; a run cap of $0.01 on a 24-task step spent $0.0309 and reported it
+  afterwards. It is now charged per call, on the calls that actually reach a provider, and a
+  refusal stops the recording instead of being recorded as a split of failed tasks.
+  `DECISIONS.md` D42.
 
 ## Roadmap
 
@@ -493,9 +502,14 @@ In rough order, from the exclusions this version made on purpose:
    statistically tied for cheapest~~ — shipped in M12; see the two sections above. What is still
    missing is a recording to measure them on, which is what would make the effective-sample
    column interesting.
-5. **An upload wizard** for YAML, JSONL or CSV workloads.
-6. **LangGraph trace import** — the pipeline spec already uses nodes, edges and shared state.
-7. **Experiments**: semantic caching with its own false-hit evaluation, and TRIM-style output
+5. **One real recording** — half shipped in M13. The gates that decide whether it should happen
+   are built and tested: a power estimate that refuses a split too small to conclude, a counted
+   projection printed against the cap, a ten-task pilot that re-projects from real answer
+   lengths, and a cap that is now enforced per call. The recording itself needs a key and a
+   budget; see "Where the tasks came from" above for what it would change.
+6. **An upload wizard** for YAML, JSONL or CSV workloads.
+7. **LangGraph trace import** — the pipeline spec already uses nodes, edges and shared state.
+8. **Experiments**: semantic caching with its own false-hit evaluation, and TRIM-style output
    compression.
 
 Deliberately out of scope, and staying that way: browser automation of consumer AI apps, reuse of

@@ -345,10 +345,14 @@ real verified prices, so it is a projection and not a quote — real answers hav
 | Recording | Cost |
 |---|---|
 | The committed fixture set replicated exactly (sample depth 5, for the scorer comparison) | **$28.43** |
-| The same matrix at sample depth 1 | **$16.50** |
+| The same matrix at sample depth 1 | **$16.61** |
 | …of which B0 on the frontier model alone | $9.88 |
 | Entailment judgements (830 calls) | $0.25 |
 | The annotation run (cheap judge on 400, strong grader on the drawn subset) | ~$1.24 |
+
+*Corrected during M13:* the depth-1 figure read $16.50 when this plan was approved, from dividing
+each run's recorded cost by its sample depth. The engine's own `single_sample_cost_usd` sums to
+**$16.6071**; the difference is the pre-warm call, which is not divided. Nothing else moves.
 
 **Acceptance:** `tokop report` shows a recording-backed result; the provenance gate stops refusing
 on the real-traffic ground; the manifest-hash check is in `make verify`; and if the verdict is
@@ -478,7 +482,7 @@ distribution reasons, with the divergence and the uncovered region named.
 | Ambiguity | Choice |
 |---|---|
 | How much of the 300-item set to record if the budget cannot cover it (UPGRADE_V4 M13) | Record the **test split at the size `tokop power` demands** and calibration with what is left, floor 60. The verdict rests on the test split; calibration only picks thresholds and degrades gracefully |
-| Whether to record calibration and test at different depths (same) | **Yes, and different sample depths too:** depth 1 everywhere, which drops the k=3/k=5 scorer grid from the recording and takes the matrix from $28.43 to $16.50. UPGRADE_V4 section 5 says two scorers are enough until a recording can tell them apart; a 5x matrix to compare scorers is exactly the spend that buys the least |
+| Whether to record calibration and test at different depths (same) | **Yes, and different sample depths too:** depth 1 everywhere, which drops the k=3/k=5 scorer grid from the recording and takes the matrix from $28.43 to $16.61. UPGRADE_V4 section 5 says two scorers are enough until a recording can tell them apart; a 5x matrix to compare scorers is exactly the spend that buys the least |
 | What to cut first if even that does not fit | **Not B0.** It is 60% of the bill and it is also the thing every saving is measured against. Scale n down instead, and let `power` say whether what is left can still conclude |
 | Graph as a new spec version or a superset (UPGRADE_V4 M16) | **Superset**, conditional on the byte-identical test passing. `PipelineSpec.steps` empty means today's single call. If byte-identical fails, fall back to a parallel `GraphSpec` and log it |
 | Which second workload to ship (M15) | A **real, permissively-licensed, gold-labelled set** if one can be fetched and its licence checked at M15 time; otherwise a second *program-generated* workload in a different shape (structured extraction, JSON-field answers), shipped with its provenance saying exactly that. The acceptance check is about the plumbing either way, and a second simulated workload must not be described as a second piece of evidence |

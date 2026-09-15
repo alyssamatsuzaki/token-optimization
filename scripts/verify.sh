@@ -82,6 +82,14 @@ if have engine/.venv/bin/pytest && [ -n "$(find engine/tests -name 'test_*.py' 2
       tests/test_entailment.py::TestSepRefuses"
   run "no greedy pick on a tie (U7)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
       tests/test_ties.py::TestTheAcceptanceCheck"
+  # M13. The cap was never enforced anywhere until this milestone and the projection is what
+  # an operator approves a spend against, so both are release blockers rather than unit tests.
+  run "the cap stops a recording (M13)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
+      tests/test_spend_cap.py::TestTheCapStopsARecording \
+      tests/test_spend_cap.py::TestReplayedCallsAreFree"
+  run "the projection brackets the bill (M13)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
+      tests/test_recording_projection.py::TestTheProjectionBracketsTheRealCost \
+      tests/test_recording_projection.py::TestPower"
 else
   skip "pytest + coverage" "no tests yet"
   skip "adversarial judge (U1)" "no tests yet"
@@ -93,6 +101,8 @@ else
   skip "collapse refusal (U8)" "no tests yet"
   skip "meaning clustering (U6)" "no tests yet"
   skip "no greedy pick on a tie (U7)" "no tests yet"
+  skip "the cap stops a recording (M13)" "no tests yet"
+  skip "the projection brackets the bill (M13)" "no tests yet"
 fi
 
 # ---------------------------------------------------------------- 3. web build

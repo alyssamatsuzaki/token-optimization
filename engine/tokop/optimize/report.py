@@ -1792,6 +1792,9 @@ def build_report(
                 manifest.get("base_token_counter", report_counter.name) == report_counter.name
             ),
             "git_sha": manifest.get("runs", [{}])[0].get("git_sha", "unknown"),
+            # Whether this recording was made over the power refusal. False on a fixture set
+            # nobody overrode anything to build, which is every set this repository has shipped.
+            "recorded_underpowered": bool(manifest.get("underpowered", False)),
         },
         "proof": proof.as_dict(),
         "judged": judged,

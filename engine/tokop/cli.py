@@ -10,7 +10,8 @@ import typer
 
 from tokop import recording_state
 from tokop.core.registry import OPENROUTER_MODELS_URL, load_registry
-from tokop.paths import repo_root
+from tokop.paths import fixtures_dir, repo_root
+from tokop.recorder import PILOT_TASKS
 
 if TYPE_CHECKING:  # pragma: no cover - import kept out of the startup path
     from tokop.optimize.report import ReportPayload
@@ -68,7 +69,6 @@ def build_test_fixtures_cmd(
     which stamps the rebuilding machine's tokenizer over the one the fixtures were built with
     (DECISIONS.md D26).
     """
-    from tokop.paths import fixtures_dir
     from tokop.recorder import build_test_fixtures
     from tokop.workloads.demo.dataset import build as build_dataset
     from tokop.workloads.spec import load_workload
@@ -98,16 +98,42 @@ def build_test_fixtures_cmd(
 def record(
     workload: str = typer.Option("data/demo/workload.yaml", "--workload"),
     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt."),
+    underpowered: bool = typer.Option(
+        False,
+        "--underpowered",
+        help="Record a split too small to conclude. Stored in the run record and reported.",
+    ),
+    pilot_tasks: int = typer.Option(PILOT_TASKS, "--pilot-tasks", help="Tasks per pilot step."),
 ) -> None:
     """Record a workload against live providers. Capped by RECORD_BUDGET_USD.
 
-    Refuses to start without a key and an explicit budget, prints its projection before
-    spending anything, and aborts if the projection exceeds the remaining budget. An
-    interrupted recording resumes: identical requests reuse their cassette, so nothing is
-    paid for twice.
+    Four gates stand between this command and a charge, in this order:
+
+    1. **Consent.** A key and an explicit budget. Tokop never sets either.
+    2. **Power.** A test split too small to produce a conclusive verdict is refused, because
+       recording one spends the whole budget and returns "inconclusive".
+    3. **A projection**, counted before the first call, printed against the cap.
+    4. **A pilot** of a few tasks per step, which replaces the projected output length with a
+       measured one and aborts if the refined figure exceeds the cap (SPEC.md section 6).
+
+    Then it asks. An interrupted recording resumes: identical requests reuse their cassette, so
+    nothing is paid for twice, and the cap is enforced per call rather than per step.
     """
-    from tokop.recorder import RecordingStopped, require_live_consent
+    import asyncio as _asyncio
+    from datetime import date
+
+    from tokop.core.budget import BudgetExceeded, SpendGuard
+    from tokop.core.registry import load_registry
+    from tokop.recorder import (
+        Recorder,
+        RecordingStopped,
+        project_from_pilot,
+        record_live,
+        require_live_consent,
+    )
     from tokop.settings import Mode, get_settings
+    from tokop.workloads.demo.dataset import build as build_dataset
+    from tokop.workloads.spec import load_workload
 
     settings = get_settings()
     if settings.mode != Mode.LIVE:
@@ -118,23 +144,156 @@ def record(
         )
         raise typer.Exit(2)
 
+    # ------------------------------------------------------------------ 1. consent
     try:
         budget = require_live_consent(settings)
     except RecordingStopped as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(2) from exc
 
+    spec = load_workload(repo_root() / workload)
+    registry = load_registry()
+    bundle = build_dataset()
     typer.echo(f"workload: {workload}")
     typer.echo(f"budget:   ${budget} (RECORD_BUDGET_USD)")
-    typer.echo(
-        "\nThe live recording path is wired: `Recorder._adapter()` builds this provider's real "
-        "HTTP adapter behind the cassette recorder, and tests/test_recorder_wiring.py pins that "
-        "down. What has never happened is a request — this build had no credentials and no "
-        "budget (DECISIONS.md D1 and D24). Rather than spend your money exercising a path for "
-        "the first time, `tokop record` stops here and points you at the fixture builder."
+    typer.echo("")
+
+    # ------------------------------------------------------------------ 2. power
+    estimate = _power_estimate(spec)
+    if estimate is None:
+        typer.echo(
+            "No prior run to size this split from, so nothing here knows whether "
+            f"{len(bundle.test)} test tasks can produce a verdict. Build the simulated fixture "
+            "set first (`tokop build-test-fixtures`), or pass --underpowered to record a split "
+            "nobody has sized.",
+            err=True,
+        )
+        if not underpowered:
+            raise typer.Exit(2)
+    else:
+        typer.echo(f"  power: {estimate.display}")
+        short = estimate.required_n is not None and len(bundle.test) < estimate.required_n
+        if short and not underpowered:
+            typer.echo(
+                f"\nThe test split has {len(bundle.test)} tasks and needs "
+                f"{estimate.required_n:,}. Recording it would spend the budget and return "
+                "'inconclusive':\nthe most expensive outcome available here. Enlarge the split, "
+                "or pass --underpowered to record it anyway.",
+                err=True,
+            )
+            raise typer.Exit(2)
+        if short:
+            typer.echo(
+                "  --underpowered: recording a split that cannot conclude. Stored in the run "
+                "record and printed in the report."
+            )
+    typer.echo("")
+
+    # ------------------------------------------------------------------ 3. the projection
+    guard = SpendGuard(run_cap=budget, daily_cap=settings.daily_budget_usd)
+    recorder = Recorder(
+        spec,
+        registry,
+        bundle,
+        registry.snapshot(list(registry.roles.values()), date.today()),
+        fixtures_dir() / "demo" / "cassettes",
+        provider="anthropic",
+        origin="live",
+        guard=guard,
     )
-    typer.echo("\n  tokop build-test-fixtures    # deterministic, spends nothing")
-    raise typer.Exit(3)
+    projection = _asyncio.run(recorder.project(budget))
+    for line in projection.lines():
+        typer.echo(line)
+    if projection.exceeds_cap:
+        raise typer.Exit(2)
+    typer.echo("")
+
+    if not yes and not typer.confirm(f"Spend up to ${budget} recording {spec.id}?"):
+        typer.echo("Nothing was spent.")
+        raise typer.Exit(1)
+
+    # ------------------------------------------------------------------ 4. the pilot
+    typer.echo(f"\npilot: {pilot_tasks} tasks per step")
+    try:
+        outcome = _asyncio.run(recorder.pilot(pilot_tasks))
+    except BudgetExceeded as exc:
+        _echo_cap_reached(exc, guard)
+        raise typer.Exit(3) from exc
+    refined = project_from_pilot(
+        outcome.cost, outcome.tasks, outcome.output_tokens, outcome.total_tasks, budget
+    )
+    typer.echo(refined.describe())
+    if not refined.within_budget:
+        typer.echo(
+            "\nRefusing to continue: the pilot's own answers project a total above the cap. "
+            "The pilot's calls are\ncassettes, so they are not lost — raise the cap or shrink "
+            "the split and run again.",
+            err=True,
+        )
+        raise typer.Exit(2)
+
+    # ------------------------------------------------------------------ 5. the recording
+    typer.echo("")
+    try:
+        report = record_live(
+            spec,
+            registry,
+            bundle,
+            fixtures_dir() / "demo",
+            guard=guard,
+            provider="anthropic",
+            underpowered=underpowered,
+        )
+    except BudgetExceeded as exc:
+        _echo_cap_reached(exc, guard)
+        raise typer.Exit(3) from exc
+    for step in report.steps:
+        typer.echo(f"  {step.summary()}")
+    typer.echo(f"\n{report.cassette_count:,} cassettes, ${report.total_cost:.4f} spent")
+    if report.stopped:
+        typer.echo(f"\nstopped: {report.stopped}", err=True)
+        raise typer.Exit(3)
+    typer.echo("\nNext: tokop prove, then tokop report --write-readme")
+
+
+def _echo_cap_reached(exc: Any, guard: Any) -> None:
+    """The cap did its job. Say what was bought, and that none of it is lost.
+
+    Reaching the cap is not a failure of the recording — it is the one outcome the cap exists to
+    produce, and the difference between it and a crash is whether the operator knows the money
+    already spent bought something they can resume from.
+    """
+    typer.echo(f"\n{exc}", err=True)
+    typer.echo(
+        f"\nStopped at the cap after spending ${guard.run_spend:.4f}. Every call that was paid "
+        "for is a cassette:\nraise RECORD_BUDGET_USD and run `make record` again, and it will "
+        "replay them for nothing and\ncarry on from where it stopped.",
+        err=True,
+    )
+
+
+def _power_estimate(spec: Any) -> Any:
+    """Size the test split from whatever run this build already has, or None if it has none.
+
+    Absence is checked rather than caught: a repository with no fixtures is a state this command
+    has to describe, and wrapping the report build in an ``except`` would swallow the failures
+    that mean something is actually broken.
+    """
+    from tokop.core.stats import PowerEstimate
+    from tokop.optimize.report import build_report
+
+    if not any((fixtures_dir() / kind / "manifest.json").exists() for kind in ("demo", "test")):
+        return None
+    payload = build_report()
+    proof = payload["proof"]
+    counts = proof["mcnemar"]
+    return PowerEstimate.from_counts(
+        baseline_only=int(counts["baseline_only"]),
+        candidate_only=int(counts["candidate_only"]),
+        n=int(proof["candidate"]["n"]),
+        margin=float(spec.margin),
+        source=f"{proof['baseline']['pipeline']} against {proof['candidate']['pipeline']}",
+    )
 
 
 @app.command()
@@ -167,7 +326,6 @@ def annotate(
 
     from tokop.annotate import AnnotationStopped, build_demo_annotations, merge_queue_results
     from tokop.optimize.annotation import AnnotationError, AnnotationSet, annotations_path
-    from tokop.paths import fixtures_dir
     from tokop.recording_state import describe
 
     if workload != "data/demo/workload.yaml":
@@ -539,6 +697,77 @@ def _echo_scorer_comparison(payload: ReportPayload) -> None:
             )
         typer.echo(f"  {ties['note']}")
         typer.echo(f"  {ties['fallback_reason']}")
+
+
+@app.command()
+def power(
+    workload: str = typer.Option("data/demo/workload.yaml", "--workload"),
+    margin: float = typer.Option(
+        0.0, "--margin", help="Non-inferiority margin in accuracy POINTS. 0 uses the workload's."
+    ),
+    alpha: float = typer.Option(0.05, "--alpha", help="Two-sided significance level."),
+) -> None:
+    """How many test tasks a conclusive verdict needs, before any of them are recorded.
+
+    Sizing the split is the one calculation that belongs before the money moves. A split too
+    small to conclude spends the whole budget and returns "inconclusive", which is the most
+    expensive outcome available: nothing is proven and the budget is gone.
+
+    The discordance rate comes from a run that already happened, named in the output. Read the
+    caveat with it — a rate measured on simulated arms is the optimistic case.
+    """
+    from tokop.core.stats import PowerEstimate
+    from tokop.optimize.report import build_report
+
+    payload = build_report()
+    proof = payload["proof"]
+    counts = proof["mcnemar"]
+    effective_margin = margin / 100 if margin else float(payload["workload"]["margin"])
+    simulated = bool(payload["provenance"]["is_test_data"])
+    estimate = PowerEstimate.from_counts(
+        baseline_only=int(counts["baseline_only"]),
+        candidate_only=int(counts["candidate_only"]),
+        n=int(proof["candidate"]["n"]),
+        margin=effective_margin,
+        alpha=alpha,
+        source=f"{proof['baseline']['pipeline']} against {proof['candidate']['pipeline']} on "
+        f"the {payload['provenance']['fixture_source']} fixtures",
+    )
+
+    typer.echo(f"workload: {workload}")
+    typer.echo(f"measured on: {estimate.source}")
+    typer.echo("")
+    typer.echo(f"  split as recorded            {estimate.observed_n:,} tasks")
+    typer.echo(
+        f"  the arms disagree on         {estimate.discordant} of them "
+        f"({(estimate.p10 + estimate.p01) * 100:.1f}%)"
+    )
+    typer.echo(
+        f"  accuracy difference          {estimate.delta_hat * 100:+.1f} points "
+        f"(candidate ahead on {round(estimate.p01 * estimate.observed_n)}, "
+        f"behind on {round(estimate.p10 * estimate.observed_n)})"
+    )
+    typer.echo(f"  margin                       {effective_margin * 100:.0f} points")
+    typer.echo(f"  alpha                        {alpha}")
+    typer.echo("")
+    if estimate.required_n is None:
+        typer.echo("  tasks needed                 none would settle it")
+    else:
+        typer.echo(f"  tasks needed                 {estimate.required_n:,}")
+    typer.echo(f"  {estimate.display}")
+    typer.echo("")
+    if simulated:
+        typer.echo(
+            "This rate was measured on simulated arms whose errors are drawn independently,\n"
+            "which is the optimistic case: two real models tend to fail on the same hard tasks,\n"
+            "which makes them more concordant and the split larger. Treat the number as a floor."
+        )
+    if not estimate.is_sufficient and estimate.required_n is not None:
+        typer.echo(
+            f"\n`tokop record` refuses a test split below {estimate.required_n:,} tasks. "
+            "Override with --underpowered;\nthe override is stored in the run record and "
+            "printed in the report."
+        )
 
 
 @app.command()
@@ -931,7 +1160,6 @@ def _check_annotations() -> list[tuple[str, bool | None, str]]:
     either the parser changed or the file was edited, and both are defects.
     """
     from tokop.optimize.annotation import AnnotationError, AnnotationSet, annotations_path
-    from tokop.paths import fixtures_dir
 
     checks: list[tuple[str, bool | None, str]] = []
     for kind in ("demo", "test"):
@@ -997,7 +1225,6 @@ def _check_fixture_dirs() -> list[tuple[str, bool | None, str]]:
     import json
 
     from tokop.adapters.cassette import CassetteStore
-    from tokop.paths import fixtures_dir
 
     checks: list[tuple[str, bool | None, str]] = []
     for kind in ("demo", "test"):
@@ -1022,6 +1249,35 @@ def _check_fixture_dirs() -> list[tuple[str, bool | None, str]]:
             checks.append((f"fixtures/{kind}: manifest present", False, f"no {manifest_path.name}"))
             continue
         manifest = json.loads(manifest_path.read_text())
+
+        # What the manifest says this recording is, against the bytes on disk. Cassette keys
+        # hash the *request*, so a key set alone cannot notice an edited answer; the digest
+        # covers every cassette and blob. A recording nobody can check is a recording that has
+        # to be taken on trust, which is the opposite of the point (UPGRADE_V4.md M13).
+        declared = manifest.get("cassette_digest")
+        count = manifest.get("cassette_count")
+        if not declared:
+            checks.append(
+                (
+                    f"fixtures/{kind}: the manifest carries a cassette digest",
+                    False,
+                    "it does not; rebuild with `tokop build-test-fixtures`",
+                )
+            )
+        else:
+            actual = store.digest()
+            checks.append(
+                (
+                    f"fixtures/{kind}: the manifest matches the cassettes on disk",
+                    actual == declared and count == len(all_cassettes),
+                    f"{len(all_cassettes)} cassettes, digest {actual[:12]}"
+                    + (
+                        ""
+                        if actual == declared
+                        else f" but the manifest claims {str(declared)[:12]} ({count} cassettes)"
+                    ),
+                )
+            )
         runs = manifest.get("runs") or []
         missing: list[str] = []
         for run in runs:

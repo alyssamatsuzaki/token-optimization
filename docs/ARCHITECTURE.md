@@ -85,7 +85,11 @@ long-run mean — neither can be checked by inspecting one call.
 `o200k_base` cannot be loaded, the fallback says so in the string that reaches the UI rather than
 producing a plausible number silently.
 
-`budget.py` refuses a call that would breach a cap, and never raises one.
+`budget.py` refuses a call that would breach a cap, and never raises one. Since M13 something
+actually calls it: `recorder.GuardSink` prices every call that is about to reach a provider,
+asks the guard, and charges it what the call cost. The hook fires on a cassette *miss* only, so
+a replayed call is neither refused near the cap nor billed to it — which is what lets a
+recording stopped at its cap replay everything it already paid for (DECISIONS.md D42).
 
 ### `adapters/` — the wire, written by hand
 
@@ -251,6 +255,25 @@ amplifies whichever option won the last sample.
 `make demo` and the whole test suite run in replay. Live mode needs both a key and an explicit
 `RECORD_BUDGET_USD` — setting that variable *is* the consent to spend, and Tokop never sets it.
 
+### The four gates in front of a charge
+
+`recorder.py` holds the recording plan as data — `Recorder.plan()` — so one list drives both
+what is projected and what is run, and a projection cannot describe a recording the recorder
+would not make. `tokop record` walks four gates before the first generation request:
+
+1. **Consent.** A key and a budget. `require_live_consent` refuses without both.
+2. **Power.** `core/stats.PowerEstimate` sizes the test split a conclusive McNemar verdict needs
+   from the discordance a previous run observed. Recording a split that cannot conclude spends
+   the whole budget and returns "inconclusive"; `--underpowered` overrides and is recorded.
+3. **The projection.** `Recorder.project()` renders one request per planned step and counts it —
+   through the provider's own counting endpoint where there is one — then prices the plan as a
+   band: the floor charges no output, the ceiling charges `max_tokens` on every call. The cache
+   is modelled as the recorder runs it, the pre-warm writing the static prefix and every later
+   call reading it.
+4. **The pilot.** `Recorder.pilot()` runs a few tasks of every step and `project_from_pilot`
+   re-projects from their measured answer lengths (SPEC.md section 6 step 1). Its calls are
+   cassettes the full run replays, so the pilot is not a separate purchase.
+
 ## The ledger
 
 SQLite, one file, single user. Raw usage is stored next to the normalized buckets on every call,
@@ -271,7 +294,7 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
 
 ## Testing
 
-- **709 engine tests**, 91% line coverage on `core/` and `optimize/`
+- **731 engine tests**, 91% line coverage on `core/` and `optimize/`
   (`pytest --cov=tokop/core --cov=tokop/optimize`).
 - **45 Playwright tests** against the production build in replay mode.
 - **Exit-code tests for `tokop prove`** run through a subprocess, because an exit code asserted
@@ -297,8 +320,13 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
 - A **meaning-clustering test** over paraphrase pairs each verified to be a case exact match
   actually misses, a **refusal test** for `sep-v1`, and a **tie test** that fails if the report
   ever ranks configurations whose cost intervals overlap.
-- `make verify` runs all twenty-one checks in SPEC.md section 10 plus the UPGRADE_V3.md
-  acceptance checks, in order, and prints `VERIFY PASSED (21 checks)`.
+- A **spend-cap test** that stops a recording partway through a step, bills a replayed call
+  nothing, and shows a run stopped at its cap resuming to pay for exactly the remainder — with
+  the two runs together paying for the step once.
+- A **projection test** that brackets the committed recording: every step's real cost has to
+  land between the floor and the ceiling the projection would have shown before it ran.
+- `make verify` runs all twenty-three checks in SPEC.md section 10 plus the UPGRADE_V3.md and
+  UPGRADE_V4.md acceptance checks, in order, and prints `VERIFY PASSED (23 checks)`.
 
 ## What is simulated in this build
 

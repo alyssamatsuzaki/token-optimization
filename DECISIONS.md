@@ -149,13 +149,16 @@ in detail:
 adapter for any provider that is not `simulated`, wraps it in `RecordingAdapter` so an
 interrupted run resumes from its cassettes, and `tests/test_recorder_wiring.py` pins that down
 without making a call. What has never happened is a request. This build had no API credentials
-and no `RECORD_BUDGET_USD`, and Tokop never sets a budget for you. So `tokop record` stops with
-exit 3 and points at `tokop build-test-fixtures` instead: the conservative option is to refuse a
+and no `RECORD_BUDGET_USD`, and Tokop never sets a budget for you. So `tokop record` stopped with
+exit 3 and pointed at `tokop build-test-fixtures` instead: the conservative option is to refuse a
 path that has never once been exercised, rather than to spend someone's money finding out.
 Consequences: `fixtures/demo/` cannot be produced in this build, `recording-state` reports
-`unrecorded` and every screen labels its numbers simulated, and `make record` is a stub that
-explains itself. Removing this decision means setting a key and a budget and running the
-recorder against a small split first.
+`unrecorded` and every screen labels its numbers simulated.
+
+**Superseded in part by D41.** `tokop record` is no longer a stub: it runs its four gates and
+records. What has still never happened is a generation request, because this environment has no
+key — the reason is now the absence of consent rather than a refusal in the code. Everything
+else in this entry stands.
 
 *User workloads.* `optimize/report.py` computes over the demo workload alone: the dataset,
 graders and pipeline definitions are the demo's. `tokop prove --workload` and the
@@ -831,3 +834,96 @@ report refusing to rank configurations the data cannot separate.
 every other rate in `workloads/demo/`. The clustering, the charging, the effective-k measurement
 and the tie logic are real code over recorded calls; what a real entailment model would merge on
 a real workload is not something these fixtures can say.
+
+## D41 — M13a: what the upgrade's critiques got right, and what the code already had
+
+UPGRADE_V4.md section 1 asks for every critique claim to be checked against the repository
+before any of it is acted on, and section 3.6 says the code wins when they disagree. Three
+corrections, logged here so the next reader does not re-derive them:
+
+1. **The Anthropic token-counting endpoint was already written.** `AnthropicAdapter.count_tokens`
+   posts to `/v1/messages/count_tokens` and `tests/test_adapters.py` exercises it. What was
+   missing is a caller: `grep` over the engine found the test and nothing else. M13 wires it into
+   the projection, which is the one place exactness is worth a round trip.
+2. **The workload coupling is worse than "no dataset ingestion" suggests.** `DatasetSpec` names a
+   *generator*, and `runner.py`, `report.py`, `recorder.py` and `annotate.py` import
+   `workloads.demo.*` directly — several of them lazily, from inside functions, where a source
+   scan will not see them. M15 is a refactor with a command on top, and its isolation test has to
+   run at import time rather than read the source.
+3. **The file, MCP and tool-definition caps described in one critique exist nowhere here.** They
+   belong to a different tool. Nothing was added and nothing was defended against.
+
+**Milestone numbering.** The UPGRADE_V3.md plan mapped its last milestone to repo M13 (U9, a
+serving-cost basis for a self-hosted tier). It was never started: nothing in this build has a
+self-hosted tier. UPGRADE_V4.md does not list U9 at all, so M13 is the recording and U9 is
+deferred rather than renumbered. Same reasoning as D28 — the numbering follows what was built.
+
+**Acceptance checks for milestones SPEC.md does not list.** CLAUDE.md closes a milestone when its
+acceptance check in SPEC.md section 11 passes, and section 11 stops at M7. Since M9 the de-facto
+rule has been that each upgrade milestone adds a named check to `scripts/verify.sh`. Written down
+here so it stops being implicit: M13 adds "the cap stops a recording (M13)" and "the projection
+brackets the bill (M13)".
+
+**What `tokop record` does now, superseding D24.** It no longer stops with exit 3. It runs four
+gates and then records: consent (a key and an explicit budget, neither of which Tokop ever sets),
+the power of the test split, a counted projection printed against the cap, and a ten-task pilot
+whose measured output length refines that projection (SPEC.md section 6 step 1). Then it asks.
+The live path still has never made a generation request — this environment has no key — but the
+reason is now the absence of consent rather than a refusal in the code.
+
+**The projection is a band, not a number.** Input is counted, not guessed: the requests are
+rendered and counted, exactly where the provider offers a counting endpoint, with the cache
+modelled as the recorder runs it — the pre-warm writes the static prefix once and every later
+call reads it. Output cannot be counted before the call, so the ceiling prices every call at
+`max_tokens` and the floor prices it at zero. On the committed fixture set every recorded step
+lands inside its own band and the total lands inside the total, which is the acceptance test.
+A single number here would have been a guess wearing a decimal point.
+
+**The prefix share is a ratio on purpose.** An exact count from a Claude 4.7-era model and the
+base counter's count of the same text differ by about 30% (D3, D26). Subtracting one from the
+other books that gap as text that changes every call and prices thousands of cached tokens at the
+full input rate — it put the first projection at $42.72 against a recorded $28.43. The base
+counter now supplies the *share* of the request that is cacheable, which survives the change of
+units, and the exact count supplies the magnitude. The projected prefix then reproduces the
+recording's own cache-write figures to within one token on every step.
+
+**The counting calls are disclosed.** Building the projection makes one call per planned step to
+the provider's counting endpoint — nine on the demo. They return no completion and bill nothing,
+but they are live requests made before the operator confirms, so the projection says how many it
+made rather than letting "before the first call" quietly mean "before the first billed call".
+
+## D42 — `RECORD_BUDGET_USD` was not a cap
+
+Found while wiring M13, and worth its own entry because it is a defect rather than a choice.
+
+`SpendGuard` is written for per-call use: its docstring says "Every adapter call passes through
+here twice", `preflight` says "Called before every adapter call", and the projection is
+deliberately pessimistic so the guard errs towards refusing. **Nothing called it.** A `grep` for
+`preflight(` over the whole engine returned its definition, one call in `Recorder._step` passing
+a projection of `Decimal(0)`, and nothing else. The comment on that line read "caps are checked
+per call by the live adapter"; no adapter has ever done so.
+
+The effect, measured against the demo plan before the fix: a run cap of $0.01 on a 24-task step
+spent $0.0309 across 25 calls and reported the overspend afterwards. At full size B0 on the test
+split would have been a single uninterruptible $9.88 purchase. `RECORD_BUDGET_USD` could be
+observed to have been passed; it could not stop anything.
+
+Two things were wrong and both are fixed:
+
+1. **No per-call check.** `RecordingAdapter` already had an unused `SpendSink` seam that fires
+   only on a cassette miss — the path that reaches a provider. It gains a `before` hook, and
+   `GuardSink` prices each call pessimistically, asks the guard, and charges the guard what the
+   call actually cost. Because the hooks fire on a miss and nowhere else, a replayed call is
+   neither refused near the cap nor billed to it, which is what lets an interrupted recording
+   replay everything it already paid for when the budget is spent.
+2. **A refusal was absorbed as a task failure.** All three of the runner's `asyncio.gather` calls
+   use `return_exceptions=True`, which is right for a provider failure — it counts as an
+   unsuccessful task and stays visible (non-negotiable 8). Applied to a budget refusal it would
+   have spent the whole cap and then recorded every remaining task as unsuccessful, handing the
+   report an accuracy figure that describes a budget. `_stop_on_budget` re-raises that one
+   exception type and leaves every other path exactly as it was.
+
+`tests/test_spend_cap.py` is the reason to believe the cap now holds: it stops a step partway,
+charges per call rather than per step, bills a replayed call nothing, and — the one that matters
+for M13b — shows a recording stopped at its cap resuming and paying for exactly the remainder,
+with the two runs together paying for the step once.

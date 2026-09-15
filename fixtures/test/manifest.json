@@ -1,6 +1,7 @@
 {
   "base_token_counter": "bytes-bpe-approx-v1",
   "cassette_count": 6856,
+  "cassette_digest": "55bc65a3803f199672dffd978611c2cef876fec12115412f2d738e5c4654a107",
   "complete": true,
   "entailment_calls": 830,
   "entailment_recording_cost_usd": "0.246642",
