@@ -71,6 +71,14 @@ class StepSpec(BaseModel):
     Declaring steps is how a workload says it is an agent rather than a prompt — fourteen calls
     and two retries, where the useful proposal is usually to delete one of them rather than to
     run a cheaper model.
+
+    **Two kinds of step, and the difference is who produces the output.** A `generate`, `verify`
+    or `retry` step is a model call: its `system` and `user` blocks are the prompt and its output
+    is the reply. A `tool` or `retrieve` step is *local*: Tokop has no tool runtime and does not
+    pretend to one, so such a step's `user` blocks are the arguments it was called with and its
+    `emits` blocks are the result the **workload declares** it returns. That makes a graph a
+    model of an agent's shape rather than an agent, which is the honest description and the one
+    the workload's own notes have to carry.
     """
 
     id: str
@@ -84,12 +92,62 @@ class StepSpec(BaseModel):
     max_tokens: int | None = None
     system: list[BlockSpec] = Field(default_factory=list)
     user: list[BlockSpec] = Field(default_factory=list)
+    #: What a *local* step puts back into the graph. Declared rather than executed: nothing here
+    #: calls a tool, so a step that claims to retrieve a document returns the text the workload
+    #: says it returns. A generation step must not declare it — its output is the model's reply.
+    emits: list[BlockSpec] = Field(default_factory=list)
     #: For a `tool` step, the tool it calls. Recorded so two calls to the same tool with the
     #: same arguments are recognisable as the same call.
     tool: str = ""
     notes: list[str] = Field(default_factory=list)
 
     model_config = {"frozen": True}
+
+    def references(self) -> set[str]:
+        """Every ``{{variable}}`` this step's prompt and arguments mention."""
+        return {
+            match.group(1)
+            for block in [*self.system, *self.user]
+            for match in VARIABLE.finditer(block.text)
+        }
+
+    def prefix_references(self) -> set[str]:
+        """Variables inside the cacheable part of this step's system prompt.
+
+        A step whose *prefix* mentions no upstream step is a step whose cache entry is the same
+        on every task, which is what decides whether it can be warmed before the fan-out.
+        """
+        cut = -1
+        for index, block in enumerate(self.system):
+            if block.cache is not None:
+                cut = index
+        if cut < 0:
+            return set()
+        return {
+            match.group(1)
+            for block in self.system[: cut + 1]
+            for match in VARIABLE.finditer(block.text)
+        }
+
+    def render(
+        self, provider: str, model: str, variables: dict[str, str], max_tokens: int
+    ) -> LLMRequest:
+        """This step's model call. ``max_tokens`` is the pipeline's unless the step overrides."""
+        return LLMRequest(
+            provider=provider,
+            model=model,
+            system=[b.render(variables) for b in self.system],
+            messages=[Message(role="user", blocks=[b.render(variables) for b in self.user])],
+            max_tokens=self.max_tokens or max_tokens,
+        )
+
+    def arguments(self, variables: dict[str, str]) -> str:
+        """What a local step was called with. Two calls with the same text are the same call."""
+        return "\n\n".join(b.render(variables).text for b in self.user)
+
+    def emitted(self, variables: dict[str, str]) -> str:
+        """What a local step returns into the graph, as the workload declared it."""
+        return "\n\n".join(b.render(variables).text for b in self.emits)
 
 
 class PipelineSpec(BaseModel):
@@ -120,6 +178,11 @@ class PipelineSpec(BaseModel):
     #: The steps this pipeline runs, if it is a graph. Empty means one model call, which is
     #: what every workload was before M16 and what the demo still is.
     steps: list[StepSpec] = Field(default_factory=list)
+    #: Which step's output is the pipeline's answer. Empty means the last step in run order,
+    #: which is right for a graph that ends in the thing it is answering with and wrong for one
+    #: that ends in a verifier — so a graph that ends in a verifier has to say so, rather than
+    #: having the answer quietly become a verdict.
+    output_step: str = ""
 
     model_config = {"frozen": True}
 

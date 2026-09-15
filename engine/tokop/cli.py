@@ -1200,6 +1200,64 @@ def lint(
         typer.echo(f"        {finding['evidence'][:100]}")
 
 
+@app.command("graph")
+def graph_cmd(
+    workload: str = typer.Option(
+        "data/incident-agent/workload.yaml",
+        "--workload",
+        help="A workload with at least one pipeline that declares `steps:`.",
+    ),
+    json_out: bool = typer.Option(False, "--json", help="Print the whole payload as JSON."),
+) -> None:
+    """Run a graph workload, rank what its shape costs, and prove the deletion.
+
+    Spends nothing and opens no socket: a graph workload has no committed recording and is run
+    against the deterministic in-process provider, `origin: simulated` on every row. `tokop
+    report` is what reports on single-call pipelines; this is the other shape.
+    """
+    import json as _json
+
+    from tokop.optimize.graph_report import build_graph_report
+
+    report = build_graph_report(workload)
+    if json_out:
+        typer.echo(_json.dumps(report.as_dict(), indent=2, sort_keys=True, default=str))
+        return
+
+    typer.echo(f"{report.workload.name} ({report.workload.id}) — simulated, spends nothing\n")
+    for pipeline_id, run in sorted(report.runs.items()):
+        calls = sum(len(t.calls) for t in run.result.tasks)
+        typer.echo(
+            f"  {pipeline_id:4} {len(run.graph.steps)} steps, {calls:5,} calls, "
+            f"acc {run.accuracy:6.1%}, ${run.result.total_cost:.5f} over {len(run.task_ids)} tasks"
+        )
+        for step in run.stats.steps:
+            where = step.model if step.calls else "no call (local step)"
+            typer.echo(
+                f"       {step.id:10} {step.kind:9} {where:30} "
+                f"{step.calls:4} calls  ${step.cost_usd:.5f}"
+            )
+
+    typer.echo(f"\nFindings on {report.baseline_id}, the shape as shipped:")
+    if not report.findings:
+        typer.echo("  none")
+    for finding in report.findings:
+        typer.echo(
+            f"  {finding.id} [{finding.group:5}] {finding.confidence:9} "
+            f"${finding.projected_usd_per_1k:>8.2f}/1k  {finding.title}"
+        )
+        typer.echo(f"        {finding.evidence[:110]}")
+
+    typer.echo(f"\n{report.structural_note}")
+    if report.proof is not None:
+        typer.echo(f"\n{report.proof.sentence()}")
+        repayment = report.proof.repayment_tasks()
+        typer.echo(
+            f"The comparison cost ${report.proof.proof_cost.total:.5f}"
+            + (f" and repays after {repayment:,} tasks." if repayment else ".")
+        )
+
+
 @app.command("dataset")
 def dataset_cmd(
     write: bool = typer.Option(False, "--write", help="Regenerate and write the dataset."),

@@ -265,6 +265,20 @@ whose cost-per-successful-task intervals overlap the cheapest are tied; the repo
 survive is not one — and the exploration weights over a tie are uniform, because greedy selection
 amplifies whichever option won the last sample.
 
+`graph.py` and `graph_findings.py` are the shape half of the analysis (M16). A pipeline with no
+`steps:` compiles to a graph of one and renders a request with the **same cassette key**, which is
+the guarantee that lets everything built before M16 keep working by construction rather than by
+inspection. The findings over a graph ask what one call at a time cannot: which step's output
+nothing consumes, which call returns what the call before it returned, which block is paid for by
+three steps. Two of them refuse to put a number on themselves — G02 has no price for a tool and
+says so rather than inventing one, G05 is labelled a ceiling — because a finding that invented a
+price to make itself rank would be the most quietly corrosive thing in the module.
+
+`graph_report.py` is the entry point for a shape a single call cannot express. It replays no
+committed recording: a graph workload runs against the deterministic in-process provider, spends
+nothing, opens no socket, and is reported apart from the demo. `recorder.py` implements SPEC.md section 6's single-call spend plan and is
+left exactly as it is, because changing it is how committed numbers move by accident.
+
 ### Two documents, one code path
 
 `report.py` generates the block between `<!-- metrics:start -->` and `<!-- metrics:end -->` in

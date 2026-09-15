@@ -1,0 +1,412 @@
+# The same tasks as `incident-triage`, shaped as an agent (UPGRADE_V4.md M16).
+#
+# A pipeline was one model call until M16, which can express two optimizations — cheaper model,
+# cheaper prompt — and no others. This workload exists to hold the third: an agent that fetches,
+# looks things up twice, answers and then verifies is a *shape* problem, and the useful proposal
+# is usually to delete a step.
+#
+# The tasks are byte-identical to `incident-triage`'s, copied by
+# `scripts/make_incident_agent.py`. Holding them fixed is deliberate: a graph workload whose
+# tasks also differed would be comparing two things at once.
+#
+# TWO THINGS THIS FILE DECLARES THAT NOBODY MEASURED.
+#
+# 1. Tokop executes no tools. A `tool` or `retrieve` step returns the text `emits:` says it
+#    returns; its `user:` blocks are the arguments it was called with. That makes this a model
+#    of an agent's shape, not an agent, and every number computed from it is a number about the
+#    shape.
+# 2. The answers come from the same in-process simulated provider `incident-triage` uses, at the
+#    rates declared below. Nothing here is evidence about production.
+#
+# There is no committed recording for this workload and there is not meant to be. `tokop graph
+# --workload data/incident-agent/workload.yaml` runs it against the deterministic in-process
+# provider, spends nothing, opens no socket, and is where its numbers come from. The recording
+# plan in `tokop/recorder.py` is the single-call plan (B2 matrix, then B0/B1/B2c) and is left
+# exactly as it is, because changing it is how committed numbers move by accident.
+
+workload:
+  id: incident-agent
+  name: Incident triage, beyond one call
+  description: >-
+    The incident-triage tasks in the two shapes a single call cannot express. As a **graph**:
+    retrieve the runbook, look the signature up twice, answer, then have a frontier model verify
+    the answer — every step but the answer there to be measured and, where the traces support it,
+    deleted. As a **session**: the same tasks answered one after another against one cache entry,
+    with and without a compaction that rewrites the prefix.
+  dataset:
+    generator: script:make_incident_agent
+    seed: 20260915
+    size: 150
+    calibration_size: 51
+    source: dataset.jsonl
+    grounding: runbook.md
+  margin: 0.03
+  latency_sensitive: true
+  allowed_providers: [anthropic, simulated]
+
+dataset_provenance:
+  real_traffic_items: 0
+  model_generated_items: 0
+  program_generated_items: 150
+  generators: ["scripts/make_incident_triage.py", "scripts/make_incident_agent.py"]
+  real_traffic_accumulating: false
+  notes:
+    - >-
+      The same 150 templated tasks `incident-triage` carries, copied unchanged so that the only
+      difference between the two workloads is the shape of the pipeline. Not traffic anybody
+      observed, and no model wrote any of it.
+
+simulation:
+  accuracy:
+    cheap: 0.74
+    mid: 0.88
+    frontier: 0.96
+  accuracy_by_type:
+    cheap: {lookup: 0.88, rule: 0.78, override: 0.58}
+    mid: {lookup: 0.96, rule: 0.90, override: 0.80}
+    frontier: {lookup: 0.99, rule: 0.97, override: 0.92}
+  parse_failure_rate: 0.015
+  notes:
+    - >-
+      Copied from `incident-triage` so the two workloads differ only in pipeline shape. They are
+      parameters, not measurements.
+    - >-
+      The provider is deterministic, so the same prompt to the same model returns the same
+      answer every time. That makes the retry in G2 return exactly what it retried, which is the
+      most favourable possible case for the finding that measures it — G04 says so where it
+      reports the share.
+
+# ------------------------------------------------------------------ the session (M17)
+#
+# Every price in this build is a price per request, which is the right unit for the demo and the
+# wrong one for what most people run. This declares the conversation: six tasks in a row against
+# one cache entry, seventy seconds apart.
+#
+# The gap is the interesting parameter and it is deliberately not round. Seventy seconds times
+# five gaps is 350 seconds, so a five-minute entry has expired before the last turn of every
+# session — which is what a person reading each answer before typing the next one actually does
+# to a cache, and it is invisible in any accounting that prices one request at a time.
+session:
+  pipeline: S0
+  turns: 6
+  gap_seconds: 70
+  # The gap decides the answer, so the answer is reported at more than one of them. At 40
+  # seconds nothing expires under either policy; at 90 the arithmetic that decides it changes
+  # sign. A comparison reported at one pace would be presenting a parameter as a finding.
+  gap_sweep_seconds: [40, 90]
+  ttl: 5m
+  compact_every: 2
+  compaction_model_role: cheap
+  compaction_max_tokens: 200
+  compaction:
+    - label: instruction
+      text: |-
+        Summarise the conversation below so that a colleague picking it up knows what has been
+        asked and answered. Keep it short.
+
+        {{history}}
+  notes:
+    - >-
+      The compacted arm puts its summary in the system prompt, in front of the breakpoint. That
+      is what a naive compaction does and it is the PL17 anti-pattern: the prefix moves, the
+      entry is thrown away, and it is paid for again at the write premium.
+    - >-
+      Six turns seventy seconds apart is 350 seconds, so the five-minute entry has expired before
+      the last turn of every session under the immutable policy — and rewriting the prefix, which
+      is the thing compaction is charged for, also refreshes the entry and stops that happening.
+      The report counts the expiries in both arms so the mechanism is visible rather than
+      inferred from a cost that moved.
+
+pipelines:
+  # ------------------------------------------------------------------ the session pipeline
+  S0:
+    name: One turn of a conversation
+    description: >-
+      A single call, run six at a time against one cache entry. `{{summary}}` is empty under the
+      immutable policy and holds the compaction under the other; it sits in front of the
+      breakpoint precisely so that writing to it costs what it really costs.
+    model_role: frontier
+    max_tokens: 400
+    output_contract: json_answer
+    notes:
+      - A single call, deliberately. A session is a sequence of ordinary requests.
+      - >-
+        The frontier role, and not because the answers need it. The runbook is about 855 tokens
+        in these models' own units, which clears Opus 5's 512-token minimum cacheable prefix and
+        does not clear Sonnet 5's 1,024. On the cheaper model this session would run entirely
+        uncached and return no error saying so, which is the case SPEC.md Appendix B describes
+        and the reason a session is priced against a named model rather than in the abstract.
+    system:
+      - label: runbook
+        text: |-
+          You triage alerts using the runbook below.
+
+          {{grounding}}
+      - label: session
+        text: |-
+          Earlier in this conversation: {{summary}}
+        cache: 5m
+      - label: contract
+        text: |-
+          Find the runbook entry that governs the alert. Apply any override that applies: an
+          alert folded into an open incident does not page, and during a change freeze every
+          platform-owned signature pages.
+
+          Reply with JSON only: {"answer": "<the answer>", "evidence": "<the runbook line>"}.
+          For a yes/no question the answer is exactly "yes" or "no".
+    user:
+      - label: question
+        text: "{{question}}"
+
+  # ------------------------------------------------------------------ the agent as shipped
+  G0:
+    name: The agent as shipped
+    description: >-
+      Fetch the runbook, look the signature up twice, answer, then verify. Five steps, three of
+      which the traces say buy nothing.
+    model_role: mid
+    max_tokens: 400
+    output_contract: json_answer
+    output_step: answer
+    notes:
+      - The verifier's verdict feeds nothing. Deleting it is what G1 is.
+      - Both lookups are called with the same arguments, so the second one cannot add anything.
+      - The runbook reaches two steps, and both pay input price for it.
+    steps:
+      - id: fetch
+        kind: retrieve
+        user:
+          - label: arguments
+            text: "runbook(signature of: {{question}})"
+        emits:
+          - label: runbook
+            text: "{{grounding}}"
+
+      - id: severity
+        kind: tool
+        tool: signature_lookup
+        user:
+          - label: arguments
+            text: "signature_lookup({{question}})"
+        emits:
+          - label: severity
+            text: "Severity band: read it from the runbook entry for this signature."
+
+      - id: owner
+        kind: tool
+        tool: signature_lookup
+        user:
+          - label: arguments
+            text: "signature_lookup({{question}})"
+        emits:
+          - label: owner
+            text: "Owning team: read it from the runbook entry for this signature."
+
+      - id: answer
+        kind: generate
+        inputs: [fetch, severity, owner]
+        system:
+          - label: runbook
+            text: |-
+              You triage alerts using the runbook below.
+
+              {{fetch}}
+            cache: 5m
+          - label: contract
+            text: |-
+              Find the runbook entry that governs the alert. Apply any override that applies: an
+              alert folded into an open incident does not page, and during a change freeze every
+              platform-owned signature pages.
+
+              Reply with JSON only: {"answer": "<the answer>", "evidence": "<the runbook line>"}.
+              For a yes/no question the answer is exactly "yes" or "no".
+        user:
+          - label: question
+            text: "{{question}}"
+          - label: lookups
+            text: |-
+              {{severity}}
+              {{owner}}
+
+      - id: check
+        kind: verify
+        model_role: frontier
+        inputs: [fetch, answer]
+        system:
+          - label: runbook
+            text: |-
+              You review an on-call assistant's answers against the runbook below.
+
+              {{fetch}}
+            cache: 5m
+        user:
+          - label: question
+            text: "{{question}}"
+          - label: answer
+            text: |-
+              The assistant answered: {{answer}}
+
+              Reply with JSON only: {"answer": "<agree or disagree>", "evidence": "<why>"}.
+
+  # ------------------------------------------------------------------ the winning plan
+  G1:
+    name: The agent with the verifier deleted
+    description: >-
+      G0 without its `check` step. Byte-identical up to that point: the same fetch, the same two
+      lookups, the same answering call to the same model.
+    model_role: mid
+    max_tokens: 400
+    output_contract: json_answer
+    output_step: answer
+    notes:
+      - >-
+        The step that was deleted fed nothing. Its verdict was never read, so removing it cannot
+        move an answer — which is why the proof's accuracy delta is zero by construction and the
+        report says so rather than dressing it as a statistical result.
+    steps:
+      - id: fetch
+        kind: retrieve
+        user:
+          - label: arguments
+            text: "runbook(signature of: {{question}})"
+        emits:
+          - label: runbook
+            text: "{{grounding}}"
+
+      - id: severity
+        kind: tool
+        tool: signature_lookup
+        user:
+          - label: arguments
+            text: "signature_lookup({{question}})"
+        emits:
+          - label: severity
+            text: "Severity band: read it from the runbook entry for this signature."
+
+      - id: owner
+        kind: tool
+        tool: signature_lookup
+        user:
+          - label: arguments
+            text: "signature_lookup({{question}})"
+        emits:
+          - label: owner
+            text: "Owning team: read it from the runbook entry for this signature."
+
+      - id: answer
+        kind: generate
+        inputs: [fetch, severity, owner]
+        system:
+          - label: runbook
+            text: |-
+              You triage alerts using the runbook below.
+
+              {{fetch}}
+            cache: 5m
+          - label: contract
+            text: |-
+              Find the runbook entry that governs the alert. Apply any override that applies: an
+              alert folded into an open incident does not page, and during a change freeze every
+              platform-owned signature pages.
+
+              Reply with JSON only: {"answer": "<the answer>", "evidence": "<the runbook line>"}.
+              For a yes/no question the answer is exactly "yes" or "no".
+        user:
+          - label: question
+            text: "{{question}}"
+          - label: lookups
+            text: |-
+              {{severity}}
+              {{owner}}
+
+  # ------------------------------------------------------------------ the unconditional retry
+  G2:
+    name: The agent with an unconditional retry
+    description: >-
+      G0 plus a `revise` step that re-answers whatever the verifier said. Here to give G04 — a
+      retry that returns what it retried — something real to be computed over.
+    model_role: mid
+    max_tokens: 400
+    output_contract: json_answer
+    output_step: revise
+    notes:
+      - >-
+        The retry fires on every task rather than on a verdict, which is the anti-pattern. On
+        this workload's deterministic simulated provider it returns byte-identical text, which
+        is the most favourable case the finding can be measured in; G04 reports the share it
+        measured rather than implying the share a real provider would give.
+    steps:
+      - id: fetch
+        kind: retrieve
+        user:
+          - label: arguments
+            text: "runbook(signature of: {{question}})"
+        emits:
+          - label: runbook
+            text: "{{grounding}}"
+
+      - id: answer
+        kind: generate
+        inputs: [fetch]
+        system:
+          - label: runbook
+            text: |-
+              You triage alerts using the runbook below.
+
+              {{fetch}}
+            cache: 5m
+          - label: contract
+            text: |-
+              Find the runbook entry that governs the alert. Apply any override that applies: an
+              alert folded into an open incident does not page, and during a change freeze every
+              platform-owned signature pages.
+
+              Reply with JSON only: {"answer": "<the answer>", "evidence": "<the runbook line>"}.
+              For a yes/no question the answer is exactly "yes" or "no".
+        user:
+          - label: question
+            text: "{{question}}"
+
+      - id: check
+        kind: verify
+        model_role: frontier
+        inputs: [fetch, answer]
+        system:
+          - label: runbook
+            text: |-
+              You review an on-call assistant's answers against the runbook below.
+
+              {{fetch}}
+            cache: 5m
+        user:
+          - label: question
+            text: "{{question}}"
+          - label: answer
+            text: |-
+              The assistant answered: {{answer}}
+
+              Reply with JSON only: {"answer": "<agree or disagree>", "evidence": "<why>"}.
+
+      - id: revise
+        kind: retry
+        inputs: [fetch, answer, check]
+        system:
+          - label: runbook
+            text: |-
+              You triage alerts using the runbook below.
+
+              {{fetch}}
+            cache: 5m
+          - label: contract
+            text: |-
+              A reviewer looked at a draft answer. Answer the question again.
+
+              Reply with JSON only: {"answer": "<the answer>", "evidence": "<the runbook line>"}.
+              For a yes/no question the answer is exactly "yes" or "no".
+        user:
+          - label: question
+            text: "{{question}}"
+          - label: draft
+            text: |-
+              Draft answer: {{answer}}
+              Review: {{check}}

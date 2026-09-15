@@ -1113,3 +1113,71 @@ task, and a workload that declared steps would compile, validate and then be run
 had not. Executing a graph, the five findings over it, and proof at the graph-level outcome are
 M16b and M16c. The spec landing first is deliberate — it is the part every later commit depends
 on, and the part that could have forced the fallback to a parallel `GraphSpec`.
+
+## D47 — M16b/M16c: a graph that runs, and what a step had to be made of to price one
+
+The spec landed at M16a and could not be executed. Making it executable forced five decisions the
+spec had left open, and each of them is a place a graph could have become a convincing fiction.
+
+1. **Two kinds of step, and Tokop executes only one of them.** `generate`, `verify` and `retry`
+   are model calls. `tool` and `retrieve` are *local*: this build has no tool runtime and does not
+   pretend to one, so such a step's `user:` blocks are the arguments it was called with and its
+   new `emits:` blocks are the result the **workload declares** it returns. A local step with no
+   `emits:` is refused at compile time, and a generation step that declares one is refused too —
+   its output is the model's reply, and a second declared output would be a number nobody could
+   trace to a call. That makes a graph a model of an agent's *shape*, not an agent, and every
+   surface that reports on one says so.
+2. **`loop` compiles and will not run.** It is in the kind list because a workload should be able
+   to say what a step is. Nothing bounds the iterations, so nothing can price one; executing it
+   is refused with the reason and the suggestion to unroll it.
+3. **A graph has no pre-warm pass, and the reason is structural.** A step's request cannot be
+   rendered before the steps it consumes have run, so there is nothing to send a `max_tokens: 0`
+   copy of in advance. The first task is run to completion on its own and every task after it
+   reads the entries that task wrote — one task's worth of misses rather than a synthetic call
+   per step. `prewarm_calls` reports 0 rather than a number nobody made.
+4. **A step that pins `model_role` keeps it under a tier sweep.** "The verifier runs at the
+   frontier" is the whole point of saying so, and a sweep that silently demoted it would be
+   measuring a different pipeline. `model_id` overrides the steps that pinned nothing.
+5. **The four-tuple became `TaskCall`.** It grew a name when it grew a fifth field. `request,
+   response, _, _, _` is how a field nobody unpacks stops being written.
+
+**How the five findings are priced, and where they refuse to claim anything.**
+
+- **G01** (one block reaching several steps) prices the redundant copies at each step's *blended*
+  input rate — its input dollars over its input tokens, measured from its own call rows. A block
+  read from cache in one step and sent fresh in another costs different amounts in each, and
+  pricing both at base input would inflate every finding that touches it.
+- **G02** (a tool called twice with identical arguments) reports **$0 and says that is what it
+  means**. Tokop prices provider tokens and has no price for a tool, so it cannot say what the
+  duplicate costs. It can say the call is made twice, and it does. A finding invented a price to
+  make itself rank would be the most quietly corrosive thing in this module.
+- **G03** (a verifier that never changed an outcome) answers *structurally* where it can — no path
+  from the verifier to the step the pipeline answers with means no number of further tasks would
+  make it change one — and *measured* where the verdict is read but the output never differed.
+  The evidence says which of the two it was.
+- **G04** (a retry that returns what it retried) reports the share it measured and names what that
+  share depends on: a deterministic provider makes it the whole split, a sampling one would not.
+- **G05** (a frontier step carrying an earlier step's output) is labelled a **ceiling**, because it
+  prices compressing that text to nothing and nothing compresses to nothing.
+
+**The graph workload has no committed recording, deliberately.** `tokop/recorder.py` implements
+SPEC.md section 6's single-call spend plan — the B2 matrix at three tiers, then the remaining
+single-call pipelines — and it is left exactly as it is, because changing it is how committed
+numbers move by accident. `data/incident-agent/` runs against the deterministic in-process
+provider through `tokop graph`: no socket, no key, no money, `origin: simulated` on every row,
+and nothing it produces reaches the README or the Optimize screen.
+
+**Both arms see the same simulator, and that is a correction rather than a convenience.** The
+in-process responder seeds its answers on a pipeline id. Two pipelines that differ only by a
+deleted step would therefore be handed *different* answers, and the deletion's measured effect
+would be the simulator's noise. The graph report seeds on the **workload** id, which says the
+thing that is actually true: the same prompt to the same model returns the same answer. With that,
+the 99 answers are byte-identical across the two arms and the accuracy delta is zero *by
+construction* — which the report states in those words, so nobody reads a bootstrap where an
+argument belongs.
+
+**Result.** `G0` is the agent as shipped: fetch the runbook, look the signature up twice, answer,
+verify. Its top finding is G03 — the verifier's verdict reaches nothing — and `G1`, which is `G0`
+without it, cuts cost per successful task by 51.8% with the accuracy difference at zero. That is
+the milestone's point: an optimizer that can propose deleting a step, not only swapping a model.
+

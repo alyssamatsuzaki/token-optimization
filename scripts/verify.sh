@@ -109,6 +109,11 @@ if have engine/.venv/bin/pytest && [ -n "$(find engine/tests -name 'test_*.py' 2
   # graph work. Pinned by cassette key, which is what every fixture and every number rests on.
   run "a single call is still a single call (M16)" bash -c "cd '$ROOT/engine' && \
       .venv/bin/pytest -q tests/test_graph.py::TestTheByteIdenticalGuarantee"
+  # M16c. The point of the whole milestone: an optimizer that can propose *deleting a step*
+  # rather than only swapping a model, and prove it on the outcome of the whole graph.
+  run "the winning plan deletes a step (M16)" bash -c "cd '$ROOT/engine' && \
+      .venv/bin/pytest -q tests/test_graph_execution.py::TestTheAcceptanceCheck \
+      tests/test_graph_execution.py::TestTheFiveFindings"
 else
   skip "pytest + coverage" "no tests yet"
   skip "adversarial judge (U1)" "no tests yet"
@@ -127,6 +132,7 @@ else
   skip "the engine runs without the demo (M15)" "no tests yet"
   skip "ingest never invents an answer key (M15)" "no tests yet"
   skip "a single call is still a single call (M16)" "no tests yet"
+  skip "the winning plan deletes a step (M16)" "no tests yet"
 fi
 
 # ---------------------------------------------------------------- 3. web build

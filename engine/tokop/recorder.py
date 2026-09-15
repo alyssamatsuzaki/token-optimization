@@ -630,7 +630,7 @@ class Recorder:
             outputs += [
                 response.usage.output_visible + response.usage.output_reasoning
                 for task in step.result.tasks
-                for _, response, _, _ in task.calls
+                for response in (c.response for c in task.calls)
             ]
         return PilotOutcome(
             tasks=ran,
@@ -750,7 +750,7 @@ class Recorder:
                 )
                 by_id = {item.id: item for item in items}
                 for task in result.tasks:
-                    outputs = [response.text for _, response, _, _ in task.calls][:samples]
+                    outputs = [call.response.text for call in task.calls][:samples]
                     view = TaskView(
                         task_id=task.task_id,
                         question=by_id[task.task_id].question,

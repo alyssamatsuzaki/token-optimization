@@ -29,12 +29,20 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from tokop.workloads.spec import StepSpec, WorkloadError
+from tokop.workloads.spec import VARIABLE, StepSpec, WorkloadError
 
 #: Kinds of work a step can be. `generate` is a model call; the rest exist so a graph can say
 #: what a step *is* before Tokop can price it, because a finding about a tool called twice with
 #: identical arguments needs to know which calls were tool calls.
 STEP_KINDS: tuple[str, ...] = ("generate", "tool", "retrieve", "verify", "retry", "loop")
+
+#: Kinds that are a model call. Their output is the reply, and they are what the bill is made of.
+GENERATION_KINDS: tuple[str, ...] = ("generate", "verify", "retry")
+
+#: Kinds that are *local*: no model call, and an output the workload declares in ``emits``.
+#: Tokop has no tool runtime, so a graph containing these is a model of an agent's shape rather
+#: than an agent, and everything that reports on one has to say so.
+LOCAL_KINDS: tuple[str, ...] = ("tool", "retrieve")
 
 #: The id the single-call path compiles to. Named rather than spelled out, because it appears in
 #: the ledger, in findings and in the trace drawer, and three spellings would become two names.
@@ -56,7 +64,11 @@ class Step:
 
     @property
     def is_generation(self) -> bool:
-        return self.kind in ("generate", "retry", "verify")
+        return self.kind in GENERATION_KINDS
+
+    @property
+    def is_local(self) -> bool:
+        return self.kind in LOCAL_KINDS
 
     def as_dict(self) -> dict[str, Any]:
         return {"id": self.id, "kind": self.kind, "inputs": list(self.inputs)}
@@ -68,6 +80,9 @@ class Graph:
 
     pipeline_id: str
     steps: tuple[Step, ...]
+    #: Which step's output is the pipeline's answer. Resolved at compile time so that nothing
+    #: downstream has to re-derive "the last one" and get a different last one.
+    output_step: str = SINGLE_STEP
 
     @property
     def is_single_call(self) -> bool:
@@ -88,7 +103,11 @@ class Graph:
         return tuple(step for step in self.steps if step_id in step.inputs)
 
     def as_dict(self) -> dict[str, Any]:
-        return {"pipeline": self.pipeline_id, "steps": [step.as_dict() for step in self.steps]}
+        return {
+            "pipeline": self.pipeline_id,
+            "steps": [step.as_dict() for step in self.steps],
+            "output_step": self.output_step,
+        }
 
 
 def _topological(pipeline_id: str, specs: Sequence[StepSpec]) -> tuple[Step, ...]:
@@ -134,6 +153,61 @@ def _topological(pipeline_id: str, specs: Sequence[StepSpec]) -> tuple[Step, ...
     return tuple(order)
 
 
+def _check_semantics(pipeline_id: str, steps: Sequence[Step]) -> None:
+    """Refuse a graph that compiles but cannot be executed, and say why.
+
+    Every one of these is a failure a workload author would otherwise meet halfway through a
+    run: a local step with nothing to return, a generation step claiming to return something
+    other than its reply, a step reading a variable nothing in scope supplies.
+    """
+    by_id = {step.id: step for step in steps}
+    for step in steps:
+        spec = step.spec
+        if spec is None:  # pragma: no cover - only the compiled single call has no spec
+            continue
+        if step.kind == "loop":
+            raise GraphError(
+                f"{pipeline_id} step {step.id!r} is a `loop`. This build can execute a graph, "
+                "not a loop: nothing bounds the iterations, so nothing can price one. Unroll it "
+                "into the steps it actually runs, or drop it."
+            )
+        if step.is_local and not spec.emits:
+            raise GraphError(
+                f"{pipeline_id} step {step.id!r} is a {step.kind!r} step with no `emits:`. "
+                "Tokop executes no tools, so a local step returns the text the workload says it "
+                "returns. Declare it, or make the step a `generate`."
+            )
+        if step.is_generation and spec.emits:
+            raise GraphError(
+                f"{pipeline_id} step {step.id!r} is a {step.kind!r} step and declares `emits:`. "
+                "A generation step's output is the model's reply; a second, declared output "
+                "would be a number nobody could trace to a call."
+            )
+        if step.is_generation and not spec.user:
+            raise GraphError(
+                f"{pipeline_id} step {step.id!r} is a {step.kind!r} step with no `user:` "
+                "content, so it would send an empty message."
+            )
+        # A step may read its declared inputs and the workload's own variables, nothing else.
+        # Catching it here turns a mid-run WorkloadError into a load-time refusal that names
+        # the step, the variable and the inputs it forgot to declare.
+        upstream = set(step.inputs)
+        for name in sorted(
+            spec.references()
+            | {
+                match
+                for block in spec.emits
+                for match in (m.group(1) for m in VARIABLE.finditer(block.text))
+            }
+        ):
+            if name in by_id and name not in upstream:
+                raise GraphError(
+                    f"{pipeline_id} step {step.id!r} reads {{{{{name}}}}} but does not list "
+                    f"{name!r} among its inputs. A step that consumes another step's output has "
+                    "to declare it, or the run order is a coincidence."
+                )
+
+
 def compile_graph(pipeline: Any) -> Graph:
     """The graph a pipeline runs as.
 
@@ -142,8 +216,27 @@ def compile_graph(pipeline: Any) -> Graph:
     it renders changes, which is what `tests/test_graph.py` pins by cassette key.
     """
     if not pipeline.steps:
+        if pipeline.output_step:
+            raise GraphError(
+                f"{pipeline.id} names an output step {pipeline.output_step!r} but declares no "
+                "steps. A single-call pipeline answers with its one call."
+            )
         return Graph(
             pipeline_id=pipeline.id,
             steps=(Step(id=SINGLE_STEP, kind="generate", spec=None, inputs=()),),
+            output_step=SINGLE_STEP,
         )
-    return Graph(pipeline_id=pipeline.id, steps=_topological(pipeline.id, pipeline.steps))
+    steps = _topological(pipeline.id, pipeline.steps)
+    _check_semantics(pipeline.id, steps)
+    output_step = pipeline.output_step or steps[-1].id
+    if output_step not in {step.id for step in steps}:
+        raise GraphError(
+            f"{pipeline.id} answers with step {output_step!r}, which it does not declare. "
+            f"Known steps: {', '.join(step.id for step in steps)}."
+        )
+    if not pipeline.output_step and steps[-1].kind == "verify":
+        raise GraphError(
+            f"{pipeline.id} ends in a `verify` step and names no `output_step`. A verifier's "
+            "reply is a verdict, not an answer; say which step answers."
+        )
+    return Graph(pipeline_id=pipeline.id, steps=steps, output_step=output_step)

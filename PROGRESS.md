@@ -22,6 +22,8 @@
 | M15a The engine without the demo | **done** | `Item` protocol, datasets loaded not generated, no neutral module imports the demo |
 | M15b A second workload | **done** | `incident-triage` proves clean, `tokop ingest` for JSONL/CSV/OTel; `tokop label` not built |
 | M16a Pipelines as graphs | **done** | `steps:` compiles to a graph; a single call is still byte-identical, pinned by cassette key |
+| M16b Graphs execute | **done** | the runner runs a graph per task; `TaskCall` carries the step; a graph warms its own cache |
+| M16c Graph findings and proof | **done** | G01–G05 over traces; deleting the idle verifier cuts 51.8% with delta zero by construction |
 
 ## Next
 
@@ -47,10 +49,11 @@ recording moves two of its eight links and the verdict moves a third.
 evidence chain reads "not measured" for any workload with no judged arm, which is the honest
 state. The 50 hand labels UPGRADE_V4.md M15.3 asks for are a human's to write.
 
-**M16b** executes a graph. Nothing does yet: the runner still makes one call per task, and a
-workload that declared steps would compile, validate and then be run as though it had not. After
-that, M16c is the five graph findings and proof at the graph-level outcome — the point of the
-milestone, where the optimizer can propose *deleting a step* rather than only swapping a model.
+**M16 is done and is described below.** What it still cannot do is written beside it: the graph
+workload has no committed cassettes, by choice.
+
+**M17 is next** — session and cache accounting, where a price per request stops being the only
+unit this build has — and M18 follows it.
 
 **U9, the serving-cost basis**, is deferred rather than renumbered (D41). It prices a hosted tier
 in GPU-hours over achieved throughput so a cascade can mix an API tier with a hosted one. Nothing
@@ -484,6 +487,66 @@ then be run as though it had not. That is M16b, and the spec landing first is de
 what every later commit depends on, and the part that could have forced the fallback to a
 parallel `GraphSpec`.
 
+## A graph that runs, and a step that buys nothing (M16b and M16c, UPGRADE_V4.md M16)
+
+M16a made a pipeline compilable into a graph and could not execute one. This is the other half.
+
+**What a step had to become.** Tokop executes no tools, so a graph has two kinds of step.
+`generate`, `verify` and `retry` are model calls. `tool` and `retrieve` are *local*: their `user:`
+blocks are the arguments they were called with and a new `emits:` block is the result the
+**workload declares** they return. A local step with nothing to emit is refused at compile time,
+and a generation step that declares one is refused too — its output is the model's reply, and a
+second declared output would be a number nobody could trace back to a call. That makes a graph a
+model of an agent's *shape* rather than an agent, which is what every surface reporting on one
+says. `loop` compiles and refuses to run: nothing bounds the iterations, so nothing can price it.
+
+**A graph warms its own cache, because it cannot warm it any other way.** A step's request cannot
+be rendered before the steps it consumes have run, so there is no `max_tokens: 0` copy to send in
+advance. The first task runs to completion on its own and every task after it reads what that task
+wrote — one task's worth of misses rather than a synthetic call per step, and `prewarm_calls`
+reports 0 rather than a number nobody made.
+
+**`data/incident-agent/` is the same 150 tasks as `incident-triage`, in a shape a single call
+cannot express.** Holding the tasks fixed is the point: a graph workload whose tasks also differed
+would be comparing two things at once. `G0` is the agent as shipped — fetch the runbook, look the
+signature up twice, answer, then have a frontier model verify — and `G1` is `G0` without the
+verifier. It has no committed recording and is not meant to: `tokop graph` runs it against the
+deterministic in-process provider, spends nothing, opens no socket, and nothing it produces
+reaches the README or a screen. The recording plan in `tokop/recorder.py` is left exactly as it
+is, because changing it is how committed numbers move by accident.
+
+**The five findings, and where two of them refuse to claim anything.**
+
+| | | |
+| --- | --- | --- |
+| G03 | $3.16/1k | the verifier `check` has never changed an outcome |
+| G01 | $1.73/1k | the output of `fetch` is sent to 2 steps |
+| G05 | $1.19/1k | `check` runs at the dearest model on text an earlier step produced |
+| G02 | $0.00/1k | `signature_lookup` is called twice with identical arguments |
+
+G01 prices the redundant copies at each step's **blended** input rate — its own input dollars over
+its own input tokens — because a block read from cache in one step and sent fresh in another costs
+different amounts in each. G02 reports **$0 and says that is what it means**: Tokop prices provider
+tokens and has no price for a tool, so it cannot say what the duplicate costs; it can say the call
+is made twice. G03 answers *structurally* here — the graph has no path from `check` to the step
+the pipeline answers with, so no number of further tasks would make it change one. G05 is labelled
+a **ceiling**, because it prices compressing that text to nothing. G04 fires on `G2`, a third
+pipeline with an unconditional retry, and names what its share depends on: this provider is
+deterministic, so the retry returns byte-identical text on every task, which is the most
+favourable case the finding can be measured in.
+
+**The acceptance check.** `G1` cuts cost per successful task by **51.8%** (interval 50.9 to 53.0%)
+with the accuracy difference at **+0.0 points, 95% CI [+0.0, +0.0]**, n = 99, non-inferior. The
+zero is *by construction* and the report says so in those words: nothing read the deleted step's
+verdict, so all 99 answers are byte-identical between the arms. Reporting a bootstrap where an
+argument belongs would be the wrong kind of rigour. Both arms see the simulator seeded on the
+**workload** rather than the pipeline, which is a correction — seeded per pipeline, two pipelines
+sharing an answering step would get different answers and the deletion's measured effect would be
+the simulator's noise (D47).
+
+That is the point of the milestone: an optimizer that can propose *deleting a step*, not only
+swapping a model.
+
 ## Demo result (simulated test fixtures, 200-task test split)
 
 Generated into README.md by `tokop report --write-readme`. Headline: B0 $0.05172 per successful
@@ -498,7 +561,17 @@ These are simulated, not recorded (DECISIONS.md D1).
 
 ## Known issues
 
-- `make verify` runs all 21 checks with none skipped.
+- `make verify` runs all 29 checks with none skipped.
+- **The graph and session workloads have no committed recording, by choice.** `tokop graph` and
+  `tokop session` run `data/incident-agent/` against the deterministic in-process provider. The
+  recording plan in `tokop/recorder.py` is SPEC.md section 6's single-call plan and is left
+  exactly as it is; changing it is how committed numbers move by accident (D47).
+- **A graph's `tool` and `retrieve` steps return text the workload declares.** Tokop executes no
+  tools. That makes `incident-agent` a model of an agent's shape rather than an agent, and every
+  surface reporting on it says so.
+- **The ledger is generated and now has a schema that can go stale.** M16b added `calls.step`;
+  `create_all` will not add a column to an existing table, so a ledger built before it is refused
+  by name with the one command that fixes it (`tokop build-test-fixtures --ledger-only`).
 - **The demo's own calibration is still gold, by choice.** `--calibration penalized-v1` runs the
   label-free path end to end, and the demo reports what it would have chosen; the shipped
   operating point stays gold because the fixtures cannot show whether the label-free one is any
@@ -571,8 +644,8 @@ everything around it.
   Playwright's own resolution when that path is absent, which is everywhere but here.
 
 438 engine tests, 39 Playwright tests, 91% line coverage on `core/` and `optimize/`.
-`make verify`: 12 checks, none skipped, green. (At M16a: 805 engine tests, 49 Playwright tests,
-91% coverage, 21 checks.)
+`make verify`: 12 checks, none skipped, green. (At M16c: 839 engine tests, 50 Playwright tests,
+29 checks.)
 
 ## The tokenizer divergence (D26)
 
