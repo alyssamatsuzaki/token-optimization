@@ -12,6 +12,7 @@ fixtures, in replay mode.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 
 import pytest
@@ -19,6 +20,15 @@ import pytest
 from tokop.paths import repo_root
 
 TOKOP = repo_root() / "engine" / ".venv" / "bin" / "tokop"
+
+#: Rich writes colour into tracebacks, and where it breaks a highlighted path depends on the
+#: terminal width and the length of the absolute path. Strip the escapes before looking for a
+#: substring, or the test measures the runner's console rather than the CLI's behaviour.
+ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
+def plain(text: str) -> str:
+    return ANSI.sub("", text)
 
 
 def prove(*args: str) -> subprocess.CompletedProcess[str]:
@@ -62,10 +72,17 @@ class TestProveGate:
     def test_a_workload_that_does_not_exist_is_refused(self) -> None:
         """Until M15 this refused *every* workload but the demo by name. What it must still
         refuse is one that is not there — silently falling back to the demo's fixtures would be
-        the worst available violation of non-negotiable 1."""
+        the worst available violation of non-negotiable 1.
+
+        The output is stripped of ANSI escapes before the path is looked for. Rich colours a
+        traceback's path, and where it breaks the highlight depends on the terminal width and
+        on how long the absolute path is — so on a CI runner the escape codes land between the
+        directory and the filename and a plain substring search fails on formatting rather than
+        on behaviour.
+        """
         result = prove("--workload", "data/mine/workload.yaml")
         assert result.returncode != 0, result.stdout + result.stderr
-        assert "data/mine/workload.yaml" in result.stdout + result.stderr
+        assert "data/mine/workload.yaml" in plain(result.stdout + result.stderr)
 
     def test_a_second_workload_is_answered_with_its_own_numbers(self) -> None:
         """The same guarantee, now that a second workload runs (UPGRADE_V4.md M15).

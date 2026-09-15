@@ -129,8 +129,17 @@ class TestTheProjectionBracketsTheRealCost:
         # B1's whole point is a cacheable prefix; B0's is not having one.
         b0 = next(s for s in projection.steps if s.pipeline == "B0")
         assert b0.prefix_tokens == 0
-        assert b1.prefix_tokens > 8_000
-        assert b1.volatile_tokens < 200, "the tokenizer gap has been booked as volatile text"
+        # Asserted as a *ratio*, not a token count. The absolute number depends on which
+        # counter the machine could load — `o200k_base` where its vocabulary host is reachable,
+        # the approximation where it is not — and those differ by about 30% (D26). A threshold
+        # in tokens passes on one machine and fails on the other while the property it is
+        # meant to check holds on both: nearly all of B1's input is the cacheable prefix.
+        assert b1.prefix_tokens > 0
+        volatile_share = b1.volatile_tokens / (b1.prefix_tokens + b1.volatile_tokens)
+        assert volatile_share < 0.02, (
+            f"{b1.volatile_tokens} of {b1.prefix_tokens + b1.volatile_tokens} input tokens read "
+            "as text that changes every call; the tokenizer gap has been booked as volatile text"
+        )
 
     async def test_it_says_which_counter_produced_the_numbers(
         self, workload, registry, bundle, tmp_path
