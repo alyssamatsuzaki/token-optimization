@@ -261,6 +261,39 @@ class CascadeSpec(BaseModel):
     model_config = {"frozen": True}
 
 
+class SimulationSpec(BaseModel):
+    """How a workload's simulated provider behaves, declared by the workload itself.
+
+    These are invented numbers. They live here, in the workload's own file beside the
+    provenance block that says the set is program-generated, because a reader auditing a result
+    should find the invented parts in the workload rather than by reading the engine
+    (UPGRADE_V4.md M15).
+    """
+
+    #: What each tier role gets right, as a probability.
+    accuracy: dict[str, float] = Field(default_factory=dict)
+    #: Per task type, where a type is harder or easier than the tier's baseline. Missing types
+    #: use the tier's own rate rather than a guess.
+    accuracy_by_type: dict[str, dict[str, float]] = Field(default_factory=dict)
+    #: How often an answer arrives in a form the parser cannot read.
+    parse_failure_rate: float = 0.01
+    notes: list[str] = Field(default_factory=list)
+
+    model_config = {"frozen": True}
+
+    def accuracy_for(self, role: str, question_type: str) -> float:
+        by_type = self.accuracy_by_type.get(role, {})
+        if question_type in by_type:
+            return by_type[question_type]
+        try:
+            return self.accuracy[role]
+        except KeyError:
+            raise WorkloadError(
+                f"the workload declares no simulated accuracy for the {role!r} tier. A "
+                "simulated fixture set cannot be built without saying what it is simulating."
+            ) from None
+
+
 class DatasetSpec(BaseModel):
     """Where a workload's tasks come from.
 
@@ -301,6 +334,13 @@ class WorkloadSpec(BaseModel):
     annotation: AnnotationSpec | None = None
     entailment: EntailmentSpec | None = None
     dataset_provenance: DatasetProvenanceSpec | None = None
+    #: How this workload's simulated provider behaves, when it has one. Absent for a workload
+    #: whose fixtures are a real recording, which needs no simulator at all.
+    simulation: SimulationSpec | None = None
+    #: Which directory under `fixtures/` holds this workload's recording. Empty for the demo,
+    #: whose fixtures are chosen by the recording state — `demo/` when a real recording exists
+    #: and `test/` otherwise. Any other workload names its own (UPGRADE_V4.md M15).
+    fixtures: str = ""
     #: Where this workload was loaded from. Its dataset and grounding document sit beside it,
     #: because a workload is its definition *and* its tasks, and splitting them across two
     #: directories is how a spec starts describing a dataset that is not there.
@@ -407,6 +447,8 @@ def load_workload(path: Path) -> WorkloadSpec:
             "dataset's answer key; `judged` has a cheap verifier grade everything and corrects "
             "it from a sampled subset of strong labels."
         )
+    simulation_raw = raw.get("simulation") or workload.get("simulation")
+    simulation = SimulationSpec(**simulation_raw) if isinstance(simulation_raw, dict) else None
     _validate_judging(path, grading, judge, annotation, dataset_provenance)
     _validate_entailment(path, entailment)
 
@@ -416,6 +458,8 @@ def load_workload(path: Path) -> WorkloadSpec:
         description=str(workload["description"]),
         dataset=DatasetSpec(**workload["dataset"]),
         directory=path.parent,
+        fixtures=str(workload.get("fixtures", "")),
+        simulation=simulation,
         pipelines=pipelines,
         cascades=cascades,
         scorer_features=list(workload.get("scorer_features") or []),

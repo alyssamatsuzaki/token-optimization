@@ -114,6 +114,12 @@ the fixture set 34 MB of the same paragraph, and 6.2 MB deduplicated.
 
 ### `workloads/` — running and grading
 
+`ingest.py` reads a JSONL export, a CSV, or OpenTelemetry GenAI spans into that shape. The
+formats differ in one way that matters more than their syntax: an export usually carries an
+answer key, and spans never do. A span records what was asked and what the model *said*, so
+`gold` is left empty and the ingest says what that costs, rather than promoting a completion to
+a label — which would produce a workload where every pipeline scores 100% against itself.
+
 `item.py` and `bundle.py` are what make the engine the engine rather than the demo's engine.
 `Item` is a *protocol*, so the demo's generated task and a task read out of a file both satisfy
 it without inheriting anything, and its fields separate what every workload has (grading), what
@@ -321,7 +327,7 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
 
 ## Testing
 
-- **778 engine tests**, 91% line coverage on `core/` and `optimize/`
+- **793 engine tests**, 91% line coverage on `core/` and `optimize/`
   (`pytest --cov=tokop/core --cov=tokop/optimize`).
 - **49 Playwright tests** against the production build in replay mode.
 - **Exit-code tests for `tokop prove`** run through a subprocess, because an exit code asserted
@@ -359,8 +365,11 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
 - A **no-demo-imports test** that imports every neutral module in a subprocess and fails if
   `tokop.workloads.demo` appears in `sys.modules`, then loads a workload nobody generated and
   checks the same thing again.
-- `make verify` runs all twenty-six checks in SPEC.md section 10 plus the UPGRADE_V3.md and
-  UPGRADE_V4.md acceptance checks, in order, and prints `VERIFY PASSED (26 checks)`.
+- An **ingest test** that fails if an OpenTelemetry completion is ever promoted to a gold
+  answer — the one substitution that would make every number downstream meaningless while
+  looking entirely normal.
+- `make verify` runs all twenty-seven checks in SPEC.md section 10 plus the UPGRADE_V3.md and
+  UPGRADE_V4.md acceptance checks, in order, and prints `VERIFY PASSED (27 checks)`.
 
 ## What is simulated in this build
 

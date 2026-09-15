@@ -1,0 +1,95 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "2ae3ac190f5866abdb20c81d6cc46f6247cadfcf2a834ee205d1269368f17ce5",
+  "latency_ms": 1219.2,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"no\", \"evidence\": \"- A critical alert is severity 1: page immediately, no batching.\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_2ae3ac190f5866ab",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 868,
+      "input_tokens": 183,
+      "output_tokens": 47
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 868,
+    "input_tokens": 183,
+    "output_tokens": 47
+  },
+  "recorded_at": "2026-09-15T09:23:02.797435+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "ALERT queue_depth=31 host=web-11. An incident is already open covering this signature. Does this page outside working hours? Answer yes or no."
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "367406c3d5ba879997e1398eccc539ceac2f6b1bad2bdf8b3cbc2b268572af64"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Find the runbook entry that governs the alert. Apply any override that applies: an\nalert folded into an open incident does not page, and during a change freeze every\nplatform-owned signature pages.\n\nReply with JSON only: {\"answer\": \"<the answer>\", \"evidence\": \"<the runbook line>\"}.\nFor a yes/no question the answer is exactly \"yes\" or \"no\"."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"no\", \"evidence\": \"- A critical alert is severity 1: page immediately, no batching.\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 702.2,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 868,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 183,
+    "output_reasoning": 0,
+    "output_visible": 47,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 868,
+      "input_tokens": 183,
+      "output_tokens": 47
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

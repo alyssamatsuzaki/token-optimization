@@ -1,0 +1,94 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "86ee6b91675606dfef6fe7fcbebfcbdf45d12e4057c3d16de616f48bb9f0c5bf",
+  "latency_ms": 1545.34,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "- `cache_hit_pct` (cache degradation) has escalation code E20, is owned by the platform team, does not page outside working hours, and must be acknowledged within 120 minutes.\n\nFinal answer: E20",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_86ee6b91675606df",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 997,
+      "output_tokens": 69
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 997,
+    "output_tokens": 69
+  },
+  "recorded_at": "2026-09-15T09:23:03.805373+00:00",
+  "request": {
+    "max_tokens": 2000,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "ALERT cache_hit_pct=44 host=web-09. Which escalation code does the runbook give this signature?"
+          },
+          {
+            "cache": null,
+            "text": {
+              "$blob": "1bab7699865506a2422e3a35ea0fe613cab203363454a14f4c1f4194b485573d"
+            }
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "You are an experienced site reliability engineer helping the on-call rota. Please be\nthorough and explain your reasoning carefully. Thank you for your help with this.\n\nWork through the alert, find the governing entry in the runbook, apply any overrides,\nand explain what you concluded and why."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "- `cache_hit_pct` (cache degradation) has escalation code E20, is owned by the platform team, does not page outside working hours, and must be acknowledged within 120 minutes.\n\nFinal answer: E20",
+  "stop_reason": "end_turn",
+  "ttft_ms": 786.34,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 997,
+    "output_reasoning": 0,
+    "output_visible": 69,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 997,
+      "output_tokens": 69
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "ae5e322a32652bd73e66bd3d171d29252ff02134a31bbba3affc1d373bc90ff4",
+  "latency_ms": 1713.38,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"no\", \"evidence\": \"- `error_rate_pct` (elevated error rate) has escalation code E05, is owned by the checkout team, pages outside working hours, and must be acknowledged within 10 minutes.\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_ae5e322a32652bd7",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 868,
+      "input_tokens": 181,
+      "output_tokens": 81
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 868,
+    "input_tokens": 181,
+    "output_tokens": 81
+  },
+  "recorded_at": "2026-09-15T09:23:02.817622+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "ALERT oom_kills=26 host=web-06. An incident is already open covering this signature. Does this page outside working hours? Answer yes or no."
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "367406c3d5ba879997e1398eccc539ceac2f6b1bad2bdf8b3cbc2b268572af64"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Find the runbook entry that governs the alert. Apply any override that applies: an\nalert folded into an open incident does not page, and during a change freeze every\nplatform-owned signature pages.\n\nReply with JSON only: {\"answer\": \"<the answer>\", \"evidence\": \"<the runbook line>\"}.\nFor a yes/no question the answer is exactly \"yes\" or \"no\"."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"no\", \"evidence\": \"- `error_rate_pct` (elevated error rate) has escalation code E05, is owned by the checkout team, pages outside working hours, and must be acknowledged within 10 minutes.\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 822.38,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 868,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 181,
+    "output_reasoning": 0,
+    "output_visible": 81,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 868,
+      "input_tokens": 181,
+      "output_tokens": 81
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "6830cea69163eb700ba094ba7d2016a7976913e9782711b79df49a1d1caa3b42",
+  "latency_ms": 2430.24,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "Move the handbook in front of a cache breakpoint.\n\nThe handbook is 7,000 identical tokens on every one of 40,000 calls. Uncached that is 280M input tokens a month at $5/M, or $1,400. Read from cache at $0.50/M it is $140, so the saving is about $1,260 a month, before the one-off write cost. Everything else on the bill \u2014 the 60-token question, the 220-token answer \u2014 is rounding error next to it.",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_6830cea69163eb70",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 173,
+      "output_tokens": 152
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 173,
+    "output_tokens": 152
+  },
+  "recorded_at": "2026-09-15T09:23:04.351988+00:00",
+  "request": {
+    "max_tokens": 600,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "A team runs 40,000 support answers a month. Each answer sends a 7,000-token handbook that never changes, plus a 60-token question, and gets back about 220 tokens. They are on a model that charges $5 per million input tokens, $25 per million output, and $0.50 per million for a cache read. What is the single largest saving available to them, and roughly what is it worth per month?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "You are answering a single question as directly as you can. Give the answer first, then at most two sentences of justification."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "Move the handbook in front of a cache breakpoint.\n\nThe handbook is 7,000 identical tokens on every one of 40,000 calls. Uncached that is 280M input tokens a month at $5/M, or $1,400. Read from cache at $0.50/M it is $140, so the saving is about $1,260 a month, before the one-off write cost. Everything else on the bill \u2014 the 60-token question, the 220-token answer \u2014 is rounding error next to it.",
+  "stop_reason": "end_turn",
+  "ttft_ms": 758.24,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 173,
+    "output_reasoning": 0,
+    "output_visible": 152,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 173,
+      "output_tokens": 152
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

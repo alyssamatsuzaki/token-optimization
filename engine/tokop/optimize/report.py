@@ -167,7 +167,24 @@ def _p50(values: Sequence[float]) -> float | None:
     return float(statistics.median(usable))
 
 
-def _fixture_root() -> Path:
+#: The workload every entry point reports on unless told otherwise. Named once rather than
+#: spelled out at six call sites, because six spellings is how five of them stay the demo's.
+DEFAULT_WORKLOAD = "data/demo/workload.yaml"
+
+
+def load_reported_workload(workload_path: str | None = None) -> WorkloadSpec:
+    return load_workload(repo_root() / (workload_path or DEFAULT_WORKLOAD))
+
+
+def _fixture_root(workload: WorkloadSpec | None = None) -> Path:
+    """Where this workload's recording lives.
+
+    A workload that names its own fixture directory gets it. The demo names none, and falls
+    through to the recording state, which chooses between `fixtures/demo/` — a real recording —
+    and `fixtures/test/`, the simulated set this build actually ships (UPGRADE_V4.md M15).
+    """
+    if workload is not None and workload.fixtures:
+        return fixtures_dir() / workload.fixtures
     state = describe_recording()
     return fixtures_dir() / state.fixture_source
 
@@ -656,7 +673,7 @@ def _horvitz_thompson(values: Sequence[float], rates: Sequence[float], n: int) -
 
 
 def canary_observation(
-    payload: ReportPayload, *, fraction: float, seed: int
+    payload: ReportPayload, *, fraction: float, seed: int, workload_path: str | None = None
 ) -> tuple[int, float, float]:
     """Re-score a stratified subset of the current report: (size, delta, standard error).
 
@@ -669,7 +686,7 @@ def canary_observation(
     per_task = payload["proof"]["per_task"]
     task_ids = list(per_task["task_ids"])
     by_type = {b["question_type"]: b for b in payload["proof"]["by_type"]}
-    workload = load_workload(repo_root() / "data/demo/workload.yaml")
+    workload = load_reported_workload(workload_path)
     bundle = load_bundle(workload)
     types = {item.id: item.question_type for item in bundle.test}
     strata = [types.get(task_id, "unknown") for task_id in task_ids]
@@ -1022,6 +1039,7 @@ def _judged_caveats(workload: WorkloadSpec, annotations: Any, origin: str) -> li
 
 def build_report(
     *,
+    workload_path: str | None = None,
     protect_scarce: bool = False,
     seed: int = DEFAULT_SEED,
     resamples: int = 5000,
@@ -1031,9 +1049,9 @@ def build_report(
 ) -> ReportPayload:
     """Recompute every headline metric from the committed fixtures."""
     registry = load_registry()
-    workload = load_workload(repo_root() / "data/demo/workload.yaml")
+    workload = load_reported_workload(workload_path)
     bundle = load_bundle(workload)
-    root = _fixture_root()
+    root = _fixture_root(workload)
     manifest = _load_manifest(root)
     store = CassetteStore(root / "cassettes")
     origin = str(manifest.get("origin", "simulated"))
@@ -2007,9 +2025,9 @@ def _summary(payload: ReportPayload) -> dict[str, Any]:
     }
 
 
-@lru_cache(maxsize=2)
+@lru_cache(maxsize=4)
 def fitted_cascade(
-    protect_scarce: bool = False,
+    protect_scarce: bool = False, workload_path: str | None = None
 ) -> tuple[ScorerBundle, tuple[float, ...], tuple[str, ...]]:
     """The fitted scorers, the chosen thresholds and the tier order.
 
@@ -2020,11 +2038,11 @@ def fitted_cascade(
     """
     payload = cached_report(protect_scarce)
     registry = load_registry()
-    workload = load_workload(repo_root() / "data/demo/workload.yaml")
+    workload = load_reported_workload(workload_path)
     bundle = load_bundle(workload)
     cascade_spec = workload.cascade(CANDIDATE_CASCADE)
     tiers = tuple(cascade_spec.tiers)
-    root = _fixture_root()
+    root = _fixture_root(workload)
     manifest = _load_manifest(root)
     store = CassetteStore(root / "cassettes")
     snapshot = registry.snapshot(list(registry.roles.values()), date(2026, 9, 11))
@@ -2060,7 +2078,9 @@ def fitted_cascade(
     return ScorerBundle(scorers=scorers), thresholds, tiers
 
 
-def arms_for_annotation(protect_scarce: bool = False) -> dict[str, Any]:
+def arms_for_annotation(
+    protect_scarce: bool = False, workload_path: str | None = None
+) -> dict[str, Any]:
     """The two arms' answers on the test split, ready for a judge (UPGRADE_V3.md U1).
 
     The baseline arm is one pipeline, so its answer is whatever it said. The candidate arm is a
@@ -2084,11 +2104,11 @@ def arms_for_annotation(protect_scarce: bool = False) -> dict[str, Any]:
         )
 
     registry = load_registry()
-    workload = load_workload(repo_root() / "data/demo/workload.yaml")
+    workload = load_reported_workload(workload_path)
     bundle = load_bundle(workload)
     cascade_spec = workload.cascade(CANDIDATE_CASCADE)
     tiers = list(cascade_spec.tiers)
-    root = _fixture_root()
+    root = _fixture_root(workload)
     manifest = _load_manifest(root)
     store = CassetteStore(root / "cassettes")
     snapshot = registry.snapshot(list(registry.roles.values()), date(2026, 9, 11))
@@ -2131,7 +2151,11 @@ def arms_for_annotation(protect_scarce: bool = False) -> dict[str, Any]:
     }
 
 
-def arms_for_contract(baseline_id: str = "B2", candidate_id: str | None = None) -> dict[str, Any]:
+def arms_for_contract(
+    baseline_id: str = "B2",
+    candidate_id: str | None = None,
+    workload_path: str | None = None,
+) -> dict[str, Any]:
     """Two single-call pipelines on the test split, ready for a judge (UPGRADE_V3.md U4).
 
     The pair the checkable-contract lever is about: the same prompt with and without a contract
@@ -2144,7 +2168,7 @@ def arms_for_contract(baseline_id: str = "B2", candidate_id: str | None = None) 
     when there is more than one.
     """
     registry = load_registry()
-    workload = load_workload(repo_root() / "data/demo/workload.yaml")
+    workload = load_reported_workload(workload_path)
     bundle = load_bundle(workload)
     if candidate_id is None:
         checkable = sorted(p for p, spec in workload.pipelines.items() if spec.checkable)
@@ -2156,7 +2180,7 @@ def arms_for_contract(baseline_id: str = "B2", candidate_id: str | None = None) 
         candidate_id = checkable[0]
 
     tier = workload.cascade(CANDIDATE_CASCADE).tiers[-1]
-    root = _fixture_root()
+    root = _fixture_root(workload)
     manifest = _load_manifest(root)
     store = CassetteStore(root / "cassettes")
     snapshot = registry.snapshot(list(registry.roles.values()), date(2026, 9, 11))
@@ -2195,20 +2219,20 @@ def arms_for_contract(baseline_id: str = "B2", candidate_id: str | None = None) 
     }
 
 
-def trace_for(task_id: str) -> dict[str, Any]:
+def trace_for(task_id: str, workload_path: str | None = None) -> dict[str, Any]:
     """Every call every pipeline made for one task, for the trace drawer (SPEC.md 5.1).
 
     Replayed from cassettes on demand rather than held in the report: a full trace for 200
     tasks across 8 runs is far more data than any screen needs at once.
     """
     registry = load_registry()
-    workload = load_workload(repo_root() / "data/demo/workload.yaml")
+    workload = load_reported_workload(workload_path)
     bundle = load_bundle(workload)
     item = next((i for i in bundle.items if i.id == task_id), None)
     if item is None:
         raise ReportError(f"no task {task_id!r} in this workload")
 
-    root = _fixture_root()
+    root = _fixture_root(workload)
     manifest = _load_manifest(root)
     store = CassetteStore(root / "cassettes")
     snapshot = registry.snapshot(list(registry.roles.values()), date(2026, 9, 11))
@@ -2216,7 +2240,7 @@ def trace_for(task_id: str) -> dict[str, Any]:
     split_name = "calibration" if in_calibration else "test"
     grounding = bundle.grounding
 
-    scorer_bundle, thresholds, tier_order = fitted_cascade(False)
+    scorer_bundle, thresholds, tier_order = fitted_cascade(False, workload_path)
     threshold_by_tier = dict(zip(tier_order, thresholds, strict=True))
 
     calls: list[dict[str, Any]] = []

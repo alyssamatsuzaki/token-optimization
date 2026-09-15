@@ -1,0 +1,94 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "8a2b186d01e7be8f0a39e2947ae829bb0b0b20e4a6ab973fcf4335db847c68ef",
+  "latency_ms": 1504.29,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "- `failed_logins` (credential stuffing) has escalation code E33, is owned by the security team, pages outside working hours, and must be acknowledged within 10 minutes.\n\nFinal answer: no",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_8a2b186d01e7be8f",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 1009,
+      "output_tokens": 65
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 1009,
+    "output_tokens": 65
+  },
+  "recorded_at": "2026-09-15T09:23:03.916876+00:00",
+  "request": {
+    "max_tokens": 2000,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "ALERT cert_expiry_days=23 host=web-13. A change freeze is in effect. Does this page outside working hours? Answer yes or no."
+          },
+          {
+            "cache": null,
+            "text": {
+              "$blob": "1bab7699865506a2422e3a35ea0fe613cab203363454a14f4c1f4194b485573d"
+            }
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "You are an experienced site reliability engineer helping the on-call rota. Please be\nthorough and explain your reasoning carefully. Thank you for your help with this.\n\nWork through the alert, find the governing entry in the runbook, apply any overrides,\nand explain what you concluded and why."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "- `failed_logins` (credential stuffing) has escalation code E33, is owned by the security team, pages outside working hours, and must be acknowledged within 10 minutes.\n\nFinal answer: no",
+  "stop_reason": "end_turn",
+  "ttft_ms": 789.29,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 1009,
+    "output_reasoning": 0,
+    "output_visible": 65,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 1009,
+      "output_tokens": 65
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

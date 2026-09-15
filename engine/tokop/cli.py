@@ -10,6 +10,7 @@ import typer
 
 from tokop import recording_state
 from tokop.core.registry import OPENROUTER_MODELS_URL, load_registry
+from tokop.optimize.report import DEFAULT_WORKLOAD
 from tokop.paths import fixtures_dir, repo_root
 from tokop.recorder import PILOT_TASKS
 
@@ -61,6 +62,7 @@ def build_test_fixtures_cmd(
         "--ledger-only",
         help="Rebuild ledger.db from the committed cassettes; leave manifest and extras alone.",
     ),
+    workload: str = typer.Option(DEFAULT_WORKLOAD, "--workload"),
 ) -> None:
     """Build fixtures/test/ from the deterministic simulated provider. Spends nothing.
 
@@ -74,11 +76,13 @@ def build_test_fixtures_cmd(
     from tokop.workloads.spec import load_workload
 
     registry = load_registry()
-    workload = load_workload(repo_root() / "data/demo/workload.yaml")
-    bundle = load_bundle(workload)
-    root = fixtures_dir() / "test"
+    spec = load_workload(repo_root() / workload)
+    bundle = load_bundle(spec)
+    # A workload that names its own fixture directory gets it; the demo names none and its
+    # simulated set lives where it always has (UPGRADE_V4.md M15).
+    root = fixtures_dir() / (spec.fixtures or "test")
     root.mkdir(parents=True, exist_ok=True)
-    report = build_test_fixtures(workload, registry, bundle, root, ledger_only=ledger_only)
+    report = build_test_fixtures(spec, registry, bundle, root, ledger_only=ledger_only)
     for step in report.steps:
         typer.echo("  " + step.summary())
     if report.stopped:
@@ -92,7 +96,7 @@ def build_test_fixtures_cmd(
 
 @app.command()
 def record(
-    workload: str = typer.Option("data/demo/workload.yaml", "--workload"),
+    workload: str = typer.Option(DEFAULT_WORKLOAD, "--workload"),
     yes: bool = typer.Option(False, "--yes", help="Skip the confirmation prompt."),
     underpowered: bool = typer.Option(
         False,
@@ -302,7 +306,7 @@ def _power_estimate(spec: Any) -> Any:
 
 @app.command()
 def annotate(
-    workload: str = typer.Option("data/demo/workload.yaml", "--workload"),
+    workload: str = typer.Option(DEFAULT_WORKLOAD, "--workload"),
     budget: float = typer.Option(
         -1.0, "--budget", help="Override the workload's annotation budget, in dollars."
     ),
@@ -504,7 +508,7 @@ def _echo_judged(judged: dict[str, Any]) -> None:
 
 @app.command()
 def prove(
-    workload: str = typer.Option("data/demo/workload.yaml", "--workload"),
+    workload: str = typer.Option(DEFAULT_WORKLOAD, "--workload"),
     baseline: str = typer.Option("B0", "--baseline"),
     candidate: str = typer.Option("B3", "--candidate"),
     margin: float = typer.Option(0.03, "--margin"),
@@ -556,19 +560,12 @@ def prove(
         raise typer.Exit(2)
 
     payload = build_report(
+        workload_path=workload,
         margin=margin,
         annotation_budget=None if annotation_budget < 0 else _Decimal(str(annotation_budget)),
         calibration=calibration or None,
     )
     proof = payload["proof"]
-    if workload != "data/demo/workload.yaml":
-        typer.echo(
-            f"this build can only prove the demo workload; --workload {workload!r} is not "
-            "supported yet (SPEC.md section 3's user-workload tooling is not built; see "
-            "DECISIONS.md D24).",
-            err=True,
-        )
-        raise typer.Exit(2)
     if proof["baseline"]["pipeline"] != baseline or proof["candidate"]["pipeline"] != candidate:
         typer.echo(
             f"this build's report compares {proof['baseline']['pipeline']} with "
@@ -703,13 +700,71 @@ def _echo_scorer_comparison(payload: ReportPayload) -> None:
         typer.echo(f"  {ties['fallback_reason']}")
 
 
+@app.command("ingest")
+def ingest_cmd(
+    source: str = typer.Option(..., "--source", help="The file to read."),
+    fmt: str = typer.Option("jsonl", "--format", help="jsonl, csv or otel."),
+    out: str = typer.Option(..., "--out", help="Directory to write data/<name>/ into."),
+    calibration_size: int = typer.Option(
+        -1, "--calibration-size", help="Tasks in the calibration split. Default: a third."
+    ),
+    map_fields: list[str] = typer.Option(
+        [], "--map", help="Name a column: --map question=prompt --map gold=expected."
+    ),
+) -> None:
+    """Read a JSONL, CSV or OpenTelemetry export into a workload's dataset.
+
+    SPEC.md section 3 promised this and it was never built, which is why `--workload` refused
+    everything but the demo by name until M15.
+
+    The formats differ in one way that matters more than their syntax. A JSONL or CSV export is
+    usually a curated set and carries an answer key. OpenTelemetry spans are traffic: a span
+    records what was asked and what the model said, never what the right answer was. Tokop
+    reads the tasks and leaves the answers empty rather than promoting a recorded completion to
+    a gold label, and says what that costs you.
+    """
+    from tokop.workloads.ingest import ingest
+    from tokop.workloads.spec import WorkloadError
+
+    mapping: dict[str, str] = {}
+    for pair in map_fields:
+        if "=" not in pair:
+            typer.echo(f"--map takes field=column, not {pair!r}", err=True)
+            raise typer.Exit(2)
+        field_, column = pair.split("=", 1)
+        mapping[field_.strip()] = column.strip()
+
+    try:
+        report = ingest(
+            Path(source) if Path(source).is_absolute() else repo_root() / source,
+            fmt,
+            Path(out) if Path(out).is_absolute() else repo_root() / out,
+            mapping=mapping,
+            calibration_size=None if calibration_size < 0 else calibration_size,
+        )
+    except WorkloadError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+
+    for line in report.lines():
+        typer.echo(line)
+    typer.echo(f"\nwrote {_short(Path(out) / 'dataset.jsonl')}")
+    typer.echo(
+        "Next: write a workload.yaml beside it — `data/incident-triage/workload.yaml` is a "
+        "worked example —\nthen `tokop build-test-fixtures --workload <path>` or `make record` "
+        "to give it a response matrix."
+    )
+    if not report.has_gold:
+        raise typer.Exit(3)
+
+
 @app.command("export")
 def export_cmd(
     artifact: str = typer.Option(
         "all", "--artifact", help="prompt-diff, cascade-config, routing-rule, or all."
     ),
     out: str = typer.Option("exports", "--out", help="Directory to write into."),
-    workload: str = typer.Option("data/demo/workload.yaml", "--workload"),
+    workload: str = typer.Option(DEFAULT_WORKLOAD, "--workload"),
 ) -> None:
     """Export what the proof recommends, as artifacts you apply yourself.
 
@@ -747,7 +802,7 @@ def export_cmd(
 
 @app.command()
 def power(
-    workload: str = typer.Option("data/demo/workload.yaml", "--workload"),
+    workload: str = typer.Option(DEFAULT_WORKLOAD, "--workload"),
     margin: float = typer.Option(
         0.0, "--margin", help="Non-inferiority margin in accuracy POINTS. 0 uses the workload's."
     ),

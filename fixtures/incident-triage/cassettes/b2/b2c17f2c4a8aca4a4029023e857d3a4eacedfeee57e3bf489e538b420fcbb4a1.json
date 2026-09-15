@@ -1,0 +1,95 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "b2c17f2c4a8aca4a4029023e857d3a4eacedfeee57e3bf489e538b420fcbb4a1",
+  "latency_ms": 1618.39,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "- `webhook_retries` (webhook backoff) has escalation code E09, is owned by the integrations team, does not page outside working hours, and must be acknowledged within 180 minutes.\n\nFinal answer: E09",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_b2c17f2c4a8aca4a",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 894,
+      "input_tokens": 76,
+      "output_tokens": 72
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 894,
+    "input_tokens": 76,
+    "output_tokens": 72
+  },
+  "recorded_at": "2026-09-15T09:23:04.086865+00:00",
+  "request": {
+    "max_tokens": 2000,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "ALERT webhook_retries=19 host=web-20. Which escalation code does the runbook give this signature?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "6a45fc9279b99334cb2caf4bb58552f8dcbca806bca854ccb6e06fd6eb60acf7"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Work through the alert, find the governing entry in the runbook, apply any overrides,\nand explain what you concluded and why."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "- `webhook_retries` (webhook backoff) has escalation code E09, is owned by the integrations team, does not page outside working hours, and must be acknowledged within 180 minutes.\n\nFinal answer: E09",
+  "stop_reason": "end_turn",
+  "ttft_ms": 826.39,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 894,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 76,
+    "output_reasoning": 0,
+    "output_visible": 72,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 894,
+      "input_tokens": 76,
+      "output_tokens": 72
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

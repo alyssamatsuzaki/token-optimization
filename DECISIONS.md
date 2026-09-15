@@ -1025,3 +1025,55 @@ wherever tasks were needed. Nothing else could be run because nothing else could
 in six places and `build_report()` takes no workload, so `tokop prove --workload` still refuses
 anything else by name. The engine can now *represent* another workload and load one; it cannot
 yet report on one. That, the second workload itself, `tokop ingest` and `tokop label` are M15b.
+
+## D45 — M15b: a second workload, and the one thing ingestion must never do
+
+M15a made another workload representable; this makes one run. `tokop prove --workload
+data/incident-triage/workload.yaml` produces a verdict, and `tests/test_no_demo_imports.py`
+fails if the demo is imported doing it.
+
+1. **The report takes a workload.** It hardcoded `data/demo/workload.yaml` in six places, which
+   is five more spellings than a default needs. One constant, one loader, and every entry point
+   — `build_report`, `fitted_cascade`, `arms_for_annotation`, `arms_for_contract`, `trace_for`,
+   `canary_observation` — takes the workload it is reporting on.
+2. **Fixtures follow the workload.** A workload names its own directory under `fixtures/`. The
+   demo names none and keeps falling through to the recording state, which picks `demo/` when a
+   real recording exists and `test/` otherwise — so nothing moved and no committed path changed.
+3. **The second workload's invented numbers live in its own file.** `simulation:` in the YAML
+   declares what each tier gets right, by task type. They are parameters, not measurements, and
+   a reader auditing any result from that workload finds them beside the provenance block rather
+   than by reading the engine. `GroundedResponder` reads them; the demo declares no `simulation:`
+   block and keeps its own elaborate responder, so the dispatch needs no name check.
+4. **Deliberately not a better simulator.** UPGRADE_V4.md section 5 rules that out, and a more
+   convincing simulator would only produce more convincing numbers about nothing. The neutral
+   responder does two things: decide correctness at the declared rate, and when wrong, answer
+   with *another task's gold of the same answer type* — confusable by construction, inventing no
+   vocabulary of mistakes.
+5. **The generator is a script, not an engine module.** `scripts/make_incident_triage.py` is
+   committed, so the dataset is auditable and regenerable, and the engine cannot import it —
+   which is the surest way to keep the import test honest.
+6. **A span is traffic, not an answer key.** This is the refusal `tokop ingest` exists to make.
+   An OpenTelemetry GenAI span records what was asked and what the model *said*; it does not
+   record what the right answer was. Writing `gen_ai.completion` into `gold` would produce a
+   workload on which every pipeline scores 100% against itself, and nothing about the result
+   would look wrong. Tokop reads the tasks, leaves `gold` empty, warns, and exits 3.
+7. **The convention version is part of the result.** The GenAI semantic conventions are still
+   moving, so the attribute names are pinned and the version is printed rather than guessed.
+8. **A split with nothing in its calibration side is not a split.** Per-stratum rounding leaves
+   it empty on a small set; ingestion tops it up in a fixed order so the result is reproducible.
+
+**What the second workload showed that the demo could not.** D34 recorded that the demo's
+fixtures "cannot say whether U3 works": every pseudo-label on its calibration split agrees with
+the answer key under both kinds, because the simulated provider draws wrong answers
+independently and each is a different perturbation. Here the two kinds come apart —
+**majority-vote agrees with gold on 86%** of the calibration split, while **`penalized-v1`
+excludes the 21 tasks it cannot settle and agrees perfectly on what remains.** The override
+questions are why: a cheap tier that answers from the signature and stops reading makes the
+*same* mistake every time, which is what a plurality vote reads as correctness. The label-free
+calibration machinery now has a workload that exercises it, not only a constructed test.
+
+**What M15 still does not have.** `tokop label` is not built, so the grader-agreement link in
+the evidence chain stays "not measured" for any workload without a judged arm — which is the
+honest state and the reason it renders as unmeasured rather than as a number. The 50 hand labels
+UPGRADE_V4.md M15.3 asks for are a human's to write; I will not author them and call the result
+an agreement measurement.

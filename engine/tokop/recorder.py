@@ -34,7 +34,7 @@ from tokop.adapters.base import AdapterError, LLMRequest, LLMResponse
 from tokop.adapters.cassette import CassetteStore
 from tokop.adapters.factory import AnyAdapter, build_live_adapter, simulated_profiles
 from tokop.adapters.recording import RecordingAdapter
-from tokop.adapters.simulated import SimulatedAdapter
+from tokop.adapters.simulated import Responder, SimulatedAdapter
 from tokop.core.budget import BudgetExceeded, SpendGuard, projected_cost
 from tokop.core.pricing import PriceSnapshot
 from tokop.core.registry import Registry
@@ -44,6 +44,7 @@ from tokop.optimize.scorers import TaskView
 from tokop.settings import get_settings
 from tokop.workloads.bundle import Bundle
 from tokop.workloads.item import Item
+from tokop.workloads.responder import GroundedResponder
 from tokop.workloads.runner import Runner, RunResult, TierProfile, persist, today
 from tokop.workloads.spec import WorkloadSpec
 
@@ -393,20 +394,33 @@ class Recorder:
         if self.provider != "simulated":
             live = build_live_adapter(self.provider, self.registry, get_settings())
             return RecordingAdapter(live, self.store, origin=self.origin, on_spend=self.sink)
-        # Imported here and not at module scope: this is the *demo's* invented behaviour, and a
-        # module that reaches for it on import cannot be used by a workload that has its own
-        # (UPGRADE_V4.md M15).
-        from tokop.workloads.demo.responder import DemoResponder
-
         pipeline = self.workload.pipeline(pipeline_id)
-        responder = DemoResponder(
-            list(self.bundle.items),
-            self.bundle.grounding,
-            self.tiers,
-            pipeline_id,
-            pipeline.output_contract,
-            pipeline.checkable,
-        )
+        responder: Responder
+        if self.workload.simulation is not None:
+            # A workload that declares its own simulated rates gets the plain responder, which
+            # reads them from the workload rather than from a table in the engine.
+            responder = GroundedResponder(
+                items=list(self.bundle.items),
+                grounding=self.bundle.grounding,
+                tiers=self.tiers,
+                simulation=self.workload.simulation,
+                pipeline_id=pipeline_id,
+                output_contract=pipeline.output_contract,
+            )
+        else:
+            # Imported here and not at module scope: this is the *demo's* invented behaviour,
+            # and a module that reaches for it on import cannot be used by a workload that has
+            # its own (UPGRADE_V4.md M15).
+            from tokop.workloads.demo.responder import DemoResponder
+
+            responder = DemoResponder(
+                list(self.bundle.items),
+                self.bundle.grounding,
+                self.tiers,
+                pipeline_id,
+                pipeline.output_contract,
+                pipeline.checkable,
+            )
         inner = SimulatedAdapter(
             simulated_profiles(self.registry, list(self.registry.models)), responder
         )

@@ -101,6 +101,10 @@ if have engine/.venv/bin/pytest && [ -n "$(find engine/tests -name 'test_*.py' 2
   # time and at run time, because half the demo imports are lazy and a source scan misses them.
   run "the engine runs without the demo (M15)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
       tests/test_no_demo_imports.py"
+  # M15. A span says what the model answered, never what the right answer was. Promoting one to
+  # a gold label would make every number downstream meaningless and look entirely normal.
+  run "ingest never invents an answer key (M15)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest \
+      -q tests/test_ingest.py"
 else
   skip "pytest + coverage" "no tests yet"
   skip "adversarial judge (U1)" "no tests yet"
@@ -117,6 +121,7 @@ else
   skip "the evidence grade cannot be talked up (M14)" "no tests yet"
   skip "deploy exports, never proxies (M14)" "no tests yet"
   skip "the engine runs without the demo (M15)" "no tests yet"
+  skip "ingest never invents an answer key (M15)" "no tests yet"
 fi
 
 # ---------------------------------------------------------------- 3. web build

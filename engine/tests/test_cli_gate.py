@@ -59,12 +59,27 @@ class TestProveGate:
         assert "3-point margin" in strict.stdout
         assert "10-point margin" in loose.stdout
 
-    def test_an_unsupported_workload_is_refused_rather_than_answered(self) -> None:
-        """DECISIONS.md D24: reporting the demo's numbers under another workload's name would
-        be the worst possible violation of non-negotiable 1, so it exits 2 instead."""
+    def test_a_workload_that_does_not_exist_is_refused(self) -> None:
+        """Until M15 this refused *every* workload but the demo by name. What it must still
+        refuse is one that is not there — silently falling back to the demo's fixtures would be
+        the worst available violation of non-negotiable 1."""
         result = prove("--workload", "data/mine/workload.yaml")
-        assert result.returncode == 2, result.stdout + result.stderr
-        assert "not supported" in result.stderr
+        assert result.returncode != 0, result.stdout + result.stderr
+        assert "data/mine/workload.yaml" in result.stdout + result.stderr
+
+    def test_a_second_workload_is_answered_with_its_own_numbers(self) -> None:
+        """The same guarantee, now that a second workload runs (UPGRADE_V4.md M15).
+
+        The danger was never the refusal; it was reporting one workload's numbers under
+        another's name. So this asserts the two disagree: a different split size, a different
+        title, and a different verdict sentence from the demo's.
+        """
+        second = prove("--workload", "data/incident-triage/workload.yaml")
+        demo = prove()
+        assert "Incident triage from a runbook" in second.stdout
+        assert "n = 99" in second.stdout, second.stdout
+        assert "n = 200" in demo.stdout
+        assert "Returns-policy" not in second.stdout
 
     def test_simulated_data_is_announced_on_stderr(self) -> None:
         """Non-negotiable 2. A CI log that did not say this would let simulated numbers pass

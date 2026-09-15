@@ -158,6 +158,73 @@ class TestRunTime:
         assert not [line for line in result.stdout.splitlines() if line]
 
 
+class TestTheAcceptanceCheck:
+    """UPGRADE_V4.md M15: prove a second workload, and fail if the demo is imported doing it.
+
+    This is the one that could not be written before M15b, because until the report took a
+    workload there was nothing to point at a second one. It runs the whole report — replay,
+    calibration search, cascade simulation, proof — over `data/incident-triage/`, then reads
+    `sys.modules`.
+    """
+
+    def test_proving_a_second_workload_imports_nothing_from_the_demo(self) -> None:
+        result = run_python("""
+            import sys
+            from tokop.optimize.report import build_report
+
+            payload = build_report(workload_path="data/incident-triage/workload.yaml")
+            assert payload["workload"]["id"] == "incident-triage", payload["workload"]
+            assert payload["proof"]["candidate"]["n"] == 99, payload["proof"]["candidate"]["n"]
+            verdicts = ("non_inferior", "inconclusive", "worse")
+            assert payload["proof"]["verdict"]["label"] in verdicts
+            grades = ("recording", "simulated", "insufficient")
+            assert payload["evidence"]["grade"] in grades
+            leaked = sorted(m for m in sys.modules if m.startswith("tokop.workloads.demo"))
+            print("\\n".join(leaked))
+        """)
+        assert result.returncode == 0, result.stderr
+        leaked = [line for line in result.stdout.splitlines() if line]
+        assert not leaked, f"proving the second workload imported {leaked}"
+
+    def test_the_second_workload_is_not_the_demo_in_disguise(self) -> None:
+        """A second workload that differs only in wording tests the plumbing and nothing else.
+
+        The answer mix is the check that matters: the demo is money and day counts, this is
+        escalation codes, team names and yes/no. A scorer feature that only works on numbers
+        would pass on one and fail on the other, which is the kind of thing a second workload
+        exists to find.
+        """
+        from tokop.paths import repo_root
+        from tokop.workloads.bundle import load_bundle
+        from tokop.workloads.spec import load_workload
+
+        demo = load_bundle(load_workload(repo_root() / "data/demo/workload.yaml"))
+        second = load_bundle(load_workload(repo_root() / "data/incident-triage/workload.yaml"))
+
+        demo_types = {item.answer_type for item in demo.items}
+        second_types = {item.answer_type for item in second.items}
+        assert second_types - demo_types or demo_types - second_types, (
+            f"both workloads use exactly {demo_types}; the second tests only the plumbing"
+        )
+        assert not ({item.question for item in second.items} & {i.question for i in demo.items})
+
+    def test_its_provenance_refuses_certification_for_the_honest_reason(self) -> None:
+        """Not one of these tasks was observed in production, and the gate says so."""
+        result = run_python("""
+            from tokop.optimize.report import build_report
+
+            provenance = build_report(
+                workload_path="data/incident-triage/workload.yaml"
+            )["dataset_provenance"]
+            assert provenance["real_traffic_items"] == 0
+            assert provenance["program_generated_items"] == 150
+            assert not provenance["certifiable"]
+            assert any("real recorded traffic" in r for r in provenance["refusals"])
+            print("ok")
+        """)
+        assert result.returncode == 0, result.stderr
+
+
 class TestTheDemoStillSatisfiesTheProtocol:
     def test_a_demo_item_is_an_item(self) -> None:
         """`Item` is a protocol so `DemoItem` satisfies it without inheriting anything."""

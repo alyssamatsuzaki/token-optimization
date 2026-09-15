@@ -1,0 +1,88 @@
+## Loyalty tiers 
+Every customer sits in one of three tiers. The tier changes three things: how long they have to
+return something, how much they must spend before shipping is free, and whether a restocking fee
+is charged at all.
+
+| Tier | Annual fee | Return window bonus | Free shipping from | Restocking fee | Priority support |
+| --- | --- | --- | --- | --- | --- |
+| Standard | $0.00 | 0 days | $75.00 | charged | no |
+| Summit | $49.00 | 14 days | $40.00 | charged | no |
+| Alpine | $129.00 | 30 days | $0.00 | waived | yes |
+
+The return window bonus is added to the category's base window. It is additive, not a multiplier,
+and it never applies to a final-sale category, whose window is zero days regardless of tier.
+
+A Alpine member never pays a restocking fee, on any category, in any circumstance covered by this
+handbook. This is the single most common source of disputed charges, so check the tier before
+quoting a fee.
+
+## Return windows by category 
+The base return window runs from the delivery date, not the order date. A return is counted as
+started on the day the customer requests a return authorisation, not the day the parcel arrives
+back at the warehouse.
+
+| Category | Key | Base return window | Final sale |
+| --- | --- | --- | --- |
+| Tents and shelters | `tents` | 45 days | no |
+| Sleeping bags | `sleeping_bags` | 45 days | no |
+| Backpacks | `backpacks` | 60 days | no |
+| Hiking footwear | `footwear` | 30 days | no |
+| Insulated outerwear | `outerwear` | 45 days | no |
+| Climbing hardware | `climbing_hardware` | 30 days | no |
+| Climbing rope | `climbing_rope` | 14 days | no |
+| Navigation electronics | `electronics` | 30 days | no |
+| Camp stoves and cookware | `stoves` | 45 days | no |
+| Water filters | `water_filters` | 30 days | no |
+| Avalanche safety gear | `avalanche_safety` | 30 days | no |
+| Trail nutrition | `nutrition` | 14 days | yes |
+| Clearance apparel | `clearance_apparel` | 0 days | yes |
+
+To work out a customer's actual window: take the base window from this table, add the tier bonus
+from section sec-loyalty, and then add the seasonal extension from section sec-seasonal if the
+purchase falls inside the holiday window and the category is not excluded.
+
+## Restocking fees 
+A restocking fee is charged on the item price when a customer returns an item that is not
+defective. It is never charged on a defect return, and never charged to an Alpine member.
+
+| Category | Restocking fee |
+| --- | --- |
+| Tents and shelters | 10% |
+| Sleeping bags | 10% |
+| Backpacks | 0% |
+| Hiking footwear | 0% |
+| Insulated outerwear | 0% |
+| Climbing hardware | 15% |
+| Climbing rope | 20% |
+| Navigation electronics | 15% |
+| Camp stoves and cookware | 10% |
+| Water filters | 10% |
+| Avalanche safety gear | 0% |
+| Trail nutrition | 0% |
+| Clearance apparel | 0% |
+
+The fee is a percentage of the price the customer paid, not of the list price, and it is
+deducted from the refund rather than invoiced separately. A refund is therefore the price paid
+minus the restocking fee. Round to the nearest cent.
+
+## Exceptions 
+An exception overrides the general rule for the categories it names. Where two exceptions could
+apply, the more restrictive one wins.
+
+**final-sale** — applies to Trail nutrition, Clearance apparel.
+
+Final-sale items cannot be returned or exchanged for any reason other than a manufacturing defect reported within 7 days of delivery.
+
+**opened-electronics** — applies to Navigation electronics.
+
+Navigation electronics whose factory seal has been broken carry a return window of 14 days rather than the category's 30, and the restocking fee rises to 25 percent.
+
+**used-climbing-safety** — applies to Climbing rope, Avalanche safety gear.
+
+Climbing rope and avalanche safety gear that have been used in the field cannot be returned at all, because their condition cannot be verified.
+
+**worn-footwear** — applies to Hiking footwear.
+
+Hiking footwear worn outdoors may still be returned within the window, but only for store credit, never to the original payment method.
+
+An exception never widens a window; it only narrows one or changes how the refund is paid.

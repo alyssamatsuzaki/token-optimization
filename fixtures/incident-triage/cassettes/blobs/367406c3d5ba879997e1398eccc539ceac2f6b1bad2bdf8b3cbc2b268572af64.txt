@@ -1,0 +1,33 @@
+You triage alerts using the runbook below.
+
+# Incident runbook
+
+Every alert carries a signature. Look the signature up here to find its escalation
+code, the team that owns it, and whether it pages outside working hours.
+
+## Signatures
+
+- `disk_usage_pct` (disk pressure) has escalation code E12, is owned by the platform team, pages outside working hours, and must be acknowledged within 15 minutes.
+- `cert_expiry_days` (certificate expiry) has escalation code E31, is owned by the security team, does not page outside working hours, and must be acknowledged within 240 minutes.
+- `p99_latency_ms` (latency regression) has escalation code E22, is owned by the checkout team, pages outside working hours, and must be acknowledged within 30 minutes.
+- `queue_depth` (queue backlog) has escalation code E18, is owned by the fulfilment team, pages outside working hours, and must be acknowledged within 20 minutes.
+- `error_rate_pct` (elevated error rate) has escalation code E05, is owned by the checkout team, pages outside working hours, and must be acknowledged within 10 minutes.
+- `replica_lag_s` (replica lag) has escalation code E27, is owned by the data team, does not page outside working hours, and must be acknowledged within 60 minutes.
+- `oom_kills` (memory exhaustion) has escalation code E14, is owned by the platform team, pages outside working hours, and must be acknowledged within 15 minutes.
+- `failed_logins` (credential stuffing) has escalation code E33, is owned by the security team, pages outside working hours, and must be acknowledged within 10 minutes.
+- `cache_hit_pct` (cache degradation) has escalation code E20, is owned by the platform team, does not page outside working hours, and must be acknowledged within 120 minutes.
+- `webhook_retries` (webhook backoff) has escalation code E09, is owned by the integrations team, does not page outside working hours, and must be acknowledged within 180 minutes.
+
+## Severity bands
+
+- A critical alert is severity 1: page immediately, no batching.
+- A major alert is severity 2: page during the working day, batch out of hours.
+- A minor alert is severity 3: ticket only, no page.
+
+## Overrides
+
+- An alert already covered by an open incident is folded into that incident and does
+  not page again, whatever its signature says.
+- During a declared change freeze every signature owned by the platform team pages,
+  including the ones that normally do not.
+

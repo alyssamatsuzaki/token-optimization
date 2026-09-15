@@ -20,6 +20,7 @@
 | M13 One real recording | **blocked on a key** | the four gates are built and tested; no generation request has been made |
 | M14 The first screen | **done** | README reordered into `docs/METHOD.md`, an evidence grade, a summary block, Deploy exports |
 | M15a The engine without the demo | **done** | `Item` protocol, datasets loaded not generated, no neutral module imports the demo |
+| M15b A second workload | **done** | `incident-triage` proves clean, `tokop ingest` for JSONL/CSV/OTel; `tokop label` not built |
 
 ## Next
 
@@ -41,11 +42,14 @@ this repository is simulated and labelled so.
 **M14 is done and did not wait for it.** The evidence grade reads `insufficient` today; a
 recording moves two of its eight links and the verdict moves a third.
 
-**M15b** finishes what M15a started. The engine can now represent and load a workload it did not
-generate; it cannot yet report on one, because `optimize/report.py` hardcodes the demo's workload
-path in six places and `build_report()` takes no workload. M15b threads a workload through the
-report, ships a second workload with its own fixtures, and adds `tokop ingest` for JSONL, CSV and
-OpenTelemetry GenAI spans plus `tokop label` for the grader-agreement link.
+**`tokop label` is the one piece of M15 not built.** Without it the grader-agreement link in the
+evidence chain reads "not measured" for any workload with no judged arm, which is the honest
+state. The 50 hand labels UPGRADE_V4.md M15.3 asks for are a human's to write.
+
+**M16, multi-call workloads**, is next and is the largest change in the upgrade: a pipeline
+becomes a graph of steps, and the optimizer can propose deleting one rather than only swapping a
+model. It lands in three commits — spec and compilation, then the graph findings, then proof on
+graph-level outcomes — with single-call output byte-identical throughout.
 
 **U9, the serving-cost basis**, is deferred rather than renumbered (D41). It prices a hosted tier
 in GPU-hours over achieved throughput so a cascade can mix an API tier with a hosted one. Nothing
@@ -397,6 +401,56 @@ Fourteen checks, and two of them failed until `TierProfile` moved out of the dem
 name, because `report.py` hardcodes its path in six places and `build_report()` takes no
 workload. The engine can represent and load another workload; it cannot report on one. M15b.
 
+## A second workload, and the refusal ingestion exists to make (M15b, UPGRADE_V4.md M15)
+
+`tokop prove --workload data/incident-triage/workload.yaml` runs, and the import test fails if
+the demo is reached for while it does. That is M15's acceptance check, and getting there took
+threading a workload through six entry points in `report.py` that had the demo's path spelled
+out — five more spellings than a default needs.
+
+**The second workload is an on-call triage bot** over a runbook mapping alert signatures to
+escalation codes, owning teams and paging rules. Its answer mix is codes, team names and yes/no
+rather than the demo's money and day counts, and two of its five question shapes turn on
+overrides that beat the signature's own rule. On its own 99-task test split:
+
+| Pipeline | Accuracy | Cost per successful task |
+| --- | --- | --- |
+| B0 current, on the frontier model | 89.9% | $0.00719 |
+| B1 cache-friendly order | 90.9% | $0.00259 |
+| B2 tightened, with an output contract | 90.9% | $0.00348 |
+| B3 cascade on B2 | 85.9% | $0.00600 |
+
+The tiers on B2 alone score 68.7% cheap, 82.8% mid, 90.9% frontier on the test split, and the
+cascade routes 31% of tasks to cheap and 69% straight to frontier — the mid tier earns nothing
+here.
+
+**Verdict: inconclusive, and unlikely to be settled by more tasks.** The cascade cuts cost per
+successful task 16.6% (interval 7.1 to 26.4%) and the accuracy difference is −4.0 points, 95% CI
+[−10.1, +2.0], against a 3-point margin. The point estimate is already past the margin, so more
+tasks would tighten an interval around a point on the wrong side of it. Reported as it came out —
+and note that B1, a pure reordering, beats the cascade on this workload at no accuracy cost.
+
+**And it showed something the demo cannot.** Every pseudo-label on the demo's calibration split
+agrees with its answer key under *both* kinds, which D34 recorded as a fact about the noise model
+rather than evidence that label-free calibration works. Here they come apart: **majority-vote
+agrees with gold on 86%** of the calibration split, while **`penalized-v1` excludes the 21 tasks
+it cannot settle and agrees perfectly on what remains.** That is the mechanism U3 exists for,
+finally exercised by a workload rather than by a constructed test — because a cheap tier
+answering an override question from the signature makes the *same* mistake every time, which is
+exactly what a plurality vote reads as correctness.
+
+**`tokop ingest` reads JSONL, CSV and OpenTelemetry GenAI spans**, and the interesting part is a
+refusal. A span records what was asked and what the model *said*; it does not record what the
+right answer was. Writing `gen_ai.completion` into `gold` would produce a workload on which every
+pipeline scores 100% against itself, and nothing about the result would look wrong. Tokop reads
+the tasks, leaves the answers empty, says how many, and exits 3.
+
+**The invented numbers moved into the workload that owns them.** `simulation:` in the second
+workload's YAML declares what each tier gets right, by task type, beside the provenance block
+saying the whole set is program-generated. The neutral responder reads them from there. It is
+deliberately not a better simulator — section 5 of the upgrade rules that out, and a more
+convincing one would only produce more convincing numbers about nothing.
+
 ## Demo result (simulated test fixtures, 200-task test split)
 
 Generated into README.md by `tokop report --write-readme`. Headline: B0 $0.05172 per successful
@@ -484,7 +538,7 @@ everything around it.
   Playwright's own resolution when that path is absent, which is everywhere but here.
 
 438 engine tests, 39 Playwright tests, 91% line coverage on `core/` and `optimize/`.
-`make verify`: 12 checks, none skipped, green. (At M15a: 778 engine tests, 49 Playwright tests,
+`make verify`: 12 checks, none skipped, green. (At M15b: 793 engine tests, 49 Playwright tests,
 91% coverage, 21 checks.)
 
 ## The tokenizer divergence (D26)
@@ -568,5 +622,5 @@ byte-identical. 466 engine tests, 91% line coverage, `make verify` green on all 
 
 ## Where the build stands
 
-778 engine tests, 49 Playwright tests, 91% line coverage on `core/` and `optimize/`.
+793 engine tests, 49 Playwright tests, 91% line coverage on `core/` and `optimize/`.
 `make verify`: 21 checks, none skipped, green.
