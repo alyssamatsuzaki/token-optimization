@@ -202,6 +202,41 @@ class PipelineSpec(BaseModel):
         )
 
 
+class SessionSpec(BaseModel):
+    """How a workload's tasks are run as conversations rather than as one call each (M17).
+
+    Every price in this build is a price per request, which is the right unit for the demo and
+    the wrong one for what most people run. A session declares the shape of the conversation:
+    how many tasks are answered in a row against one cache entry, how long the pause between
+    them is — which is what decides whether that entry is still alive — and what, if anything,
+    compacts the history when it grows.
+    """
+
+    #: Which pipeline's blocks each turn renders. A single-call pipeline: a session is a
+    #: sequence of ordinary requests, not a new kind of request.
+    pipeline: str
+    #: Tasks answered in one conversation.
+    turns: int = 6
+    #: Seconds between one turn's response and the next turn's request. A parameter and not a
+    #: constant: a person reading each answer before replying produces a different bill from an
+    #: agent driving a loop, and the difference is only visible if the workload says which.
+    gap_seconds: int = 70
+    #: Other paces to price the same sessions at. The gap decides whether an entry is still
+    #: alive when the next turn arrives, so it decides the answer; a comparison that reported
+    #: one pace would be reporting a parameter as a result.
+    gap_sweep_seconds: list[int] = Field(default_factory=list)
+    ttl: Literal["5m", "1h"] = "5m"
+    #: Turns between compactions in the `compact` arm. 0 never compacts.
+    compact_every: int = 3
+    compaction_model_role: str = "cheap"
+    compaction_max_tokens: int = 200
+    #: The prompt a compaction call sends. ``{{history}}`` is the conversation so far.
+    compaction: list[BlockSpec] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+    model_config = {"frozen": True}
+
+
 class JudgeSpec(BaseModel):
     """The cheap verifier, and the strong grader that corrects it (UPGRADE_V3.md U1).
 
@@ -436,6 +471,8 @@ class WorkloadSpec(BaseModel):
     judge: JudgeSpec | None = None
     annotation: AnnotationSpec | None = None
     entailment: EntailmentSpec | None = None
+    #: How this workload's tasks are run as conversations, when it declares one (M17).
+    session: SessionSpec | None = None
     dataset_provenance: DatasetProvenanceSpec | None = None
     #: How this workload's simulated provider behaves, when it has one. Absent for a workload
     #: whose fixtures are a real recording, which needs no simulator at all.
@@ -564,6 +601,29 @@ def load_workload(path: Path) -> WorkloadSpec:
         )
     simulation_raw = raw.get("simulation") or workload.get("simulation")
     simulation = SimulationSpec(**simulation_raw) if isinstance(simulation_raw, dict) else None
+    session_raw = raw.get("session") or workload.get("session")
+    session = SessionSpec(**session_raw) if isinstance(session_raw, dict) else None
+    if session is not None:
+        if session.pipeline not in pipelines:
+            raise WorkloadError(
+                f"{path}: the session runs pipeline {session.pipeline!r}, which is not defined"
+            )
+        if pipelines[session.pipeline].is_graph:
+            raise WorkloadError(
+                f"{path}: the session runs pipeline {session.pipeline!r}, which declares steps. "
+                "A session is a sequence of ordinary requests; a graph inside one is a shape "
+                "this build does not price."
+            )
+        if session.turns < 2:
+            raise WorkloadError(
+                f"{path}: a session of {session.turns} turn(s) is a single call, which is what "
+                "every other part of this build already prices."
+            )
+        if session.compact_every and not session.compaction:
+            raise WorkloadError(
+                f"{path}: the session compacts every {session.compact_every} turns but declares "
+                "no `compaction:` prompt. There is nothing to send."
+            )
     _validate_judging(path, grading, judge, annotation, dataset_provenance)
     _validate_entailment(path, entailment)
 
@@ -583,6 +643,7 @@ def load_workload(path: Path) -> WorkloadSpec:
         judge=judge,
         annotation=annotation,
         entailment=entailment,
+        session=session,
         dataset_provenance=dataset_provenance,
         margin=float(workload.get("margin", 0.03)),
         latency_sensitive=bool(workload.get("latency_sensitive", False)),

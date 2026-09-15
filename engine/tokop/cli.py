@@ -1258,6 +1258,80 @@ def graph_cmd(
         )
 
 
+@app.command("session")
+def session_cmd(
+    workload: str = typer.Option(
+        "data/incident-agent/workload.yaml",
+        "--workload",
+        help="A workload with a `session:` block.",
+    ),
+    json_out: bool = typer.Option(False, "--json", help="Print the whole payload as JSON."),
+) -> None:
+    """Price a conversation, not a request: holding the prefix against compacting it.
+
+    Spends nothing and opens no socket. The answers come from the deterministic in-process
+    provider; the bill is counted by `tokop/core/session.py`, because that provider has no clock
+    and a session is largely about what expires between turns.
+    """
+    import json as _json
+
+    from tokop.optimize.session_report import build_session_report
+
+    report = build_session_report(workload)
+    if json_out:
+        typer.echo(_json.dumps(report.as_dict(), indent=2, sort_keys=True, default=str))
+        return
+
+    spec = report.spec
+    typer.echo(
+        f"{report.workload.name} ({report.workload.id}) — {report.model_id}, simulated, "
+        f"spends nothing\n"
+    )
+    typer.echo(
+        f"  {len(report.arms['immutable'].runs)} sessions of up to {spec.turns} turns, "
+        f"{spec.gap_seconds}s apart, {spec.ttl} cache lifetime, compacting every "
+        f"{spec.compact_every} turns"
+    )
+    typer.echo(
+        f"  bill counted with {report.counter} x {report.token_ratio} (not provider-reported)\n"
+    )
+
+    header = (
+        f"  {'policy':10} {'turns':>6} {'ok':>4} {'writes':>9} {'reads':>9} {'uncached':>9} "
+        f"{'expired':>8} {'$ total':>10}"
+    )
+    typer.echo(header)
+    for name, arm in sorted(report.arms.items()):
+        row = arm.as_dict()
+        typer.echo(
+            f"  {name:10} {arm.turns:6,} {arm.successes:4} {row['cache_writes_tokens']:9,} "
+            f"{row['cache_reads_tokens']:9,} {row['uncached_input_tokens']:9,} "
+            f"{arm.expired_entries:8} {float(arm.total_cost):10.5f}"
+        )
+
+    for name, arm in sorted(report.arms.items()):
+        if not arm.findings:
+            continue
+        typer.echo(f"\n  {name}:")
+        for finding in arm.findings:
+            typer.echo(
+                f"    {finding.id} {finding.confidence:9} "
+                f"${finding.projected_usd_per_1k:>8.2f}/1k  {finding.title}"
+            )
+
+    typer.echo("\n  pace     measured            at summary budget   winner")
+    for result in report.sensitivity:
+        typer.echo(
+            f"  {result.gap_seconds:4}s    "
+            f"[{result.cost_ratio.low:.2f}, {result.cost_ratio.high:.2f}]"
+            f"{'':8}[{result.cost_ratio_at_budget.low:.2f}, "
+            f"{result.cost_ratio_at_budget.high:.2f}]{'':8}{result.winner}"
+        )
+
+    typer.echo(f"\n{report.sentence()}")
+    typer.echo(f"\nQuality: {report.quality_note}")
+
+
 @app.command("dataset")
 def dataset_cmd(
     write: bool = typer.Option(False, "--write", help="Regenerate and write the dataset."),

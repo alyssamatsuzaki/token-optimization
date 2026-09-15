@@ -13,6 +13,7 @@ being wrong by a third for half the registry.
 
 from __future__ import annotations
 
+import threading
 from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
@@ -71,11 +72,7 @@ def fit_from_cassettes(store: CassetteStore) -> dict[str, ModelRatio]:
 
 
 @lru_cache(maxsize=2)
-def fitted_estimator(cassette_dir: Path | None = None) -> TokenEstimator:
-    """A ``TokenEstimator`` with every ratio this build can fit.
-
-    Cached: fitting walks every cassette, and the answer only changes when the fixtures do.
-    """
+def _fit_estimator(cassette_dir: Path | None = None) -> TokenEstimator:
     from tokop.paths import fixtures_dir
     from tokop.recording_state import describe
 
@@ -88,5 +85,25 @@ def fitted_estimator(cassette_dir: Path | None = None) -> TokenEstimator:
     return estimator
 
 
+#: One fit at a time. ``lru_cache`` memoizes a *result*; it does not stop two threads both
+#: missing and both doing the work. Fitting walks every cassette in the recording — nearly seven
+#: thousand files, about nineteen seconds here — and the API serves sync endpoints from a
+#: threadpool, so two browser tabs opening Inspect together used to pay for it twice, four tabs
+#: four times, each one slower than the last as they contend. The lock makes the second arrival
+#: wait for the first's answer instead of recomputing it.
+_FIT_LOCK = threading.Lock()
+
+
+def fitted_estimator(cassette_dir: Path | None = None) -> TokenEstimator:
+    """A ``TokenEstimator`` with every ratio this build can fit.
+
+    Cached, and cached **once**: fitting walks every cassette, and the answer only changes when
+    the fixtures do.
+    """
+    with _FIT_LOCK:
+        return _fit_estimator(cassette_dir)
+
+
 def clear_cache() -> None:
-    fitted_estimator.cache_clear()
+    with _FIT_LOCK:
+        _fit_estimator.cache_clear()

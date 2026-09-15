@@ -8,6 +8,7 @@ import type {
   InspectResult,
   PipelineTemplate,
   Report,
+  SessionReportView,
   SettingsView,
   SpendView,
   Trace,
@@ -72,6 +73,20 @@ export function usePipelineTemplate(pipelineId: string) {
   return useQuery({
     queryKey: ["pipeline-template", pipelineId],
     queryFn: () => get<PipelineTemplate>(`/api/inspect/pipeline/${pipelineId}`),
+  });
+}
+
+export function useSessionReport(enabled: boolean) {
+  return useQuery({
+    queryKey: ["session-report"],
+    queryFn: () => get<SessionReportView>("/api/session"),
+    // Asked for, not fetched on arrival. It runs six hundred simulated turns and bootstraps
+    // three paces — seconds of server CPU — and Inspect is a screen people open to lint a
+    // prompt. Paying for a session comparison nobody asked for would make the screen they did
+    // ask for slower.
+    enabled,
+    // The same answer every time, so once is enough.
+    staleTime: Infinity,
   });
 }
 

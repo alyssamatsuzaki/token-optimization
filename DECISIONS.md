@@ -1181,3 +1181,59 @@ verify. Its top finding is G03 — the verifier's verdict reaches nothing — an
 without it, cuts cost per successful task by 51.8% with the accuracy difference at zero. That is
 the milestone's point: an optimizer that can propose deleting a step, not only swapping a model.
 
+## D48 — M17: a session is priced by counting, and the quality half is refused
+
+Every price in this build was a price per request. M17 adds the other unit, and the two hard parts
+were not the arithmetic.
+
+1. **The bill is counted, not provider-reported, and the payload says so.** The in-process
+   provider has no clock, so it cannot expire a cache entry — and expiry is half of what a session
+   is. `core/session.py` prices the rendered turns with the base counter instead. That is an
+   estimate and it names its counter (non-negotiable 2); the provider supplies the answers, which
+   is what decides correctness, and not the bill.
+2. **The counter is scaled into the model's units, because otherwise the answer is wrong rather
+   than imprecise.** Models from Claude 4.7 on count about 30% higher than the tokenizer this
+   build can run locally, and that gap decides whether a prefix clears the model's *minimum
+   cacheable* size at all. The incident runbook is 658 tokens by the local counter and about 855
+   in the model's: cacheable on Opus 5's 512-token minimum, not on Sonnet 5's 1,024. Priced
+   unscaled, a cacheable session reads as entirely uncached. `session_cost` takes the model's
+   declared ratio and `SessionCost` records both it and the counter.
+3. **Whether a read refreshes the entry is not claimed.** SPEC.md Appendix B does not say, and
+   nothing here has watched a real cache expire. The default is that it does not, which produces
+   more writes and a higher bill — the conservative direction for a number somebody budgets
+   against. `refresh_on_read=True` is offered for an operator who has checked, and the result
+   records which was used.
+4. **The interval resamples sessions, not turns.** Turns inside a session share a cache entry:
+   the first pays for the write and the rest read it. Bootstrapping turns would treat correlated
+   observations as independent and report an interval several times too narrow.
+5. **The quality half is refused, not estimated — a spec conflict, logged.** PLAN.md section 8
+   asks for "the change in task success — with an interval". This build's provider answers from
+   the task and the model alone; its replies do not depend on the conversation carried with them.
+   So a compacted arm *cannot* lose accuracy here, and reporting "no accuracy difference" would
+   report a property of the simulator as a property of compaction. Reality wins and the
+   conservative option is taken: displayed as not measured, with that reason, everywhere the
+   comparison appears. Declaring a compaction accuracy penalty in the workload was considered and
+   rejected — the measurement would read back the declaration.
+
+**The one remaining bias is priced rather than mentioned.** The summary the compacting arm carries
+is whatever the simulated provider replied, which is far shorter than the budget the workload set
+aside for a compaction, and a shorter summary is a cheaper prefix to write and to read. Every turn
+carrying a summary is therefore *also* priced with that summary at its declared budget, at the
+rate that turn's prefix actually paid, and the comparison is reported twice. It matters: at the
+first geometry tried the measured ratio favoured compacting at [0.95, 0.97] and the bias-closed
+one favoured holding at [1.04, 1.06], so the result was "not established" and correctly so.
+
+**The pace between turns decides the answer, so the answer is reported at more than one pace.**
+Six turns seventy seconds apart is 350 seconds: the five-minute entry expires before the last turn
+of every session. Rewriting the prefix — the thing compaction is charged for — also refreshes the
+entry, so compacting can win purely by destroying something just before it would have died. That
+is a real mechanism and it is visible in the expiry counts in both arms. `gap_sweep_seconds` runs
+the same comparison at 40, 70 and 90 seconds; holding the prefix immutable wins at all three,
+under both pricings. A comparison reported at one pace would be presenting a parameter as a
+finding.
+
+**B1's per-request claim is restated rather than softened.** The README's metrics block now says
+in generated text that every figure in it is per request, and that a conversation is a different
+accounting with a different answer. It is a refusal moving one click away, as UPGRADE_V4.md M17
+asks — not a number being softened.
+

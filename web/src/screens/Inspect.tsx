@@ -7,7 +7,13 @@
  * back, because two of the fixes make the prompt longer on purpose.
  */
 import { useEffect, useState } from "react";
-import { inspectPrompt, useBrief, useHealth, usePipelineTemplate } from "../lib/api";
+import {
+  inspectPrompt,
+  useBrief,
+  useHealth,
+  usePipelineTemplate,
+  useSessionReport,
+} from "../lib/api";
 import { count, pct, tokens, usd, usdShort } from "../lib/format";
 import PromptHighlights, { type InspectedPrompt } from "../components/PromptHighlights";
 import type { InspectResult } from "../lib/types";
@@ -486,9 +492,132 @@ export default function Inspect() {
         </div>
       )}
 
+      <SessionPanel />
+
       <footer className="rule-t pt-4 mt-6">
         <Legend kinds={["exact", "estimated", "projected", "simulated"]} />
       </footer>
     </div>
+  );
+}
+
+/**
+ * What the same prompt costs over a conversation (UPGRADE_V4.md M17).
+ *
+ * Everything above this prices one request, which is the unit the cache is easiest to reason
+ * about in and the wrong one for what most people run. Over turns two things happen that a
+ * per-request price cannot show: the entry expires while somebody reads the answer, and the
+ * history grows after the breakpoint. This panel is those two things, priced.
+ *
+ * The quality column is deliberately absent. Compaction's real risk is dropping what a later
+ * turn needed, and this build's provider answers from the task and the model alone — so any
+ * accuracy figure here would describe the simulator. It is refused, with the reason shown.
+ */
+function SessionPanel() {
+  const [asked, setAsked] = useState(false);
+  const session = useSessionReport(asked);
+  if (!asked) {
+    return (
+      <Section
+        title="Over a conversation, not a request"
+        subtitle="Every figure above prices one request. A session is a different accounting: an entry that expires between turns, and a history that grows after the breakpoint."
+        id="session"
+      >
+        <Button onClick={() => setAsked(true)} testId="session-run" variant="primary">
+          Price a conversation
+        </Button>
+        <p className="text-small text-graphite mt-2 max-w-prose">
+          Runs both policies over the same tasks against the deterministic in-process provider.
+          Spends nothing and opens no socket; it takes a few seconds, which is why it is a button
+          rather than something this screen does on arrival.
+        </p>
+      </Section>
+    );
+  }
+  if (session.isLoading) return <LoadingRow what="the session comparison" />;
+  if (session.error) return <ErrorRow error={session.error} what="the session comparison" />;
+  if (!session.data) return null;
+  const report = session.data;
+  const arms = Object.entries(report.arms).sort(([a], [b]) => a.localeCompare(b));
+  const ratio = report.cost_ratio_compact_over_immutable;
+  const atBudget = report.cost_ratio_compact_over_immutable_at_summary_budget;
+  return (
+    <Section
+      title="Over a conversation, not a request"
+      subtitle={`${report.session.turns} turns against one cache entry, ${report.session.gap_seconds}s apart, ${report.session.ttl} lifetime, compacting every ${report.session.compact_every} turns.`}
+      right={
+        <Pill tone={report.winner === "neither" ? "neutral" : "better"}>
+          {report.winner === "neither" ? "not established" : `${report.winner} wins`}
+        </Pill>
+      }
+      id="session"
+    >
+      <table className="w-full text-small tabular-nums" data-testid="session-arms">
+        <thead className="text-graphite text-left">
+          <tr className="rule-b">
+            <th className="py-1 font-normal">Policy</th>
+            <th className="py-1 font-normal text-right">Cache writes</th>
+            <th className="py-1 font-normal text-right">Cache reads</th>
+            <th className="py-1 font-normal text-right">Uncached input</th>
+            <th className="py-1 font-normal text-right">Entries expired</th>
+            <th className="py-1 font-normal text-right">Cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          {arms.map(([name, arm]) => (
+            <tr key={name} className="rule-b">
+              <td className="py-1">{name}</td>
+              <td className="py-1 text-right">{count(arm.cache_writes_tokens)}</td>
+              <td className="py-1 text-right">{count(arm.cache_reads_tokens)}</td>
+              <td className="py-1 text-right">{count(arm.uncached_input_tokens)}</td>
+              <td className="py-1 text-right">{count(arm.expired_entries)}</td>
+              <td className="py-1 text-right">{usd(Number(arm.total_cost_usd))}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <p className="text-small mt-4 max-w-prose" data-testid="session-sentence">
+        {report.sentence}
+      </p>
+
+      <dl className="text-small grid grid-cols-[12rem_1fr] gap-x-4 gap-y-1 mt-4">
+        <dt className="text-graphite">Cost ratio</dt>
+        <dd>
+          {ratio.point.toFixed(2)}x [{ratio.low.toFixed(2)}, {ratio.high.toFixed(2)}] as measured;{" "}
+          {atBudget.point.toFixed(2)}x [{atBudget.low.toFixed(2)}, {atBudget.high.toFixed(2)}] with
+          each compaction priced at the summary budget it was given
+        </dd>
+        <dt className="text-graphite">At other paces</dt>
+        <dd>
+          {report.sensitivity_to_pace
+            .map((pace) => `${pace.gap_seconds}s ${pace.winner}`)
+            .join(", ")}
+        </dd>
+        <dt className="text-graphite">Basis</dt>
+        <dd>{report.basis}</dd>
+      </dl>
+
+      {arms.map(([name, arm]) =>
+        arm.findings.length === 0 ? null : (
+          <div key={name} className="mt-4">
+            <h3 className="text-base font-medium mb-1">{name}</h3>
+            <ul className="text-small space-y-1">
+              {arm.findings.map((finding) => (
+                <li key={finding.id}>
+                  <span className="font-mono text-micro">{finding.id}</span> {finding.title} —{" "}
+                  {finding.evidence}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ),
+      )}
+
+      <p className="text-small text-graphite border-l-2 border-vermilion pl-3 mt-5 max-w-prose">
+        <strong className="text-vermilion font-medium">Quality: not measured.</strong>{" "}
+        {report.quality.note}
+      </p>
+    </Section>
   );
 }

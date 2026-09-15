@@ -32,6 +32,7 @@ savings repay it.
 - McNemar exact p = 1.000 on 13 discordant pairs.
 - The proof itself cost $16.6071 and repays after 367 tasks.
 - Prices: 1d339a1b5b0556ab, all verified against the provider's own page.
+- Every figure here is **per request**: one task, one call, a cache entry that is warm because the run warmed it. Over a conversation the answer can differ, because an entry expires between turns and a history grows after the breakpoint. `tokop session` prices that separately and reports it separately.
 
 **Evidence: insufficient.** Verdict: Inconclusive: about 4 more tasks would settle it. 1 other link also blocks a conclusion. This result does not support the claim it is attached to. The whole chain, and every method behind these numbers, is in [docs/METHOD.md](docs/METHOD.md).
 

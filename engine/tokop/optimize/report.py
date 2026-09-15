@@ -2649,6 +2649,15 @@ def readme_block(payload: ReportPayload) -> str:
             if provenance["prices_verified"]
             else f"unverified for {', '.join(provenance['unverified_models'])}."
         ),
+        # M17. Every figure above is per request, and until M17 nothing said so because nothing
+        # in this build could price anything else. A session is a different accounting with a
+        # different answer — the same prompt order that wins here can lose over turns once an
+        # entry expires between them — so the claim states its unit rather than leaving a reader
+        # to assume the larger one (UPGRADE_V4.md M17).
+        "- Every figure here is **per request**: one task, one call, a cache entry that is warm "
+        "because the run warmed it. Over a conversation the answer can differ, because an entry "
+        "expires between turns and a history grows after the breakpoint. `tokop session` prices "
+        "that separately and reports it separately.",
         "",
         f"**Evidence: {payload['evidence']['grade']}.** {payload['evidence']['headline']} "
         "The whole chain, and every method behind these numbers, is in "

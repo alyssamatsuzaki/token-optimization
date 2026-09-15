@@ -114,6 +114,12 @@ if have engine/.venv/bin/pytest && [ -n "$(find engine/tests -name 'test_*.py' 2
   run "the winning plan deletes a step (M16)" bash -c "cd '$ROOT/engine' && \
       .venv/bin/pytest -q tests/test_graph_execution.py::TestTheAcceptanceCheck \
       tests/test_graph_execution.py::TestTheFiveFindings"
+  # M17. Every price in this build was a price per request. These pin the two things that stop
+  # a session price from being a per-request price with more turns: an entry that expires
+  # between them, and a quality claim nothing here can support.
+  run "a session is priced over its turns (M17)" bash -c "cd '$ROOT/engine' && \
+      .venv/bin/pytest -q tests/test_session.py::TestTheAcceptanceCheck \
+      tests/test_session.py::TestWhatItRefuses"
 else
   skip "pytest + coverage" "no tests yet"
   skip "adversarial judge (U1)" "no tests yet"
@@ -133,6 +139,7 @@ else
   skip "ingest never invents an answer key (M15)" "no tests yet"
   skip "a single call is still a single call (M16)" "no tests yet"
   skip "the winning plan deletes a step (M16)" "no tests yet"
+  skip "a session is priced over its turns (M17)" "no tests yet"
 fi
 
 # ---------------------------------------------------------------- 3. web build

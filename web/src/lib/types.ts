@@ -791,3 +791,62 @@ export interface DeleteResult {
   tokens_unchanged: boolean;
   note: string;
 }
+
+
+/**
+ * What a conversation costs, against what one request costs (UPGRADE_V4.md M17).
+ *
+ * Every other number this app shows is per request. These are per session: an entry that expires
+ * between turns, a history that grows after the breakpoint, a compaction that throws the prefix
+ * away and pays for it again. The quality side is refused rather than estimated, and carries the
+ * reason it is refused.
+ */
+export interface SessionArmView {
+  policy: string;
+  sessions: number;
+  turns: number;
+  successes: number;
+  total_cost_usd: string;
+  cost_per_successful_turn_usd: string | null;
+  prefix_stability: number;
+  cache_writes_tokens: number;
+  cache_reads_tokens: number;
+  uncached_input_tokens: number;
+  expired_entries: number;
+  compaction_turns: number;
+  compaction_usd: string;
+  dropped_history_tokens: number;
+  reestablished_prefix_tokens: number;
+  summary_budget_gap_usd: string;
+  total_cost_at_budget_usd: string;
+  findings: FindingView[];
+}
+
+export interface SessionPaceView {
+  gap_seconds: number;
+  winner: string;
+  cost_ratio_compact_over_immutable: Interval;
+  cost_ratio_compact_over_immutable_at_summary_budget: Interval;
+  expired_entries: Record<string, number>;
+}
+
+export interface SessionReportView {
+  workload: { id: string; name: string };
+  origin: string;
+  model_id: string;
+  session: {
+    pipeline: string;
+    turns: number;
+    gap_seconds: number;
+    ttl: string;
+    compact_every: number;
+  };
+  basis: string;
+  arms: Record<string, SessionArmView>;
+  cost_ratio_compact_over_immutable: Interval;
+  cost_ratio_compact_over_immutable_at_summary_budget: Interval;
+  winner: string;
+  sentence: string;
+  quality: { measured: boolean; note: string };
+  sensitivity_to_pace: SessionPaceView[];
+}

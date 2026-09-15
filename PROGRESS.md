@@ -24,6 +24,7 @@
 | M16a Pipelines as graphs | **done** | `steps:` compiles to a graph; a single call is still byte-identical, pinned by cassette key |
 | M16b Graphs execute | **done** | the runner runs a graph per task; `TaskCall` carries the step; a graph warms its own cache |
 | M16c Graph findings and proof | **done** | G01–G05 over traces; deleting the idle verifier cuts 51.8% with delta zero by construction |
+| M17 Session and cache accounting | **done** | `core/session.py` with expiry; PL15–PL17; holding the prefix beats compacting at three paces |
 
 ## Next
 
@@ -49,11 +50,11 @@ recording moves two of its eight links and the verdict moves a third.
 evidence chain reads "not measured" for any workload with no judged arm, which is the honest
 state. The 50 hand labels UPGRADE_V4.md M15.3 asks for are a human's to write.
 
-**M16 is done and is described below.** What it still cannot do is written beside it: the graph
-workload has no committed cassettes, by choice.
+**M16 and M17 are done and are described below.** What each still cannot do is written beside
+it: the graph workload has no committed cassettes by choice, and the session comparison refuses
+its quality claim. **M18 is next** — a certificate that knows what it was measured on.
 
-**M17 is next** — session and cache accounting, where a price per request stops being the only
-unit this build has — and M18 follows it.
+**`tokop label` is still the one piece of M15 not built**, for the same reason as before.
 
 **U9, the serving-cost basis**, is deferred rather than renumbered (D41). It prices a hosted tier
 in GPU-hours over achieved throughput so a cascade can mix an API tier with a hosted one. Nothing
@@ -547,6 +548,60 @@ the simulator's noise (D47).
 That is the point of the milestone: an optimizer that can propose *deleting a step*, not only
 swapping a model.
 
+## A conversation is not a request repeated (M17, UPGRADE_V4.md M17)
+
+Every price in this build was a price per request. `core/session.py` adds the other unit: writes
+at the write premium, reads at the read rate, and **an entry that expires between turns**, which is
+the thing a per-request price cannot show at all.
+
+**The bill is counted, not provider-reported, and the payload says so.** The in-process provider
+has no clock and so cannot expire an entry. The turns are priced from the rendered requests with
+the base counter — an estimate that names its counter — and the provider supplies only the
+answers. It also has to be **scaled into the model's units**: the incident runbook is 658 tokens
+locally and about 855 as these models count, which is cacheable on Opus 5's 512-token minimum and
+not on Sonnet 5's 1,024. Priced unscaled, a perfectly cacheable session reads as entirely uncached
+(D48.2).
+
+**The result, at three paces.**
+
+| Pace between turns | Compacting costs, measured | At the summary budget | Winner | Entries expired (immutable / compact) |
+| --- | --- | --- | --- | --- |
+| 40s | 1.27–1.33x | 1.41–1.48x | immutable | 0 / 0 |
+| 70s | 1.09–1.15x | 1.21–1.28x | immutable | 16 / 0 |
+| 90s | 1.11–1.16x | 1.23–1.29x | immutable | 16 / 1 |
+
+Two columns, not one, because the one bias left in the comparison is **priced rather than
+mentioned**: the summary the compacting arm carries is the simulated provider's short reply rather
+than the budget the workload set aside, and a shorter summary is a cheaper prefix to write and to
+read. Every turn carrying a summary is therefore also priced at that budget. It matters — at the
+first geometry tried, the measured ratio favoured compacting at [0.95, 0.97] and the bias-closed
+one favoured holding at [1.04, 1.06], and the honest report was "not established".
+
+Three paces, not one, because the gap decides the answer. Six turns seventy seconds apart is 350
+seconds, so the five-minute entry expires before the last turn of every session — and rewriting
+the prefix, which is what compaction is charged for, *also refreshes the entry*, so compacting can
+win by destroying something just before it would have died anyway. The expiry counts are in the
+table so that mechanism is visible rather than inferred from a cost that moved. The interval
+resamples **sessions**, not turns: turns inside one session share a cache entry, so bootstrapping
+turns would report an interval several times too narrow.
+
+**PL15 to PL17** read a sequence of requests rather than one. PL15 fires when the prefix moves on
+every turn; PL16 when text identical on every turn sits *after* the breakpoint, which is what a
+conversation that re-renders itself rather than appending tends to produce; PL17 recognises a
+compaction by what it does — a prefix that changed and a tail that got shorter. Both shipped arms
+raise PL16 on `S0`'s contract block, and only the compacting one raises PL17.
+
+**The quality side is refused, and that is a logged conflict with the plan.** PLAN.md asks for the
+change in task success with an interval. This build's provider answers from the task and the model
+alone: its replies do not depend on the conversation carried with them, so a compacted arm cannot
+lose accuracy here, and "no accuracy difference" would report a property of the simulator as a
+property of compaction. It is displayed as not measured, with that reason, everywhere the
+comparison appears (D48.5).
+
+**And B1's claim is restated rather than softened.** The README's generated metrics block now says
+that every figure in it is per request, and that a conversation is a different accounting with a
+different answer. A refusal moving one click away, which is what UPGRADE_V4.md M17 asks for.
+
 ## Demo result (simulated test fixtures, 200-task test split)
 
 Generated into README.md by `tokop report --write-readme`. Headline: B0 $0.05172 per successful
@@ -561,7 +616,7 @@ These are simulated, not recorded (DECISIONS.md D1).
 
 ## Known issues
 
-- `make verify` runs all 29 checks with none skipped.
+- `make verify` runs all 30 checks with none skipped.
 - **The graph and session workloads have no committed recording, by choice.** `tokop graph` and
   `tokop session` run `data/incident-agent/` against the deterministic in-process provider. The
   recording plan in `tokop/recorder.py` is SPEC.md section 6's single-call plan and is left
@@ -569,6 +624,18 @@ These are simulated, not recorded (DECISIONS.md D1).
 - **A graph's `tool` and `retrieve` steps return text the workload declares.** Tokop executes no
   tools. That makes `incident-agent` a model of an agent's shape rather than an agent, and every
   surface reporting on it says so.
+- **The session comparison refuses its quality half.** This build's provider answers from the task
+  and the model alone, so a compacted arm cannot lose accuracy here and any figure would describe
+  the simulator (D48.5). The cost half is measured, at three paces, under two pricings.
+- **A session's bill is counted, not provider-reported.** The in-process provider has no clock and
+  cannot expire a cache entry, which is half of what a session is. The counter and the ratio it
+  was scaled by are in the payload.
+- **Two latency bugs the M17 screen work surfaced, both fixed.** Fitting token ratios walks every
+  cassette — nineteen seconds here — and `lru_cache` memoizes a *result* without stopping two
+  threads both missing and both doing the work, so several tabs opening Inspect together each paid
+  for it. It is behind a lock now, with a test that four threads missing together produce one fit.
+  And the session comparison is a button rather than something Inspect does on arrival: a screen
+  people open to lint a prompt should not run six hundred simulated turns first.
 - **The ledger is generated and now has a schema that can go stale.** M16b added `calls.step`;
   `create_all` will not add a column to an existing table, so a ledger built before it is refused
   by name with the one command that fixes it (`tokop build-test-fixtures --ledger-only`).
@@ -644,8 +711,8 @@ everything around it.
   Playwright's own resolution when that path is absent, which is everywhere but here.
 
 438 engine tests, 39 Playwright tests, 91% line coverage on `core/` and `optimize/`.
-`make verify`: 12 checks, none skipped, green. (At M16c: 839 engine tests, 50 Playwright tests,
-29 checks.)
+`make verify`: 12 checks, none skipped, green. (At M17: 866 engine tests, 51 Playwright tests,
+30 checks.)
 
 ## The tokenizer divergence (D26)
 
