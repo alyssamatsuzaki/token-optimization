@@ -25,6 +25,7 @@
 | M16b Graphs execute | **done** | the runner runs a graph per task; `TaskCall` carries the step; a graph warms its own cache |
 | M16c Graph findings and proof | **done** | G01–G05 over traces; deleting the idle verifier cuts 51.8% with delta zero by construction |
 | M17 Session and cache accounting | **done** | `core/session.py` with expiry; PL15–PL17; holding the prefix beats compacting at three paces |
+| M18 Workload identity and drift | **done** | `optimize/fingerprint.py`; a certificate binds to the mix and expires on coverage, named apart from the canary's outcome drift |
 
 ## Next
 
@@ -50,9 +51,11 @@ recording moves two of its eight links and the verdict moves a third.
 evidence chain reads "not measured" for any workload with no judged arm, which is the honest
 state. The 50 hand labels UPGRADE_V4.md M15.3 asks for are a human's to write.
 
-**M16 and M17 are done and are described below.** What each still cannot do is written beside
-it: the graph workload has no committed cassettes by choice, and the session comparison refuses
-its quality claim. **M18 is next** — a certificate that knows what it was measured on.
+**M16, M17 and M18 are done and are described below.** What each of them still cannot do is
+written beside it rather than at the end, because every one of the three has a half that waits on
+a recording: the graph workload has no committed cassettes by choice, the session comparison
+refuses its quality claim, and a fingerprint over a program-generated split is not a fingerprint
+of anybody's traffic.
 
 **`tokop label` is still the one piece of M15 not built**, for the same reason as before.
 
@@ -602,6 +605,31 @@ comparison appears (D48.5).
 that every figure in it is per request, and that a conversation is a different accounting with a
 different answer. A refusal moving one click away, which is what UPGRADE_V4.md M17 asks for.
 
+## A certificate that knows what it was measured on (M18, UPGRADE_V4.md M18)
+
+A certificate bound to models, prices, grading mode and dataset provenance, and nothing in it
+noticed when the traffic it was quoted about stopped resembling the split it was measured on.
+
+`optimize/fingerprint.py` is that shape: the task-type mix, input-length quantiles at p10/p50/p90/
+p99, and a difficulty **proxy** that says it is one — nothing here carries a difficulty label, so
+what is computed is the concentration of the mix and the share sitting in its smallest type, which
+is the region a claim covers least. The demo's is `computation 20%, exception 10%, lookup 45%,
+two_hop 25%` over 200 tasks, and the Optimize screen shows it under "What this was measured on".
+
+**Distribution drift is not the canary's drift, and they never share a word.**
+`CanaryResult.drift_tested` means a re-scored subset whose accuracy difference could have moved;
+`distribution_tested` means recent traffic compared, as a distribution, to the certified split. A
+certificate can pass every outcome look while being quoted about tasks it never saw — the failure
+that looks most like success — so a test class enforces that neither implies the other, and a look
+with nothing to compare reports that it *could not* check rather than passing.
+
+Divergence is total variation distance over the mix, which reads as a share of traffic: 0.2 means
+a fifth of the queue is in a different type from the one the certificate would predict. Beside it,
+the **uncovered region** is named individually, because "the distribution moved" is not something
+anybody can act on and "`two_hop` is 43% of recent traffic and was 1% of the certified split, 2 of
+200 tasks" is. `tokop canary --drift <recent.jsonl>` is the command; a certificate issued before
+M18 still reads, and says it cannot be checked for coverage rather than passing the check.
+
 ## Demo result (simulated test fixtures, 200-task test split)
 
 Generated into README.md by `tokop report --write-readme`. Headline: B0 $0.05172 per successful
@@ -616,7 +644,7 @@ These are simulated, not recorded (DECISIONS.md D1).
 
 ## Known issues
 
-- `make verify` runs all 30 checks with none skipped.
+- `make verify` runs all 31 checks with none skipped.
 - **The graph and session workloads have no committed recording, by choice.** `tokop graph` and
   `tokop session` run `data/incident-agent/` against the deterministic in-process provider. The
   recording plan in `tokop/recorder.py` is SPEC.md section 6's single-call plan and is left
@@ -630,6 +658,8 @@ These are simulated, not recorded (DECISIONS.md D1).
 - **A session's bill is counted, not provider-reported.** The in-process provider has no clock and
   cannot expire a cache entry, which is half of what a session is. The counter and the ratio it
   was scaled by are in the payload.
+- **A workload fingerprint over a program-generated split is not a fingerprint of traffic.** M18
+  makes a certificate expire on coverage; what it is covering is still a set nobody observed.
 - **Two latency bugs the M17 screen work surfaced, both fixed.** Fitting token ratios walks every
   cassette — nineteen seconds here — and `lru_cache` memoizes a *result* without stopping two
   threads both missing and both doing the work, so several tabs opening Inspect together each paid
@@ -711,8 +741,8 @@ everything around it.
   Playwright's own resolution when that path is absent, which is everywhere but here.
 
 438 engine tests, 39 Playwright tests, 91% line coverage on `core/` and `optimize/`.
-`make verify`: 12 checks, none skipped, green. (At M17: 866 engine tests, 51 Playwright tests,
-30 checks.)
+`make verify`: 12 checks, none skipped, green. (At M18: 880 engine tests, 51 Playwright tests,
+31 checks.)
 
 ## The tokenizer divergence (D26)
 

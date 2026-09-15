@@ -120,6 +120,12 @@ if have engine/.venv/bin/pytest && [ -n "$(find engine/tests -name 'test_*.py' 2
   run "a session is priced over its turns (M17)" bash -c "cd '$ROOT/engine' && \
       .venv/bin/pytest -q tests/test_session.py::TestTheAcceptanceCheck \
       tests/test_session.py::TestWhatItRefuses"
+  # M18. A certificate that passes every outcome look while being quoted about tasks it never
+  # saw is the failure mode that looks most like success, so the coverage check and the
+  # separation of the two drifts are release blockers rather than unit tests.
+  run "a certificate expires on coverage (M18)" bash -c "cd '$ROOT/engine' && \
+      .venv/bin/pytest -q tests/test_fingerprint.py::TestTheAcceptanceCheck \
+      tests/test_fingerprint.py::TestTheTwoDriftsStaySeparate"
 else
   skip "pytest + coverage" "no tests yet"
   skip "adversarial judge (U1)" "no tests yet"
@@ -140,6 +146,7 @@ else
   skip "a single call is still a single call (M16)" "no tests yet"
   skip "the winning plan deletes a step (M16)" "no tests yet"
   skip "a session is priced over its turns (M17)" "no tests yet"
+  skip "a certificate expires on coverage (M18)" "no tests yet"
 fi
 
 # ---------------------------------------------------------------- 3. web build

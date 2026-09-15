@@ -289,6 +289,13 @@ against the deterministic in-process provider, spend nothing, open no socket, an
 apart from the demo. `recorder.py` implements SPEC.md section 6's single-call spend plan and is
 left exactly as it is, because changing it is how committed numbers move by accident.
 
+`fingerprint.py` is what a certificate is *about* (M18): the task-type mix, the input-length
+quantiles and a difficulty proxy that says it is one. A canary compares recent traffic against it
+and expires the certificate on **coverage** — traffic that has moved into a region the certified
+split barely held — which is a different question from the outcome drift the canary already tested,
+and is kept in a different field with a different name so that a passing outcome look can never
+read as a covered distribution.
+
 ### Two documents, one code path
 
 `report.py` generates the block between `<!-- metrics:start -->` and `<!-- metrics:end -->` in

@@ -58,6 +58,7 @@ from tokop.optimize.findings import (
     rank,
     workload_findings,
 )
+from tokop.optimize.fingerprint import fingerprint
 from tokop.optimize.graph import compile_graph
 from tokop.optimize.lint import Finding, LintContext, clear_score, lint
 from tokop.optimize.proof import (
@@ -1832,6 +1833,11 @@ def build_report(
         "calibration": calibration_block,
         "contract": contract_block,
         "dataset_provenance": provenance_block,
+        # What the split the claim rests on actually looked like (UPGRADE_V4.md M18). A
+        # certificate binds to it, a canary checks recent traffic against it, and the screen
+        # shows it — because "proven on 200 tasks" says nothing about *which* 200, and a reader
+        # comparing this claim to their own queue needs the mix to do it.
+        "workload_fingerprint": fingerprint(list(bundle.test)).as_dict(),
         "waterfall": [
             {
                 **step.as_dict(),

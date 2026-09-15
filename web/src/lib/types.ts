@@ -471,6 +471,22 @@ export interface SummaryView {
   is_test_data: boolean;
 }
 
+/**
+ * What the split the claim rests on actually looked like (UPGRADE_V4.md M18).
+ *
+ * "Proven on 200 tasks" says nothing about *which* 200. A reader deciding whether the claim
+ * applies to their own queue needs the mix and the lengths, and a certificate binds to both so
+ * that traffic drifting away from them expires it on coverage rather than only on time.
+ */
+export interface WorkloadFingerprintView {
+  schema: string;
+  task_type_mix: Record<string, number>;
+  length_quantiles: Record<string, number>;
+  difficulty: Record<string, number>;
+  counter: string;
+  n: number;
+}
+
 export interface Report {
   generated_by: string;
   workload: {
@@ -489,6 +505,7 @@ export interface Report {
   calibration: CalibrationView;
   contract: ContractView;
   dataset_provenance: DatasetProvenanceView;
+  workload_fingerprint: WorkloadFingerprintView;
   waterfall: WaterfallStepView[];
   cascade: CascadeView;
   findings: FindingView[];

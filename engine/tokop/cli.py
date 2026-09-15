@@ -1053,10 +1053,20 @@ def certificate(
     from datetime import UTC, datetime
 
     from tokop.optimize.certificate import issue
-    from tokop.optimize.report import build_report
+    from tokop.optimize.fingerprint import fingerprint
+    from tokop.optimize.report import build_report, load_reported_workload
+    from tokop.workloads.bundle import load_bundle
 
     payload = build_report(margin=margin)
-    cert = issue(payload, today=datetime.now(UTC).date())
+    # What the split it was measured on looked like, so a later look can ask whether the traffic
+    # still looks like it (UPGRADE_V4.md M18). Taken over the test split, because that is the
+    # split the claim rests on.
+    bundle = load_bundle(load_reported_workload())
+    cert = issue(
+        payload,
+        today=datetime.now(UTC).date(),
+        workload_fingerprint=fingerprint(bundle.test),
+    )
     typer.echo(f"workload:    {cert.workload}")
     typer.echo(
         f"claim:       {cert.candidate_pipeline} against {cert.baseline_pipeline} — {cert.verdict}"
@@ -1076,6 +1086,19 @@ def certificate(
         f"{cert.spending} ({', '.join(f'{level:.4f}' for level in cert.levels())})"
     )
     typer.echo(f"fingerprint: {cert.fingerprint()}")
+    shape = cert.workload_fingerprint
+    if shape is not None:
+        mix = ", ".join(
+            f"{name} {share:.0%}" for name, share in sorted(shape.task_type_mix.items())
+        )
+        typer.echo(f"task mix:    {mix} (n = {shape.n})")
+        typer.echo(
+            "lengths:     "
+            + ", ".join(
+                f"{name} {value:,.0f}" for name, value in sorted(shape.length_quantiles.items())
+            )
+            + f" tokens, counted with {shape.counter}"
+        )
     typer.echo("")
     typer.echo(f"CERTIFIABLE: {'yes' if cert.certifiable else 'no'}")
     for refusal in cert.dataset_provenance.get("refusals", []):
@@ -1091,11 +1114,24 @@ def canary(
     certificate_path: str = typer.Option(..., "--certificate", help="Path to the certificate."),
     log: str = typer.Option("", "--log", help="Where the canary log lives. Defaults beside it."),
     today: str = typer.Option("", "--today", help="ISO date to check as of. Defaults to now."),
+    drift: str = typer.Option(
+        "",
+        "--drift",
+        help=(
+            "A JSONL file of recent tasks to check the certified distribution against. Without "
+            "it the look reports that no distribution check ran."
+        ),
+    ),
 ) -> None:
-    """Take one look at a standing certificate (UPGRADE_V3.md U5).
+    """Take one look at a standing certificate (UPGRADE_V3.md U5, UPGRADE_V4.md M18).
 
     Exits 0 when the certificate still stands and 1 when the look raised, so a scheduled canary
     gates a deploy the way `tokop prove` gates a merge.
+
+    Two different questions, reported separately and never merged. **Outcome drift** asks whether
+    the accuracy difference moved on a re-scored subset. **Distribution drift**, with `--drift`,
+    asks whether the traffic still looks like the split the claim was measured on — a certificate
+    can pass every outcome look and be quoted about tasks it never saw.
     """
     from datetime import UTC, datetime
     from datetime import date as _date
@@ -1139,9 +1175,26 @@ def canary(
         )
         observed = (delta, standard_error)
 
+    recent = None
+    if drift:
+        from tokop.optimize.fingerprint import fingerprint
+        from tokop.workloads.bundle import read_items
+
+        drift_path = repo_root() / drift
+        if not drift_path.exists():
+            typer.echo(f"no recent tasks at {drift_path}", err=True)
+            raise typer.Exit(2)
+        recent = fingerprint(read_items(drift_path))
+
     try:
         result = take_look(
-            cert, canary_log, today=as_of, identity=identity, observed=observed, subset_size=subset
+            cert,
+            canary_log,
+            today=as_of,
+            identity=identity,
+            observed=observed,
+            subset_size=subset,
+            recent=recent,
         )
     except CertificateError as exc:
         typer.echo(str(exc), err=True)
@@ -1160,6 +1213,16 @@ def canary(
         )
     else:
         typer.echo(f"drift:       not tested — {result.drift_note}")
+    if result.distribution_tested and result.divergence is not None:
+        gap = result.divergence
+        typer.echo(
+            f"coverage:    total variation {gap.total_variation:.2f} over "
+            f"{gap.recent_n} recent tasks against {gap.certified_n} certified"
+        )
+        for name, was, now in gap.uncovered:
+            typer.echo(f"  uncovered: {name} {was:.0%} certified -> {now:.0%} recent")
+    else:
+        typer.echo(f"coverage:    not tested — {result.distribution_note}")
     typer.echo("")
     if result.raised:
         typer.echo("CANARY RAISED")

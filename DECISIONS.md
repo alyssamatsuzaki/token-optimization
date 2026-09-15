@@ -1237,3 +1237,32 @@ in generated text that every figure in it is per request, and that a conversatio
 accounting with a different answer. It is a refusal moving one click away, as UPGRADE_V4.md M17
 asks — not a number being softened.
 
+## D49 — M18: two things called drift, and why they never share a word
+
+A certificate bound to models, prices, grading mode and dataset provenance. Nothing in it noticed
+when the traffic it was quoted about stopped resembling the split it was measured on.
+
+1. **Distribution drift and outcome drift are separate fields, separate names, both reported.**
+   `CanaryResult.drift_tested` means a re-scored subset whose accuracy difference could have
+   moved. `distribution_tested` means recent traffic compared, as a distribution, to the certified
+   split. A certificate can pass every outcome look while being quoted about tasks it never saw,
+   which is the failure that looks most like success — so collapsing the two would let the passing
+   check imply the other. PLAN.md asked for this by name and it is enforced by a test class.
+2. **The divergence measure reads as a share of traffic.** Total variation distance over the
+   task-type mix: half the sum of the absolute differences in share, so 0.2 means a fifth of the
+   queue is in a different type from the one the certificate would predict.
+3. **The uncovered region is named individually.** "The distribution moved" is not something
+   anybody can act on. "`two_hop` is 43% of recent traffic and was 1% of the certified split, 2 of
+   200 tasks" is. A type raises when it carries at least 10% of recent traffic and had under 2%
+   of the certified split; both halves are needed, or a type that grew from 1% to 3% raises and a
+   type that was always 40% does too.
+4. **The difficulty measure is a proxy and says so.** Nothing in a dataset here carries a
+   difficulty label. What is computable from the items alone is the concentration of the type mix
+   and the share sitting in its smallest type, which is the region a claim covers least. Inventing
+   a difficulty score would make the drift check a check on an invention.
+5. **A fingerprint taken with a different counter is refused, not compared.** Length quantiles
+   move with the tokenizer, so the comparison would report a counter change as traffic drift.
+6. **The certificate's existing `fingerprint()` is untouched.** It is the hash over what the
+   certificate rests on. The distribution lives in `workload_fingerprint`, and a test asserts the
+   two are not the same thing. A certificate issued before M18 still reads, and a look against one
+   reports that it *cannot* check coverage rather than passing the check.
