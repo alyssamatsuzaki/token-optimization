@@ -63,8 +63,41 @@ class BlockSpec(BaseModel):
         return Block(text=VARIABLE.sub(replace, self.text), cache=self.cache)
 
 
+class StepSpec(BaseModel):
+    """One step of a multi-call pipeline (UPGRADE_V4.md M16).
+
+    A single-call pipeline declares none of these and keeps working exactly as it did: the
+    compiler turns it into a graph of one `generate` step that renders the identical request.
+    Declaring steps is how a workload says it is an agent rather than a prompt — fourteen calls
+    and two retries, where the useful proposal is usually to delete one of them rather than to
+    run a cheaper model.
+    """
+
+    id: str
+    #: What this step does. `generate` is a model call; the others exist so a graph can say what
+    #: a step *is* before Tokop can price it — a finding about a tool called twice with the same
+    #: arguments has to know which calls were tool calls.
+    kind: Literal["generate", "tool", "retrieve", "verify", "retry", "loop"] = "generate"
+    #: Step ids whose output this one consumes. Empty means it runs first.
+    inputs: list[str] = Field(default_factory=list)
+    model_role: str | None = None
+    max_tokens: int | None = None
+    system: list[BlockSpec] = Field(default_factory=list)
+    user: list[BlockSpec] = Field(default_factory=list)
+    #: For a `tool` step, the tool it calls. Recorded so two calls to the same tool with the
+    #: same arguments are recognisable as the same call.
+    tool: str = ""
+    notes: list[str] = Field(default_factory=list)
+
+    model_config = {"frozen": True}
+
+
 class PipelineSpec(BaseModel):
-    """One pipeline: the prompt, the model, the cap and the contract."""
+    """One pipeline: the prompt, the model, the cap and the contract.
+
+    Or, since M16, a graph of steps. An empty ``steps`` is the single-call shape every workload
+    had before, and it stays byte-identical: same request, same cassette key, same numbers.
+    """
 
     id: str
     name: str
@@ -84,8 +117,15 @@ class PipelineSpec(BaseModel):
     notes: list[str] = Field(default_factory=list)
     #: Anti-patterns present on purpose, by lint rule ID, with an explanation each.
     known_antipatterns: dict[str, str] = Field(default_factory=dict)
+    #: The steps this pipeline runs, if it is a graph. Empty means one model call, which is
+    #: what every workload was before M16 and what the demo still is.
+    steps: list[StepSpec] = Field(default_factory=list)
 
     model_config = {"frozen": True}
+
+    @property
+    def is_graph(self) -> bool:
+        return bool(self.steps)
 
     def render(self, provider: str, model: str, variables: dict[str, str]) -> LLMRequest:
         system = [b.render(variables) for b in self.system]
@@ -390,7 +430,19 @@ def load_workload(path: Path) -> WorkloadSpec:
         raise WorkloadError(f"{path} must contain a mapping")
 
     pipelines_raw = raw.get("pipelines") or {}
-    pipelines = {pid: PipelineSpec(id=pid, **spec) for pid, spec in pipelines_raw.items()}
+    pipelines = {
+        pid: PipelineSpec(
+            id=pid,
+            **{
+                **spec,
+                "steps": [
+                    StepSpec(**step) if isinstance(step, dict) else step
+                    for step in spec.get("steps") or []
+                ],
+            },
+        )
+        for pid, spec in pipelines_raw.items()
+    }
     cascades_raw = raw.get("cascades") or {}
     cascades = {cid: CascadeSpec(id=cid, **spec) for cid, spec in cascades_raw.items()}
 

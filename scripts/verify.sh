@@ -105,6 +105,10 @@ if have engine/.venv/bin/pytest && [ -n "$(find engine/tests -name 'test_*.py' 2
   # a gold label would make every number downstream meaningless and look entirely normal.
   run "ingest never invents an answer key (M15)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest \
       -q tests/test_ingest.py"
+  # M16. UPGRADE_V4.md section 3.4: single-call workloads keep working unchanged through the
+  # graph work. Pinned by cassette key, which is what every fixture and every number rests on.
+  run "a single call is still a single call (M16)" bash -c "cd '$ROOT/engine' && \
+      .venv/bin/pytest -q tests/test_graph.py::TestTheByteIdenticalGuarantee"
 else
   skip "pytest + coverage" "no tests yet"
   skip "adversarial judge (U1)" "no tests yet"
@@ -122,6 +126,7 @@ else
   skip "deploy exports, never proxies (M14)" "no tests yet"
   skip "the engine runs without the demo (M15)" "no tests yet"
   skip "ingest never invents an answer key (M15)" "no tests yet"
+  skip "a single call is still a single call (M16)" "no tests yet"
 fi
 
 # ---------------------------------------------------------------- 3. web build

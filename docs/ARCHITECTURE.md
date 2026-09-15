@@ -114,6 +114,14 @@ the fixture set 34 MB of the same paragraph, and 6.2 MB deduplicated.
 
 ### `workloads/` — running and grading
 
+`graph.py` is a pipeline's shape. A pipeline with no declared steps compiles to a graph of one
+`generate` step carrying the pipeline itself, which is the single-call path expressed as a graph
+of one; a pipeline that declares steps compiles to their topological order, with ties broken by
+declaration order so the same YAML always produces the same order. The compiler is where the
+milestone's safety argument lives: `tests/test_graph.py` renders every shipped pipeline both ways
+and compares cassette keys, so a graph that changed a request by one byte would fail before it
+could change a number.
+
 `ingest.py` reads a JSONL export, a CSV, or OpenTelemetry GenAI spans into that shape. The
 formats differ in one way that matters more than their syntax: an export usually carries an
 answer key, and spans never do. A span records what was asked and what the model *said*, so
@@ -327,7 +335,7 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
 
 ## Testing
 
-- **793 engine tests**, 91% line coverage on `core/` and `optimize/`
+- **805 engine tests**, 91% line coverage on `core/` and `optimize/`
   (`pytest --cov=tokop/core --cov=tokop/optimize`).
 - **49 Playwright tests** against the production build in replay mode.
 - **Exit-code tests for `tokop prove`** run through a subprocess, because an exit code asserted
@@ -368,8 +376,11 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
 - An **ingest test** that fails if an OpenTelemetry completion is ever promoted to a gold
   answer — the one substitution that would make every number downstream meaningless while
   looking entirely normal.
-- `make verify` runs all twenty-seven checks in SPEC.md section 10 plus the UPGRADE_V3.md and
-  UPGRADE_V4.md acceptance checks, in order, and prints `VERIFY PASSED (27 checks)`.
+- A **graph guarantee test** that renders every pipeline of both workloads and compares
+  cassette keys, so "single-call workloads keep working unchanged" means the same call rather
+  than a similar one.
+- `make verify` runs all twenty-eight checks in SPEC.md section 10 plus the UPGRADE_V3.md and
+  UPGRADE_V4.md acceptance checks, in order, and prints `VERIFY PASSED (28 checks)`.
 
 ## What is simulated in this build
 

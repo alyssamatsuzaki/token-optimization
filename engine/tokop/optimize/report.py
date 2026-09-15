@@ -58,6 +58,7 @@ from tokop.optimize.findings import (
     rank,
     workload_findings,
 )
+from tokop.optimize.graph import compile_graph
 from tokop.optimize.lint import Finding, LintContext, clear_score, lint
 from tokop.optimize.proof import (
     ArmResult,
@@ -1933,6 +1934,10 @@ def build_report(
                 "output_contract": spec.output_contract,
                 "notes": spec.notes,
                 "known_antipatterns": spec.known_antipatterns,
+                # What this pipeline runs as. One `generate` step for a single-call pipeline,
+                # which is every pipeline shipped today — stated rather than implied, so the
+                # screens and the findings read the same shape whether or not it is a graph.
+                "graph": compile_graph(spec).as_dict(),
             }
             for pipeline_id, spec in workload.pipelines.items()
         },

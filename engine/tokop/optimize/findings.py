@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from tokop.core.pricing import ModelPrice
+from tokop.optimize.graph import SINGLE_STEP
 from tokop.optimize.lint import MILLION, Finding
 
 #: A run with no latency requirement can use the Batch API at half price. v1 projects this and
@@ -52,6 +53,13 @@ class CallRow:
     system_text: str = ""
     user_text: str = ""
     static_prefix: str = ""
+    #: Which step of the pipeline's graph made this call. Every call a single-call pipeline
+    #: makes belongs to the one step it compiles to, so this defaults to that and nothing about
+    #: an existing workload changes. It is here because the graph findings of M16b — a tool
+    #: called twice with the same arguments, a verifier that never changed an outcome — are
+    #: questions about *which step* made a call, and a call row that cannot say is a row none
+    #: of them can be computed from (UPGRADE_V4.md M16).
+    step: str = SINGLE_STEP
 
     @property
     def total_input(self) -> int:

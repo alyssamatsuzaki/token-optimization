@@ -1077,3 +1077,39 @@ the evidence chain stays "not measured" for any workload without a judged arm �
 honest state and the reason it renders as unmeasured rather than as a number. The 50 hand labels
 UPGRADE_V4.md M15.3 asks for are a human's to write; I will not author them and call the result
 an agreement measurement.
+
+## D46 — M16a: a graph of one, and the guarantee that protects everything already built
+
+UPGRADE_V4.md M16 asks whether the graph is a new spec version alongside `PipelineSpec` or a
+superset the existing spec compiles into, and PLAN.md chose the superset *conditional on the
+byte-identical guarantee surviving it*. It survives, and this entry records what "byte-identical"
+was made to mean.
+
+1. **The superset holds.** `PipelineSpec` gains an optional `steps:` list. Empty — which is every
+   pipeline in both shipped workloads — compiles to a graph of one `generate` step whose spec is
+   the pipeline itself. There is no second rendering path to drift from the first, because the
+   compiled step carries no blocks of its own.
+2. **The guarantee is asserted by cassette key, not by snapshot.** PLAN.md proposed diffing the
+   report JSON against a committed snapshot. That is the wrong instrument: M13, M14 and M15 each
+   legitimately changed the payload, so a frozen snapshot would need rewriting every milestone
+   and would stop meaning anything the moment it did. A cassette key is a hash of provider, model
+   and the canonicalized request; two requests with the same key are the same call as far as
+   every fixture, every replay and every number is concerned. So the test renders every pipeline
+   of both workloads and compares keys, and it stays true however the report evolves.
+3. **Run order is deterministic by construction.** Kahn's algorithm with ties broken by
+   declaration order. A run order that depended on dict iteration would hash differently on a
+   different day, which would break the guarantee in the least visible way available.
+4. **`CallRow` gained a `step`.** The graph findings of M16b — the same context sent to two
+   steps, a tool called twice with identical arguments, a verifier that never changed an outcome
+   — are all questions about *which step* made a call. A call row that cannot say is a row none
+   of them can be computed from. It defaults to the single step a one-call pipeline compiles to,
+   so nothing about an existing workload changes.
+5. **The compiled graph is in the report.** One step for every pipeline shipped today, stated
+   rather than implied, so the screens and the findings read the same shape whether or not a
+   workload is a graph.
+
+**What M16a does not do.** Nothing executes a graph yet: the runner still makes one call per
+task, and a workload that declared steps would compile, validate and then be run as though it
+had not. Executing a graph, the five findings over it, and proof at the graph-level outcome are
+M16b and M16c. The spec landing first is deliberate — it is the part every later commit depends
+on, and the part that could have forced the fallback to a parallel `GraphSpec`.

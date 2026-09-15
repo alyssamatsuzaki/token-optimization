@@ -21,6 +21,7 @@
 | M14 The first screen | **done** | README reordered into `docs/METHOD.md`, an evidence grade, a summary block, Deploy exports |
 | M15a The engine without the demo | **done** | `Item` protocol, datasets loaded not generated, no neutral module imports the demo |
 | M15b A second workload | **done** | `incident-triage` proves clean, `tokop ingest` for JSONL/CSV/OTel; `tokop label` not built |
+| M16a Pipelines as graphs | **done** | `steps:` compiles to a graph; a single call is still byte-identical, pinned by cassette key |
 
 ## Next
 
@@ -46,10 +47,10 @@ recording moves two of its eight links and the verdict moves a third.
 evidence chain reads "not measured" for any workload with no judged arm, which is the honest
 state. The 50 hand labels UPGRADE_V4.md M15.3 asks for are a human's to write.
 
-**M16, multi-call workloads**, is next and is the largest change in the upgrade: a pipeline
-becomes a graph of steps, and the optimizer can propose deleting one rather than only swapping a
-model. It lands in three commits — spec and compilation, then the graph findings, then proof on
-graph-level outcomes — with single-call output byte-identical throughout.
+**M16b** executes a graph. Nothing does yet: the runner still makes one call per task, and a
+workload that declared steps would compile, validate and then be run as though it had not. After
+that, M16c is the five graph findings and proof at the graph-level outcome — the point of the
+milestone, where the optimizer can propose *deleting a step* rather than only swapping a model.
 
 **U9, the serving-cost basis**, is deferred rather than renumbered (D41). It prices a hosted tier
 in GPU-hours over achieved throughput so a cascade can mix an API tier with a hosted one. Nothing
@@ -451,6 +452,38 @@ saying the whole set is program-generated. The neutral responder reads them from
 deliberately not a better simulator — section 5 of the upgrade rules that out, and a more
 convincing one would only produce more convincing numbers about nothing.
 
+## A pipeline becomes a graph, and stays exactly as cheap (M16a, UPGRADE_V4.md M16)
+
+A pipeline was one model call, which can express two optimizations — run a cheaper model, write
+a cheaper prompt — and no others. The workloads where the money actually goes are shaped
+differently: an agent making fourteen calls and retrying twice is a larger problem than an
+8,000-token prompt, and the useful proposal there is usually *delete a step*, which a
+single-call spec cannot represent at all.
+
+`PipelineSpec` now takes an optional `steps:` list. Empty — every pipeline in both shipped
+workloads — compiles to a graph of one `generate` step **whose spec is the pipeline itself**, so
+there is no second rendering path to drift from the first.
+
+**The guarantee, and a correction to the plan.** PLAN.md proposed protecting single-call
+workloads by diffing the report JSON against a committed snapshot. That is the wrong instrument:
+M13, M14 and M15 each legitimately changed the payload, so the snapshot would need rewriting
+every milestone and would stop meaning anything the moment it did. The guarantee is asserted
+where it actually lives instead — **the compiled one-step graph renders a request with the same
+cassette key**, for every pipeline of both workloads. A cassette key is a hash of provider, model
+and the canonicalized request, so if the keys match, every committed cassette replays and every
+number is identical by construction. `make verify` runs it by name.
+
+Two details that would have broken it quietly. Run order is Kahn's algorithm with ties broken by
+*declaration* order, because an order that depended on dict iteration would hash differently on a
+different day. And `CallRow` gained a `step`: the graph findings coming in M16c are all questions
+about which step made a call, and a call row that cannot say is one none of them can be computed
+from.
+
+**Nothing executes a graph yet.** A workload that declared steps would compile, validate, and
+then be run as though it had not. That is M16b, and the spec landing first is deliberate: it is
+what every later commit depends on, and the part that could have forced the fallback to a
+parallel `GraphSpec`.
+
 ## Demo result (simulated test fixtures, 200-task test split)
 
 Generated into README.md by `tokop report --write-readme`. Headline: B0 $0.05172 per successful
@@ -538,7 +571,7 @@ everything around it.
   Playwright's own resolution when that path is absent, which is everywhere but here.
 
 438 engine tests, 39 Playwright tests, 91% line coverage on `core/` and `optimize/`.
-`make verify`: 12 checks, none skipped, green. (At M15b: 793 engine tests, 49 Playwright tests,
+`make verify`: 12 checks, none skipped, green. (At M16a: 805 engine tests, 49 Playwright tests,
 91% coverage, 21 checks.)
 
 ## The tokenizer divergence (D26)
@@ -622,5 +655,5 @@ byte-identical. 466 engine tests, 91% line coverage, `make verify` green on all 
 
 ## Where the build stands
 
-793 engine tests, 49 Playwright tests, 91% line coverage on `core/` and `optimize/`.
+805 engine tests, 49 Playwright tests, 91% line coverage on `core/` and `optimize/`.
 `make verify`: 21 checks, none skipped, green.
