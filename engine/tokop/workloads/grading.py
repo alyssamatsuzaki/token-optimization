@@ -23,7 +23,12 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import Any, Literal
+
+#: The kinds of answer the grader knows how to check. It lives here rather than in a generator
+#: because it is the grader's vocabulary: `grade()` dispatches on it, and a workload that writes
+#: one of these into its dataset is naming a checker, not describing its own domain.
+AnswerType = Literal["number", "money", "yes_no", "enum", "string"]
 
 NUMBER_TOLERANCE = Decimal("0.01")
 

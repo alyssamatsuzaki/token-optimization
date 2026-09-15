@@ -46,11 +46,11 @@ import hashlib
 import json
 import random
 import re
-from dataclasses import dataclass
 from decimal import Decimal
 
 from tokop.adapters.base import LLMRequest
-from tokop.workloads.demo.generator import DemoItem
+from tokop.workloads.item import Item
+from tokop.workloads.runner import TierProfile
 
 #: P(correct) by tier role and question type. The frontier clears the 90% sanity floor and the
 #: cheap tier sits well outside the 3-point band, so the set can actually show escalation
@@ -77,21 +77,13 @@ WRONG_SECTION_GIVEN_WRONG = 0.55
 CHECKABLE_ACCURACY_TAX = 0.02
 
 
-@dataclass(frozen=True)
-class TierProfile:
-    """One simulated tier: a model ID and the role whose accuracy it uses."""
-
-    model_id: str
-    role: str
-
-
 def _draw(model_id: str, task_id: str, pipeline_id: str, salt: str) -> float:
     """A deterministic uniform draw for one (model, task, pipeline, purpose)."""
     digest = hashlib.sha256(f"{model_id}|{task_id}|{pipeline_id}|{salt}".encode()).hexdigest()
     return int(digest[:12], 16) / 0xFFFFFFFFFFFF
 
 
-def _wrong_answer(item: DemoItem, rng: random.Random) -> str:
+def _wrong_answer(item: Item, rng: random.Random) -> str:
     """A plausible wrong answer of the right shape."""
     if item.answer_type in ("number", "money"):
         try:
@@ -135,7 +127,7 @@ def _evidence(handbook: str, section_id: str, rng: random.Random) -> str:
     return rng.choice(sentences).replace("\n", " ")
 
 
-def _essay(item: DemoItem, answer: str, evidence: str, rng: random.Random) -> str:
+def _essay(item: Item, answer: str, evidence: str, rng: random.Random) -> str:
     """The long free-text response an uncapped, "explain in full detail" prompt produces."""
     opener = rng.choice(
         [
@@ -181,7 +173,7 @@ class DemoResponder:
 
     def __init__(
         self,
-        items: list[DemoItem],
+        items: list[Item],
         handbook: str,
         tiers: dict[str, TierProfile],
         pipeline_id: str = "B2",
@@ -196,7 +188,7 @@ class DemoResponder:
         self.output_contract = output_contract
         self.checkable = checkable
 
-    def item_for(self, request: LLMRequest) -> DemoItem | None:
+    def item_for(self, request: LLMRequest) -> Item | None:
         """Find the task a request is asking about, by matching the question text."""
         text = request.messages[-1].text if request.messages else ""
         for question, item in self.by_question.items():
@@ -204,7 +196,7 @@ class DemoResponder:
                 return item
         return None
 
-    def is_correct(self, model_id: str, item: DemoItem, sample_index: int = 0) -> bool:
+    def is_correct(self, model_id: str, item: Item, sample_index: int = 0) -> bool:
         """Whether this tier gets this task right. Deterministic in (model, task, sample).
 
         Sample 0 draws exactly as it always did, so every committed cassette reproduces. Later

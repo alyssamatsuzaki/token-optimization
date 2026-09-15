@@ -41,8 +41,8 @@ import json
 import re
 
 from tokop.adapters.base import LLMRequest
-from tokop.workloads.demo.generator import DemoItem
-from tokop.workloads.demo.responder import TierProfile
+from tokop.workloads.item import Item
+from tokop.workloads.runner import TierProfile
 
 #: P(the judge accepts an answer that is in fact right), by the judge's model role.
 JUDGE_SENSITIVITY: dict[str, float] = {"frontier": 0.985, "mid": 0.960, "cheap": 0.930}
@@ -180,7 +180,7 @@ class DemoJudgeResponder:
 
     def __init__(
         self,
-        items: list[DemoItem],
+        items: list[Item],
         handbook: str,
         tiers: dict[str, TierProfile],
     ) -> None:
@@ -188,7 +188,7 @@ class DemoJudgeResponder:
         self.handbook = handbook
         self.role_by_model = {profile.model_id: profile.role for profile in tiers.values()}
 
-    def item_for(self, request: LLMRequest) -> DemoItem | None:
+    def item_for(self, request: LLMRequest) -> Item | None:
         text = request.messages[-1].text if request.messages else ""
         for question, item in self.by_question.items():
             if question in text:

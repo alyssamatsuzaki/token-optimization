@@ -52,10 +52,8 @@ from tokop.optimize.annotation import (
     annotations_path,
 )
 from tokop.paths import repo_root
-from tokop.workloads.demo.dataset import DatasetBundle
-from tokop.workloads.demo.judge_responder import DemoJudgeResponder
-from tokop.workloads.demo.responder import TierProfile
-from tokop.workloads.runner import JudgeRunResult, Runner
+from tokop.workloads.bundle import Bundle
+from tokop.workloads.runner import JudgeRunResult, Runner, TierProfile
 from tokop.workloads.spec import JudgeSpec, WorkloadSpec
 from tokop.workloads.verification import (
     AnswerView,
@@ -92,7 +90,7 @@ def _answer_hash(text: str) -> str:
 def _judge_adapter(
     provider: str,
     registry: Registry,
-    bundle: DatasetBundle,
+    bundle: Bundle,
     store: CassetteStore,
     origin: str,
 ) -> AnyAdapter:
@@ -109,7 +107,9 @@ def _judge_adapter(
             build_live_adapter(provider, registry, get_settings()), store, origin=origin
         )
     tiers = {role: TierProfile(registry.roles[role], role) for role in ("cheap", "mid", "frontier")}
-    responder = DemoJudgeResponder(list(bundle.items), bundle.handbook, tiers)
+    from tokop.workloads.demo.judge_responder import DemoJudgeResponder
+
+    responder = DemoJudgeResponder(list(bundle.items), bundle.grounding, tiers)
     inner = SimulatedAdapter(simulated_profiles(registry, list(registry.models)), responder)
     return RecordingAdapter(inner, store, origin=origin)
 
@@ -118,7 +118,7 @@ async def _judge(
     workload: WorkloadSpec,
     judge: JudgeSpec,
     registry: Registry,
-    bundle: DatasetBundle,
+    bundle: Bundle,
     snapshot: PriceSnapshot,
     store: CassetteStore,
     views: list[AnswerView],
@@ -132,7 +132,7 @@ async def _judge(
         snapshot,
         _judge_adapter(provider, registry, bundle, store, origin),
         provider=provider,
-        handbook=bundle.handbook,
+        grounding=bundle.grounding,
         origin=origin,
     )
     return await runner.run_judge(judge, views, model_id=model_id)
@@ -223,7 +223,7 @@ def run_annotation(
     fixtures_root: Path,
     workload: WorkloadSpec,
     registry: Registry,
-    bundle: DatasetBundle,
+    bundle: Bundle,
     snapshot: PriceSnapshot,
     arms: dict[str, Any],
     budget_usd: Decimal | None = None,
@@ -547,16 +547,12 @@ def build_demo_annotations(
     from tokop.optimize.report import arms_for_annotation, arms_for_contract
     from tokop.paths import fixtures_dir
     from tokop.recording_state import describe as describe_recording
-    from tokop.workloads.demo.dataset import build as build_dataset
+    from tokop.workloads.bundle import load_bundle
     from tokop.workloads.spec import load_workload
 
     registry = load_registry()
     workload = load_workload(repo_root() / "data/demo/workload.yaml")
-    bundle = build_dataset(
-        size=workload.dataset.size,
-        calibration_size=workload.dataset.calibration_size,
-        seed=workload.dataset.seed,
-    )
+    bundle = load_bundle(workload)
     snapshot = registry.snapshot(list(registry.roles.values()), taken or date(2026, 9, 11))
     root = fixtures_dir() / describe_recording().fixture_source
     arms = arms_for_contract() if contract else arms_for_annotation(protect_scarce=protect_scarce)

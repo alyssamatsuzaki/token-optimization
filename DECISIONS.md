@@ -974,3 +974,54 @@ to claim stays refused; what changes is where the refusal lives.* Nothing below 
 8. **`cascade.base_pipeline` was missing from the report.** A cascade routes between tiers of one
    prompt and the report named the cascade without naming the prompt, so the export had to guess
    which pipeline to diff. Added rather than guessed.
+
+## D44 — M15a: the engine stops being the demo's engine
+
+D41.2 recorded the shape of this and it was worse than "ships one workload" suggests. The
+coupling was not a missing ingestion command: `DemoItem` — a type from one workload's
+*generator* — sat in the signature of the runner, the recorder, the annotator and the report,
+with `DatasetBundle` beside it, and `build_dataset()` was called directly in eight places
+wherever tasks were needed. Nothing else could be run because nothing else could be represented.
+
+1. **`Item` is a protocol, not a base class.** `DemoItem` satisfies it without changing and
+   without inheriting anything, and so does `IngestedItem`. Every member is read-only, declared
+   as properties: a plain attribute in a protocol is a *settable* one, which no frozen
+   implementation can satisfy — and every implementation is frozen, because a task that can be
+   edited after a result was measured against it can invalidate the result in place.
+2. **The fields split three ways, and the split is the point.** Grading fields every workload
+   has; a description field (`question_type`) every workload needs something for; and provenance
+   fields (`template_id`, `sections`) only a *generated* workload has. Real traffic has neither
+   of the last two, so both default to empty rather than being invented. A dataset that
+   fabricates a template id is a dataset whose concentration measure is fiction.
+3. **Loading replaces generating.** Every workload — the demo included — is now read from the
+   dataset file committed beside it. `tokop fixtures-check` already asserted the generator and
+   the file agree, so reading the file changes no number, and it removes the last reason for a
+   neutral module to import a workload-specific one. `tokop report --check` passing unchanged is
+   the evidence.
+4. **Splits are read, never recomputed.** A task that moved from the calibration side to the
+   test side between two runs would invalidate every result measured before the move, silently.
+5. **`handbook` became `grounding`.** The engine passes around a grounding document; the demo
+   calls its own one a handbook, and its prose still does. Only the five `{{handbook}}`
+   placeholders changed, and a placeholder rename does not change rendered text — which
+   `fixtures-check` confirms by still matching all 6,856 cassettes.
+6. **`AnswerType` moved to the grader.** The list of answer kinds is the list of checkers
+   `grading.py` implements, so it belongs beside them rather than in one workload's generator.
+7. **A set that nothing templated is not a set with zero coverage.** Tail coverage measures how
+   much of a *generator's* space a set reaches. Ingested traffic has no generator, so coverage
+   does not exist: `unmeasurable_shape` reports `None` rather than `0.0`, which would have
+   refused the set for a thinned tail, or `1.0`, which would have told a reader the tail was
+   checked when nothing checked it. The template space is now supplied by the workload, and the
+   demo's is imported lazily inside the one branch that needs it.
+8. **`TierProfile` moved to the runner.** A tier is a model id and a role; nothing about it is
+   the demo's, and leaving it beside the demo's responder forced the recorder and the annotator
+   to import that responder at module scope.
+9. **The check runs at import time *and* at run time.** `test_scorer_isolation.py` scans source
+   for imports, which is right for what it checks; it would see none of these, because half the
+   demo imports are lazy and sit inside functions. So the new test imports each neutral module
+   in a subprocess and reads `sys.modules`, then loads a workload nobody generated and reads
+   `sys.modules` again.
+
+**What M15a does not establish.** `optimize/report.py` still hardcodes the demo's workload path
+in six places and `build_report()` takes no workload, so `tokop prove --workload` still refuses
+anything else by name. The engine can now *represent* another workload and load one; it cannot
+yet report on one. That, the second workload itself, `tokop ingest` and `tokop label` are M15b.

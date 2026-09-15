@@ -19,6 +19,7 @@
 | M12 Meaning and ties | **done** | `semantic-entropy-v1` with effective-k, `sep-v1` refuses, the report names every tie |
 | M13 One real recording | **blocked on a key** | the four gates are built and tested; no generation request has been made |
 | M14 The first screen | **done** | README reordered into `docs/METHOD.md`, an evidence grade, a summary block, Deploy exports |
+| M15a The engine without the demo | **done** | `Item` protocol, datasets loaded not generated, no neutral module imports the demo |
 
 ## Next
 
@@ -40,9 +41,11 @@ this repository is simulated and labelled so.
 **M14 is done and did not wait for it.** The evidence grade reads `insufficient` today; a
 recording moves two of its eight links and the verdict moves a third.
 
-**M15, a second workload**, is the next milestone with no blocker: `tokop ingest` for JSONL, CSV
-and OpenTelemetry GenAI spans, and the refactor that lets a workload run without importing the
-demo.
+**M15b** finishes what M15a started. The engine can now represent and load a workload it did not
+generate; it cannot yet report on one, because `optimize/report.py` hardcodes the demo's workload
+path in six places and `build_report()` takes no workload. M15b threads a workload through the
+report, ships a second workload with its own fixtures, and adds `tokop ingest` for JSONL, CSV and
+OpenTelemetry GenAI spans plus `tokop label` for the grader-agreement link.
 
 **U9, the serving-cost basis**, is deferred rather than renumbered (D41). It prices a hosted tier
 in GPU-hours over achieved throughput so a cascade can mix an API tier with a hosted one. Nothing
@@ -355,6 +358,45 @@ and a component that divides one number by another to get a saving has written a
 TypeScript. `report["summary"]` carries all six figures ready to print, and the Playwright test
 compares the rendered screen against `/api/report` rather than against itself.
 
+## The engine stops being the demo's engine (M15a, UPGRADE_V4.md M15)
+
+"Ships one workload" undersold the problem. It was not a missing ingestion command: `DemoItem`,
+a type from one workload's *generator*, sat in the signature of the runner, the recorder, the
+annotator and the report; `DatasetBundle` sat beside it; and `build_dataset()` was called
+directly in eight places wherever tasks were needed. Nothing else could run because nothing else
+could be represented.
+
+**`Item` is a protocol**, so `DemoItem` satisfies it without changing and an ingested task
+satisfies it without inheriting anything. Its fields split three ways and the split is the
+interesting part: grading fields every workload has, a description field every workload needs
+something for, and provenance fields — `template_id`, `sections` — that only a *generated*
+workload has. Real traffic has neither, so both default to empty rather than being invented.
+
+**Loading replaced generating.** Every workload, the demo included, is now read from the dataset
+file committed beside it rather than re-run through a generator. `fixtures-check` already
+asserted the two agree, so no number moved — `tokop report --check` passing unchanged is the
+evidence — and the last reason for a neutral module to import a workload-specific one is gone.
+
+**One rename with a real edge.** `handbook` became `grounding` in the engine; the demo still
+calls its own document a handbook, in its own prose, because that is what it is. Only the five
+`{{handbook}}` placeholders changed, and a placeholder rename does not change rendered text —
+confirmed by all 6,856 cassettes still matching.
+
+**A set nothing templated is not a set with zero coverage.** Tail coverage measures how much of
+a generator's space a set reaches. Ingested traffic has no generator, so coverage does not
+exist. It now reports `None`, where `0.0` would have refused the set for a thinned tail and
+`1.0` would have said the tail was checked when nothing checked it.
+
+**The check has to run twice.** `test_scorer_isolation.py` scans source for imports, which is
+right for what it checks and would have seen none of this: half the demo imports are lazy and
+sit inside functions. So `test_no_demo_imports.py` imports each neutral module in a subprocess
+and reads `sys.modules`, then loads a workload nobody generated and reads `sys.modules` again.
+Fourteen checks, and two of them failed until `TierProfile` moved out of the demo's responder.
+
+**What this does not do yet.** `tokop prove --workload` still refuses anything but the demo by
+name, because `report.py` hardcodes its path in six places and `build_report()` takes no
+workload. The engine can represent and load another workload; it cannot report on one. M15b.
+
 ## Demo result (simulated test fixtures, 200-task test split)
 
 Generated into README.md by `tokop report --write-readme`. Headline: B0 $0.05172 per successful
@@ -442,7 +484,7 @@ everything around it.
   Playwright's own resolution when that path is absent, which is everywhere but here.
 
 438 engine tests, 39 Playwright tests, 91% line coverage on `core/` and `optimize/`.
-`make verify`: 12 checks, none skipped, green. (At M14: 764 engine tests, 49 Playwright tests,
+`make verify`: 12 checks, none skipped, green. (At M15a: 778 engine tests, 49 Playwright tests,
 91% coverage, 21 checks.)
 
 ## The tokenizer divergence (D26)
@@ -526,5 +568,5 @@ byte-identical. 466 engine tests, 91% line coverage, `make verify` green on all 
 
 ## Where the build stands
 
-764 engine tests, 49 Playwright tests, 91% line coverage on `core/` and `optimize/`.
+778 engine tests, 49 Playwright tests, 91% line coverage on `core/` and `optimize/`.
 `make verify`: 21 checks, none skipped, green.

@@ -114,6 +114,15 @@ the fixture set 34 MB of the same paragraph, and 6.2 MB deduplicated.
 
 ### `workloads/` — running and grading
 
+`item.py` and `bundle.py` are what make the engine the engine rather than the demo's engine.
+`Item` is a *protocol*, so the demo's generated task and a task read out of a file both satisfy
+it without inheriting anything, and its fields separate what every workload has (grading), what
+every workload needs something for (a task type), and what only a generated workload has (a
+template id, source sections). `load_bundle` reads a workload's tasks from the dataset file
+committed beside its YAML — the demo included — so a neutral module never reaches for a
+workload-specific one. `tests/test_no_demo_imports.py` is the check, and it runs at import time
+*and* at run time, because half the demo imports are lazy and a source scan would miss them.
+
 `runner.py` renders each task's request, sends it, normalizes the usage, costs it against the
 run's own snapshot, grades it, and writes a row. It is deliberately boring: everything
 interesting is computed later from those rows.
@@ -312,7 +321,7 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
 
 ## Testing
 
-- **764 engine tests**, 91% line coverage on `core/` and `optimize/`
+- **778 engine tests**, 91% line coverage on `core/` and `optimize/`
   (`pytest --cov=tokop/core --cov=tokop/optimize`).
 - **49 Playwright tests** against the production build in replay mode.
 - **Exit-code tests for `tokop prove`** run through a subprocess, because an exit code asserted
@@ -347,8 +356,11 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
   verdict has to read `insufficient` rather than the more comfortable `simulated` — and a
   **routing-rule test** that executes the exported Python and checks it escalates the way the
   cascade proved.
-- `make verify` runs all twenty-five checks in SPEC.md section 10 plus the UPGRADE_V3.md and
-  UPGRADE_V4.md acceptance checks, in order, and prints `VERIFY PASSED (25 checks)`.
+- A **no-demo-imports test** that imports every neutral module in a subprocess and fails if
+  `tokop.workloads.demo` appears in `sys.modules`, then loads a workload nobody generated and
+  checks the same thing again.
+- `make verify` runs all twenty-six checks in SPEC.md section 10 plus the UPGRADE_V3.md and
+  UPGRADE_V4.md acceptance checks, in order, and prints `VERIFY PASSED (26 checks)`.
 
 ## What is simulated in this build
 

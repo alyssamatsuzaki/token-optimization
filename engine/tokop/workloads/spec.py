@@ -262,10 +262,23 @@ class CascadeSpec(BaseModel):
 
 
 class DatasetSpec(BaseModel):
+    """Where a workload's tasks come from.
+
+    ``generator`` names the code that produced them, or ``"ingested"`` when a file did and
+    nothing generated anything. ``source`` is the file the engine actually reads: every workload
+    is loaded from its committed dataset rather than re-generated, so the demo and an ingested
+    workload travel the same path (UPGRADE_V4.md M15).
+    """
+
     generator: str
     seed: int
     size: int
     calibration_size: int
+    #: The dataset file, relative to ``data/<workload id>/``.
+    source: str = "dataset.jsonl"
+    #: The document every pipeline answers from, relative to the same directory, rendered into
+    #: prompts as ``{{grounding}}``. Empty when a workload's tasks need no shared document.
+    grounding: str = ""
 
     model_config = {"frozen": True}
 
@@ -288,6 +301,10 @@ class WorkloadSpec(BaseModel):
     annotation: AnnotationSpec | None = None
     entailment: EntailmentSpec | None = None
     dataset_provenance: DatasetProvenanceSpec | None = None
+    #: Where this workload was loaded from. Its dataset and grounding document sit beside it,
+    #: because a workload is its definition *and* its tasks, and splitting them across two
+    #: directories is how a spec starts describing a dataset that is not there.
+    directory: Path | None = None
     margin: float = 0.03
     #: Whether the workload has a latency requirement; drives the Batch API finding (W05).
     latency_sensitive: bool = False
@@ -398,6 +415,7 @@ def load_workload(path: Path) -> WorkloadSpec:
         name=str(workload["name"]),
         description=str(workload["description"]),
         dataset=DatasetSpec(**workload["dataset"]),
+        directory=path.parent,
         pipelines=pipelines,
         cascades=cascades,
         scorer_features=list(workload.get("scorer_features") or []),

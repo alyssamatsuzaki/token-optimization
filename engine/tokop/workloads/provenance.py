@@ -95,7 +95,8 @@ class TailShape:
 
     template_space: int
     templates_present: int
-    tail_coverage: float
+    #: ``None`` when nothing templated the set, which is not the same as zero.
+    tail_coverage: float | None
     #: Share of items sitting in templates seen ``TAIL_OCCURRENCES`` times or fewer.
     tail_share: float
     #: Gini coefficient over per-template counts. 0 is perfectly even, 1 is everything in one.
@@ -142,7 +143,8 @@ def tail_shape(template_ids: Sequence[str], template_space: Sequence[str]) -> Ta
     if not template_space:
         raise ProvenanceError(
             "the generator's template space is empty, so coverage cannot be measured. A set "
-            "with nothing to be missing from cannot be checked for a thinned tail."
+            "with nothing to be missing from cannot be checked for a thinned tail. Call "
+            "`unmeasurable_shape()` for a set that was never templated at all."
         )
     counts = Counter(template_ids)
     present = {t for t in counts if counts[t] > 0}
@@ -249,7 +251,13 @@ def assess(n: int, declared: DeclaredProvenance, shape: TailShape) -> Certifiabi
             "the set; none of it is yet evidence about production."
         )
 
-    if shape.tail_coverage < MIN_TAIL_COVERAGE:
+    if shape.template_space == 0:
+        warnings.append(
+            "nothing templated this set, so tail coverage is not measurable. That is the normal "
+            "state for recorded traffic and it is reported rather than scored: there is no "
+            "generator space for the tail to have thinned against."
+        )
+    elif shape.tail_coverage is not None and shape.tail_coverage < MIN_TAIL_COVERAGE:
         refusals.append(
             f"only {shape.tail_coverage:.0%} of the generator's {shape.template_space} question "
             f"templates appear in the set, below the {MIN_TAIL_COVERAGE:.0%} floor. The tail has "
@@ -285,13 +293,32 @@ def assess(n: int, declared: DeclaredProvenance, shape: TailShape) -> Certifiabi
     )
 
 
+def unmeasurable_shape(n: int) -> TailShape:
+    """The shape of a set that nothing templated, which is most real traffic (M15).
+
+    Tail coverage measures how much of a *generator's* space a set reaches. Ingested traffic
+    has no generator and therefore no space, so coverage is not low — it does not exist. The
+    distinction matters: a coverage of zero would refuse the set for a thinned tail, and a
+    coverage silently set to 1.0 would tell a reader the tail had been checked when nothing
+    checked it. This shape says neither, and `assess` reads it as "not measurable here".
+    """
+    return TailShape(
+        template_space=0,
+        templates_present=0,
+        tail_coverage=None,
+        tail_share=0.0,
+        concentration=0.0,
+        missing_templates=(),
+    )
+
+
 def build_provenance(
     template_ids: Sequence[str],
     template_space: Sequence[str],
     declared: DeclaredProvenance,
 ) -> DatasetProvenance:
-    shape = tail_shape(template_ids, template_space)
     n = len(template_ids)
+    shape = tail_shape(template_ids, template_space) if template_space else unmeasurable_shape(n)
     return DatasetProvenance(
         n=n, declared=declared, shape=shape, assessment=assess(n, declared, shape)
     )

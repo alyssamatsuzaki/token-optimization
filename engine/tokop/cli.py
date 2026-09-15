@@ -70,16 +70,12 @@ def build_test_fixtures_cmd(
     (DECISIONS.md D26).
     """
     from tokop.recorder import build_test_fixtures
-    from tokop.workloads.demo.dataset import build as build_dataset
+    from tokop.workloads.bundle import load_bundle
     from tokop.workloads.spec import load_workload
 
     registry = load_registry()
     workload = load_workload(repo_root() / "data/demo/workload.yaml")
-    bundle = build_dataset(
-        size=workload.dataset.size,
-        calibration_size=workload.dataset.calibration_size,
-        seed=workload.dataset.seed,
-    )
+    bundle = load_bundle(workload)
     root = fixtures_dir() / "test"
     root.mkdir(parents=True, exist_ok=True)
     report = build_test_fixtures(workload, registry, bundle, root, ledger_only=ledger_only)
@@ -132,7 +128,7 @@ def record(
         require_live_consent,
     )
     from tokop.settings import Mode, get_settings
-    from tokop.workloads.demo.dataset import build as build_dataset
+    from tokop.workloads.bundle import load_bundle
     from tokop.workloads.spec import load_workload
 
     settings = get_settings()
@@ -153,7 +149,7 @@ def record(
 
     spec = load_workload(repo_root() / workload)
     registry = load_registry()
-    bundle = build_dataset()
+    bundle = load_bundle(spec)
     typer.echo(f"workload: {workload}")
     typer.echo(f"budget:   ${budget} (RECORD_BUDGET_USD)")
     typer.echo("")

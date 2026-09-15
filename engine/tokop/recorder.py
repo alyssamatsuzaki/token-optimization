@@ -42,10 +42,9 @@ from tokop.core.tokenize import BaseCounter, get_base_counter
 from tokop.db import make_engine
 from tokop.optimize.scorers import TaskView
 from tokop.settings import get_settings
-from tokop.workloads.demo.dataset import DatasetBundle
-from tokop.workloads.demo.generator import DemoItem
-from tokop.workloads.demo.responder import DemoResponder, TierProfile
-from tokop.workloads.runner import Runner, RunResult, persist, today
+from tokop.workloads.bundle import Bundle
+from tokop.workloads.item import Item
+from tokop.workloads.runner import Runner, RunResult, TierProfile, persist, today
 from tokop.workloads.spec import WorkloadSpec
 
 #: SPEC.md section 6, step 2. Below this on calibration, the frontier is telling you the
@@ -142,7 +141,7 @@ class RecordingReport:
         }
 
 
-def accuracy_of(result: RunResult, items: Sequence[DemoItem]) -> float:
+def accuracy_of(result: RunResult, items: Sequence[Item]) -> float:
     """Grade a run's outputs without touching the ledger."""
     from tokop.workloads.grading import grade
 
@@ -357,7 +356,7 @@ class Recorder:
         self,
         workload: WorkloadSpec,
         registry: Registry,
-        bundle: DatasetBundle,
+        bundle: Bundle,
         snapshot: PriceSnapshot,
         cassette_dir: Path,
         *,
@@ -394,10 +393,15 @@ class Recorder:
         if self.provider != "simulated":
             live = build_live_adapter(self.provider, self.registry, get_settings())
             return RecordingAdapter(live, self.store, origin=self.origin, on_spend=self.sink)
+        # Imported here and not at module scope: this is the *demo's* invented behaviour, and a
+        # module that reaches for it on import cannot be used by a workload that has its own
+        # (UPGRADE_V4.md M15).
+        from tokop.workloads.demo.responder import DemoResponder
+
         pipeline = self.workload.pipeline(pipeline_id)
         responder = DemoResponder(
             list(self.bundle.items),
-            self.bundle.handbook,
+            self.bundle.grounding,
             self.tiers,
             pipeline_id,
             pipeline.output_contract,
@@ -416,7 +420,7 @@ class Recorder:
             self.snapshot,
             adapter,
             provider=self.provider,
-            handbook=self.bundle.handbook,
+            grounding=self.bundle.grounding,
             concurrency=self.concurrency,
             origin=self.origin,
         )
@@ -426,7 +430,7 @@ class Recorder:
         pipeline_id: str,
         split_name: str,
         tier: str,
-        items: Sequence[DemoItem],
+        items: Sequence[Item],
         samples: int = 1,
     ) -> StepResult:
         model_id = self.registry.roles[tier]
@@ -697,7 +701,7 @@ class Recorder:
         return False
 
     async def _entailment_step(
-        self, splits: Sequence[tuple[str, Sequence[DemoItem]]], samples: int
+        self, splits: Sequence[tuple[str, Sequence[Item]]], samples: int
     ) -> tuple[Decimal, int]:
         """Record an entailment judgement for every distinct answer pair in the matrix.
 
@@ -757,7 +761,7 @@ class Recorder:
             self.snapshot,
             self._entailment_adapter(),
             provider=self.provider,
-            handbook=self.bundle.handbook,
+            grounding=self.bundle.grounding,
             concurrency=self.concurrency,
             origin=self.origin,
         )
@@ -780,7 +784,7 @@ class Recorder:
 def build_test_fixtures(
     workload: WorkloadSpec,
     registry: Registry,
-    bundle: DatasetBundle,
+    bundle: Bundle,
     fixtures_root: Path,
     *,
     taken: date | None = None,
@@ -870,7 +874,7 @@ def write_fixture_set(
 def record_live(
     workload: WorkloadSpec,
     registry: Registry,
-    bundle: DatasetBundle,
+    bundle: Bundle,
     fixtures_root: Path,
     *,
     guard: SpendGuard,

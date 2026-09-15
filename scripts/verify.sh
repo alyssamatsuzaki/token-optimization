@@ -97,6 +97,10 @@ if have engine/.venv/bin/pytest && [ -n "$(find engine/tests -name 'test_*.py' 2
       tests/test_evidence.py::TestTheGradeIsTheLowestRung"
   run "deploy exports, never proxies (M14)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
       tests/test_export.py"
+  # M15. The engine has to be able to run a workload it did not generate. Checked at import
+  # time and at run time, because half the demo imports are lazy and a source scan misses them.
+  run "the engine runs without the demo (M15)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
+      tests/test_no_demo_imports.py"
 else
   skip "pytest + coverage" "no tests yet"
   skip "adversarial judge (U1)" "no tests yet"
@@ -112,6 +116,7 @@ else
   skip "the projection brackets the bill (M13)" "no tests yet"
   skip "the evidence grade cannot be talked up (M14)" "no tests yet"
   skip "deploy exports, never proxies (M14)" "no tests yet"
+  skip "the engine runs without the demo (M15)" "no tests yet"
 fi
 
 # ---------------------------------------------------------------- 3. web build

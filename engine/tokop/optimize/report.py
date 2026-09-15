@@ -89,10 +89,9 @@ from tokop.optimize.scorers import (
 from tokop.optimize.ties import Candidate, find_ties
 from tokop.paths import fixtures_dir, repo_root
 from tokop.recording_state import describe as describe_recording
-from tokop.workloads.demo.dataset import DatasetBundle
-from tokop.workloads.demo.dataset import build as build_dataset
-from tokop.workloads.demo.generator import DemoItem
+from tokop.workloads.bundle import Bundle, load_bundle
 from tokop.workloads.grading import answers_equivalent, grade
+from tokop.workloads.item import Item
 from tokop.workloads.runner import Runner
 from tokop.workloads.spec import CascadeSpec, WorkloadSpec, demo_timestamp, load_workload
 
@@ -189,7 +188,7 @@ def _load_manifest(root: Path) -> dict[str, Any]:
 def replay_run(
     workload: WorkloadSpec,
     registry: Registry,
-    bundle: DatasetBundle,
+    bundle: Bundle,
     snapshot: PriceSnapshot,
     store: CassetteStore,
     pipeline_id: str,
@@ -215,7 +214,7 @@ def replay_run(
         snapshot,
         ReplayAdapter(store, name="simulated"),
         provider="simulated",
-        handbook=bundle.handbook,
+        grounding=bundle.grounding,
         origin=origin,
     )
     result = asyncio.run(
@@ -339,7 +338,7 @@ class ReplayEntailment:
         workload: WorkloadSpec,
         registry: Registry,
         store: CassetteStore,
-        handbook: str,
+        grounding: str,
         provider: str = "simulated",
     ) -> None:
         spec = workload.entailment
@@ -351,7 +350,7 @@ class ReplayEntailment:
         self.spec = spec
         self.model_id = registry.roles[spec.model_role]
         self.store = store
-        self.handbook = handbook
+        self.grounding = grounding
         self.provider = provider
         self.calls = 0
         self._cache: dict[tuple[str, str, str], bool] = {}
@@ -367,7 +366,7 @@ class ReplayEntailment:
                 "question": question,
                 "answer_a": premise,
                 "answer_b": hypothesis,
-                "handbook": self.handbook,
+                "grounding": self.grounding,
                 "timestamp": demo_timestamp(),
             },
         )
@@ -405,8 +404,8 @@ def entailment_price(manifest: dict[str, Any]) -> Decimal:
 
 def _views(
     run: ReplayedRun,
-    items: Sequence[DemoItem],
-    handbook: str,
+    items: Sequence[Item],
+    grounding: str,
     samples: int = 1,
     keep: set[str] | None = None,
 ) -> list[TaskView]:
@@ -439,7 +438,7 @@ def _views(
                 task_id=task_id,
                 question=item.question,
                 output=outputs_by_task[task_id],
-                context=handbook,
+                context=grounding,
                 tier=run.tier,
                 output_tokens=tokens_by_task.get(task_id, 0),
                 samples=tuple(drawn[:samples]),
@@ -671,11 +670,7 @@ def canary_observation(
     task_ids = list(per_task["task_ids"])
     by_type = {b["question_type"]: b for b in payload["proof"]["by_type"]}
     workload = load_workload(repo_root() / "data/demo/workload.yaml")
-    bundle = build_dataset(
-        size=workload.dataset.size,
-        calibration_size=workload.dataset.calibration_size,
-        seed=workload.dataset.seed,
-    )
+    bundle = load_bundle(workload)
     types = {item.id: item.question_type for item in bundle.test}
     strata = [types.get(task_id, "unknown") for task_id in task_ids]
     if not by_type:  # pragma: no cover - defensive; the demo always has types
@@ -707,7 +702,23 @@ def current_identity(payload: ReportPayload) -> dict[str, Any]:
     }
 
 
-def dataset_provenance_block(workload: WorkloadSpec, bundle: DatasetBundle) -> dict[str, Any]:
+def _template_space(workload: WorkloadSpec) -> list[str]:
+    """Every template the workload's generator can produce, or none when nothing generated it.
+
+    Coverage is a statement about a generator's space, so only a generator can supply it. The
+    demo's is imported here and nowhere else — lazily, inside the branch that needs it, which is
+    what lets a workload that was not generated run without importing the demo at all
+    (UPGRADE_V4.md M15). A set that nothing templated gets an empty space, and
+    `workloads/provenance.py` reports coverage as not measurable rather than as zero.
+    """
+    if workload.dataset.generator == "demo":
+        from tokop.workloads.demo.generator import all_templates
+
+        return [template.id for template in all_templates()]
+    return []
+
+
+def dataset_provenance_block(workload: WorkloadSpec, bundle: Bundle) -> dict[str, Any]:
     """Where the task set came from, and whether it can back a certificate (UPGRADE_V3.md U8).
 
     The declared origins come from the workload; the shape — template coverage, how much of the
@@ -715,7 +726,6 @@ def dataset_provenance_block(workload: WorkloadSpec, bundle: DatasetBundle) -> d
     workload that declares nothing gets a block saying so and is refused, because "we did not
     say" and "it is fine" have to look different.
     """
-    from tokop.workloads.demo.generator import all_templates
     from tokop.workloads.provenance import DeclaredProvenance, build_provenance
 
     declared_spec = workload.dataset_provenance
@@ -740,7 +750,7 @@ def dataset_provenance_block(workload: WorkloadSpec, bundle: DatasetBundle) -> d
     )
     provenance = build_provenance(
         [item.template_id for item in bundle.items],
-        [template.id for template in all_templates()],
+        _template_space(workload),
         declared,
     )
     return {**provenance.as_dict(), "declared": declared_spec is not None}
@@ -1022,11 +1032,7 @@ def build_report(
     """Recompute every headline metric from the committed fixtures."""
     registry = load_registry()
     workload = load_workload(repo_root() / "data/demo/workload.yaml")
-    bundle = build_dataset(
-        size=workload.dataset.size,
-        calibration_size=workload.dataset.calibration_size,
-        seed=workload.dataset.seed,
-    )
+    bundle = load_bundle(workload)
     root = _fixture_root()
     manifest = _load_manifest(root)
     store = CassetteStore(root / "cassettes")
@@ -1107,7 +1113,7 @@ def build_report(
     # The entailment judge, read back from the calls that made it. Built once: it caches, and
     # the same pair recurs across tiers and across configurations.
     entails = (
-        ReplayEntailment(workload, registry, store, bundle.handbook)
+        ReplayEntailment(workload, registry, store, bundle.grounding)
         if workload.entailment is not None
         else None
     )
@@ -1115,7 +1121,7 @@ def build_report(
 
     pseudo = None if calibration_mode == GOLD else build_labels(calibration_mode)
 
-    def kept_and_items(labels: PseudoLabels | None) -> tuple[set[str] | None, list[DemoItem]]:
+    def kept_and_items(labels: PseudoLabels | None) -> tuple[set[str] | None, list[Item]]:
         keep = None if labels is None else set(labels.kept)
         items = [item for item in bundle.calibration if keep is None or item.id in keep]
         if labels is not None and not items:
@@ -1165,7 +1171,7 @@ def build_report(
         aurocs: dict[str, float | None] = {}
         for tier in tiers:
             cal = need(base_pipeline, "calibration", tier)
-            views = _views(cal, items, bundle.handbook, config.k, keep=keep)
+            views = _views(cal, items, bundle.grounding, config.k, keep=keep)
             context = ScorerContext(
                 feature_names=tuple(workload.scorer_features),
                 equivalence=answers_equivalent,
@@ -1189,7 +1195,7 @@ def build_report(
             # the scorer predicts the consensus — which it was trained to do.
             scorer.auroc = evaluate_auroc(
                 scorer,
-                _views(test, list(bundle.test), bundle.handbook, config.k),
+                _views(test, list(bundle.test), bundle.grounding, config.k),
                 list(test.correct),
             )
             aurocs[tier] = scorer.auroc
@@ -1199,7 +1205,7 @@ def build_report(
 
     def tier_runs(
         split_name: str,
-        items: Sequence[DemoItem],
+        items: Sequence[Item],
         scorer_bundle: ScorerBundle,
         config: CascadeConfig,
         labels: PseudoLabels | None = None,
@@ -1218,7 +1224,7 @@ def build_report(
         keep = (None if source is None else set(source.kept)) if calibrating else None
         for tier in tiers:
             run = need(base_pipeline, split_name, tier)
-            views = _views(run, items, bundle.handbook, config.k, keep=keep)
+            views = _views(run, items, bundle.grounding, config.k, keep=keep)
             scores = scorer_bundle.score(tier, views)
             scorer = scorer_bundle.scorers[tier]
             index_of = {task_id: i for i, task_id in enumerate(run.task_ids)}
@@ -1609,7 +1615,7 @@ def build_report(
             for tier in tiers:
                 run = need(base_pipeline, "test", tier)
                 sizes = candidate.scorers.scorers[tier].cluster_sizes(
-                    _views(run, list(bundle.test), bundle.handbook, candidate.config.k)
+                    _views(run, list(bundle.test), bundle.grounding, candidate.config.k)
                 )
                 if sizes is None:
                     continue
@@ -1686,7 +1692,7 @@ def build_report(
         tool_use_system_prompt_tokens=frontier_model.tool_use_system_prompt_tokens or 0,
     )
     variables = {
-        "handbook": bundle.handbook,
+        "grounding": bundle.grounding,
         "question": bundle.test[0].question,
         "timestamp": demo_timestamp(),
     }
@@ -2015,11 +2021,7 @@ def fitted_cascade(
     payload = cached_report(protect_scarce)
     registry = load_registry()
     workload = load_workload(repo_root() / "data/demo/workload.yaml")
-    bundle = build_dataset(
-        size=workload.dataset.size,
-        calibration_size=workload.dataset.calibration_size,
-        seed=workload.dataset.seed,
-    )
+    bundle = load_bundle(workload)
     cascade_spec = workload.cascade(CANDIDATE_CASCADE)
     tiers = tuple(cascade_spec.tiers)
     root = _fixture_root()
@@ -2041,7 +2043,7 @@ def fitted_cascade(
             tier,
             origin,
         )
-        views = _views(cal, list(bundle.calibration), bundle.handbook)
+        views = _views(cal, list(bundle.calibration), bundle.grounding)
         scorer, _ = fit_scorer(
             cascade_spec.scorer,
             tier,
@@ -2083,11 +2085,7 @@ def arms_for_annotation(protect_scarce: bool = False) -> dict[str, Any]:
 
     registry = load_registry()
     workload = load_workload(repo_root() / "data/demo/workload.yaml")
-    bundle = build_dataset(
-        size=workload.dataset.size,
-        calibration_size=workload.dataset.calibration_size,
-        seed=workload.dataset.seed,
-    )
+    bundle = load_bundle(workload)
     cascade_spec = workload.cascade(CANDIDATE_CASCADE)
     tiers = list(cascade_spec.tiers)
     root = _fixture_root()
@@ -2147,11 +2145,7 @@ def arms_for_contract(baseline_id: str = "B2", candidate_id: str | None = None) 
     """
     registry = load_registry()
     workload = load_workload(repo_root() / "data/demo/workload.yaml")
-    bundle = build_dataset(
-        size=workload.dataset.size,
-        calibration_size=workload.dataset.calibration_size,
-        seed=workload.dataset.seed,
-    )
+    bundle = load_bundle(workload)
     if candidate_id is None:
         checkable = sorted(p for p, spec in workload.pipelines.items() if spec.checkable)
         if len(checkable) != 1:
@@ -2209,11 +2203,7 @@ def trace_for(task_id: str) -> dict[str, Any]:
     """
     registry = load_registry()
     workload = load_workload(repo_root() / "data/demo/workload.yaml")
-    bundle = build_dataset(
-        size=workload.dataset.size,
-        calibration_size=workload.dataset.calibration_size,
-        seed=workload.dataset.seed,
-    )
+    bundle = load_bundle(workload)
     item = next((i for i in bundle.items if i.id == task_id), None)
     if item is None:
         raise ReportError(f"no task {task_id!r} in this workload")
@@ -2224,7 +2214,7 @@ def trace_for(task_id: str) -> dict[str, Any]:
     snapshot = registry.snapshot(list(registry.roles.values()), date(2026, 9, 11))
     in_calibration = any(i.id == task_id for i in bundle.calibration)
     split_name = "calibration" if in_calibration else "test"
-    handbook = bundle.handbook
+    grounding = bundle.grounding
 
     scorer_bundle, thresholds, tier_order = fitted_cascade(False)
     threshold_by_tier = dict(zip(tier_order, thresholds, strict=True))
@@ -2239,7 +2229,7 @@ def trace_for(task_id: str) -> dict[str, Any]:
         request = workload.pipeline(pipeline_id).render(
             "simulated",
             model_id,
-            {"handbook": handbook, "question": item.question, "timestamp": demo_timestamp()},
+            {"grounding": grounding, "question": item.question, "timestamp": demo_timestamp()},
         )
         cassette = store.get(request.cassette_key())
         if cassette is None:
@@ -2250,7 +2240,7 @@ def trace_for(task_id: str) -> dict[str, Any]:
             task_id=task_id,
             question=item.question,
             output=cassette.response_text,
-            context=handbook,
+            context=grounding,
             tier=tier,
             output_tokens=cassette.usage.total_output,
         )

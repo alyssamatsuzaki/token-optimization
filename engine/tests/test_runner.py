@@ -75,7 +75,7 @@ def run_pipeline(workload, registry, bundle, pipeline_id, items, tmp_path, split
     pipeline = workload.pipeline(pipeline_id)
     tiers = {r: TierProfile(registry.roles[r], r) for r in ("cheap", "mid", "frontier")}
     responder = DemoResponder(
-        list(bundle.items), bundle.handbook, tiers, pipeline_id, pipeline.output_contract
+        list(bundle.items), bundle.grounding, tiers, pipeline_id, pipeline.output_contract
     )
     adapter = RecordingAdapter(
         SimulatedAdapter(simulated_profiles(registry, list(registry.models)), responder),
@@ -89,7 +89,7 @@ def run_pipeline(workload, registry, bundle, pipeline_id, items, tmp_path, split
         snapshot,
         adapter,
         provider="simulated",
-        handbook=bundle.handbook,
+        grounding=bundle.grounding,
         origin="simulated",
     )
     result = asyncio.run(runner.run_pipeline(pipeline_id, items, split=split))
@@ -299,7 +299,7 @@ class TestFailuresStayVisible:
             snapshot,
             Exploding(),
             provider="simulated",
-            handbook=bundle.handbook,
+            grounding=bundle.grounding,
             origin="simulated",
         )
         result = asyncio.run(runner.run_pipeline("B0", items, split="test", prewarm=False))
@@ -331,7 +331,7 @@ class TestProviderPolicy:
                 snapshot,
                 object(),
                 provider="deepseek",
-                handbook=bundle.handbook,
+                grounding=bundle.grounding,
             )
 
     def test_the_demo_workload_allows_only_anthropic_and_the_simulator(self, workload) -> None:
@@ -406,13 +406,13 @@ class TestResponderModel:
 
     def test_correctness_is_deterministic_per_model_and_task(self, bundle, registry) -> None:
         tiers = {r: TierProfile(registry.roles[r], r) for r in ("cheap", "mid", "frontier")}
-        a = DemoResponder(list(bundle.items), bundle.handbook, tiers, "B2", "json_answer")
-        b = DemoResponder(list(bundle.items), bundle.handbook, tiers, "B2", "json_answer")
+        a = DemoResponder(list(bundle.items), bundle.grounding, tiers, "B2", "json_answer")
+        b = DemoResponder(list(bundle.items), bundle.grounding, tiers, "B2", "json_answer")
         item = bundle.items[0]
         assert a.is_correct(OPUS, item) == b.is_correct(OPUS, item)
 
     def test_an_unknown_model_raises_rather_than_guessing(self, bundle, registry) -> None:
         tiers = {r: TierProfile(registry.roles[r], r) for r in ("cheap", "mid", "frontier")}
-        responder = DemoResponder(list(bundle.items), bundle.handbook, tiers, "B2", "json_answer")
+        responder = DemoResponder(list(bundle.items), bundle.grounding, tiers, "B2", "json_answer")
         with pytest.raises(KeyError, match="no simulated accuracy profile"):
             responder.is_correct("gpt-9", bundle.items[0])
