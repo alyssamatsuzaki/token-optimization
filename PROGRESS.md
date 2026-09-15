@@ -18,6 +18,7 @@
 | M11 Expiry and provenance | **done** | certificates with a canary and alpha spending, dataset provenance that refuses |
 | M12 Meaning and ties | **done** | `semantic-entropy-v1` with effective-k, `sep-v1` refuses, the report names every tie |
 | M13 One real recording | **blocked on a key** | the four gates are built and tested; no generation request has been made |
+| M14 The first screen | **done** | README reordered into `docs/METHOD.md`, an evidence grade, a summary block, Deploy exports |
 
 ## Next
 
@@ -36,9 +37,12 @@ to cost against the cap, ask, run ten tasks per step, re-project from their real
 refuse again if that lands over the cap, and only then record. Until it runs, every number in
 this repository is simulated and labelled so.
 
-**M14 is next after that, and does not wait for it** — the README restructure, `docs/METHOD.md`
-and the evidence grade are all doable on simulated fixtures, and the grade is what will read
-`recording` rather than `simulated` the moment M13b lands.
+**M14 is done and did not wait for it.** The evidence grade reads `insufficient` today; a
+recording moves two of its eight links and the verdict moves a third.
+
+**M15, a second workload**, is the next milestone with no blocker: `tokop ingest` for JSONL, CSV
+and OpenTelemetry GenAI spans, and the refactor that lets a workload run without importing the
+demo.
 
 **U9, the serving-cost basis**, is deferred rather than renumbered (D41). It prices a hosted tier
 in GPU-hours over achieved throughput so a cascade can mix an API tier with a hosted one. Nothing
@@ -309,6 +313,48 @@ path is demonstrated on the money rather than assumed: a recording stopped at it
 under a larger one, pays for exactly the remainder, with the two runs together paying for the
 step once.
 
+## The promise first, the qualifications one click in (M14, UPGRADE_V4.md M14)
+
+The README opened with the promise and then spent five screens qualifying it. Ten sections moved
+verbatim to `docs/METHOD.md` — the proof method, the gold-free estimate, label-free calibration,
+the checkability price, certificates, dataset provenance, semantic entropy, ties, the CI gate and
+the citations. Nothing was softened and nothing was cut: **the method document is generated and
+checked exactly as the README is**, because a qualification that moves out of sight and out of
+the build is a deleted one. `metrics_block` split into `readme_block` and `method_block`;
+`tokop report --write-readme` writes both and `tokop report --check` fails if either moves.
+
+**The evidence grade, and what it says about this build.** `optimize/evidence.py` grades eight
+links and takes the *lowest* rung any of them forces:
+
+| Link | Standing | Reading |
+| --- | --- | --- |
+| Verdict | **blocking** | Inconclusive: about 4 more tasks would settle it |
+| Test split | **blocking** | 200 tasks, 204 needed |
+| Tasks the two pipelines disagree on | ok | 13 of 200, exact p = 1.000 |
+| Tasks from real traffic | simulated | 0 of 300 |
+| Answers from a provider | simulated | simulated |
+| Cheap judge agrees with the strong grader | ok | 83.7% on B2, its worst arm |
+| Prices | ok | all verified against the provider's page |
+| Token counts | simulated | `bytes-bpe-approx-v1` |
+
+So the grade is **insufficient**, not `simulated`. That was the interesting decision of the
+milestone: `simulated` was available and true as far as it goes, and it would have implied the
+result holds about the traces, which it does not. One word at the top of Optimize, the whole
+table one click away, and a test that fails if any weak link stops saying what would change it.
+
+**Deploy exports, and never proxies.** SPEC.md section 3 rules out any gateway carrying other
+applications' traffic, so "deploy" ends at handing over artifacts: the prompt as a unified diff
+(B0 to B2, with the cache breakpoint visible, since that breakpoint is most of the saving), the
+operating point as JSON, and the routing rule as Python. A test executes the generated rule and
+checks it escalates cheap → mid → frontier at the thresholds the cascade proved. Each artifact
+carries an `evidence` field, so the config file says `insufficient` about itself rather than
+looking authoritative.
+
+**The summary block is engine-computed.** Non-negotiable 1 bans metric literals in components,
+and a component that divides one number by another to get a saving has written a metric in
+TypeScript. `report["summary"]` carries all six figures ready to print, and the Playwright test
+compares the rendered screen against `/api/report` rather than against itself.
+
 ## Demo result (simulated test fixtures, 200-task test split)
 
 Generated into README.md by `tokop report --write-readme`. Headline: B0 $0.05172 per successful
@@ -396,7 +442,7 @@ everything around it.
   Playwright's own resolution when that path is absent, which is everywhere but here.
 
 438 engine tests, 39 Playwright tests, 91% line coverage on `core/` and `optimize/`.
-`make verify`: 12 checks, none skipped, green. (At M12: 709 engine tests, 45 Playwright tests,
+`make verify`: 12 checks, none skipped, green. (At M14: 764 engine tests, 49 Playwright tests,
 91% coverage, 21 checks.)
 
 ## The tokenizer divergence (D26)
@@ -480,5 +526,5 @@ byte-identical. 466 engine tests, 91% line coverage, `make verify` green on all 
 
 ## Where the build stands
 
-709 engine tests, 45 Playwright tests, 91% line coverage on `core/` and `optimize/`.
+764 engine tests, 49 Playwright tests, 91% line coverage on `core/` and `optimize/`.
 `make verify`: 21 checks, none skipped, green.

@@ -24,7 +24,9 @@ from tokop.optimize.report import (
     METRICS_END,
     METRICS_START,
     build_report,
-    metrics_block,
+    method_block,
+    method_doc_current,
+    readme_block,
     readme_metrics_current,
 )
 
@@ -340,13 +342,13 @@ class TestReport:
 
 class TestReadmeBlock:
     def test_the_block_is_generated_and_delimited(self, report) -> None:
-        block = metrics_block(report)
+        block = readme_block(report)
         assert block.startswith(METRICS_START)
         assert block.endswith(METRICS_END)
         assert "do not edit by hand" in block
 
     def test_every_number_in_the_block_comes_from_the_report(self, report) -> None:
-        block = metrics_block(report)
+        block = readme_block(report)
         n = report["proof"]["candidate"]["n"]
         assert f"{n} test" in block
         assert report["proof"]["verdict"]["display"] in block
@@ -357,24 +359,61 @@ class TestReadmeBlock:
         assert current, message
 
     def test_simulated_data_is_marked_in_the_readme(self, report) -> None:
-        block = metrics_block(report)
+        block = readme_block(report)
         if report["provenance"]["is_test_data"]:
             assert "simulated" in block
             assert "DECISIONS.md D1" in block
 
-    def test_the_block_names_every_configuration_the_search_compared(self, report) -> None:
-        """UPGRADE_V3.md U6: a configuration measured and left out of the README is one nobody
-        can check. Every row the report compared appears, with what it cost to run."""
-        block = metrics_block(report)
+    def test_the_headline_block_carries_the_evidence_grade(self, report) -> None:
+        """UPGRADE_V4.md M14: the first thing a reader meets is the result and its grade."""
+        block = readme_block(report)
+        assert report["evidence"]["grade"] in block
+        assert "docs/METHOD.md" in block
+
+    def test_the_headline_block_is_not_where_the_qualifications_live(self, report) -> None:
+        """M14's acceptance check, in the one place it can be asserted mechanically.
+
+        The scorer comparison, the provenance detail and the contract table all moved to the
+        method document. They are not deleted and not softened — `test_the_method_document`
+        below requires every one of them — they are one click away instead of in front of the
+        promise.
+        """
+        block = readme_block(report)
+        for moved in ("What else was measured", "Where these tasks came from", "effective k"):
+            assert moved not in block
+
+
+class TestTheMethodDocument:
+    """Everything the README stopped carrying still has to be generated, and still has to be
+    checked. A qualification that moves out of sight and out of the build is a deleted one."""
+
+    def test_it_is_generated_and_delimited(self, report) -> None:
+        block = method_block(report)
+        assert block.startswith(METRICS_START)
+        assert block.endswith(METRICS_END)
+        assert "do not edit by hand" in block
+
+    def test_the_committed_document_is_current(self, report) -> None:
+        current, message = method_doc_current(report)
+        assert current, message
+
+    def test_it_names_every_configuration_the_search_compared(self, report) -> None:
+        """UPGRADE_V3.md U6: a configuration measured and left out is one nobody can check."""
+        block = method_block(report)
         for row in report["cascade"]["scorer_comparison"]:
             assert row["label"] in block
 
-    def test_the_block_names_the_whole_tie_and_not_a_winner(self, report) -> None:
-        """UPGRADE_V3.md U7: the README is where a tie is most tempting to round down to one
-        row, so the block carries every tied configuration and the note saying why."""
+    def test_it_names_the_whole_tie_and_not_a_winner(self, report) -> None:
+        """UPGRADE_V3.md U7: a tie is most tempting to round down to one row in prose."""
         ties = report["cascade"]["ties"]
-        block = metrics_block(report)
+        block = method_block(report)
         for row in ties["tied"]:
             assert row["label"] in block
         assert ties["note"] in block
         assert ties["fallback_reason"] in block
+
+    def test_it_shows_the_whole_evidence_chain_and_not_just_the_grade(self, report) -> None:
+        block = method_block(report)
+        for link in report["evidence"]["inputs"]:
+            assert link["name"] in block
+            assert link["source"] in block

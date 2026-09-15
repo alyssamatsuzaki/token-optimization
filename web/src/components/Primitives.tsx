@@ -123,15 +123,17 @@ export function Section({
   right,
   children,
   id,
+  testId,
 }: {
   title: string;
   subtitle?: ReactNode;
   right?: ReactNode;
   children: ReactNode;
   id?: string;
+  testId?: string;
 }) {
   return (
-    <section id={id} className="rule-t py-6">
+    <section id={id} data-testid={testId} className="rule-t py-6">
       <header className="flex items-baseline justify-between gap-6 mb-3">
         <div className="min-w-0">
           <h2 className="text-head font-medium">{title}</h2>

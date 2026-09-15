@@ -427,6 +427,50 @@ export interface LiveControls {
   implemented?: string[];
 }
 
+/** One link in the evidence chain (`optimize/evidence.py`). */
+export interface EvidenceInputView {
+  name: string;
+  value: string;
+  standing: "ok" | "simulated" | "blocking";
+  source: string;
+  what_would_change_it: string;
+}
+
+export interface EvidenceView {
+  grade: "recording" | "simulated" | "insufficient";
+  headline: string;
+  inputs: EvidenceInputView[];
+  blocking: string[];
+}
+
+/**
+ * The six figures the first screen shows. Every one is a string or a number the engine already
+ * computed: non-negotiable 1 bans metric literals in components, and a component that divides
+ * one number by another to get a saving has written a metric in TypeScript.
+ */
+export interface SummaryView {
+  workload: string;
+  current: { pipeline: string; label: string; cost_per_successful_task_usd: string };
+  recommended: { pipeline: string; label: string; cost_per_successful_task_usd: string };
+  saving: {
+    fraction: number | null;
+    interval: Interval;
+    per_task_usd: string;
+    repayment_tasks: number | null;
+    proof_cost_usd: string;
+  };
+  quality: {
+    delta_points: number;
+    low_points: number;
+    high_points: number;
+    allowed_points: number;
+    n: number;
+  };
+  verdict: { label: string; display: string; sentence: string };
+  provenance_mark: string;
+  is_test_data: boolean;
+}
+
 export interface Report {
   generated_by: string;
   workload: {
@@ -438,6 +482,8 @@ export interface Report {
     dataset: { size: number; calibration: number; test: number; seed: number };
   };
   provenance: ProvenanceView;
+  evidence: EvidenceView;
+  summary: SummaryView;
   proof: ProofView;
   judged: JudgedView;
   calibration: CalibrationView;

@@ -90,6 +90,13 @@ if have engine/.venv/bin/pytest && [ -n "$(find engine/tests -name 'test_*.py' 2
   run "the projection brackets the bill (M13)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
       tests/test_recording_projection.py::TestTheProjectionBracketsTheRealCost \
       tests/test_recording_projection.py::TestPower"
+  # M14. The grade is the load-bearing word on the first screen; what it must never do is read
+  # better than the data supports, which is what these pin.
+  run "the evidence grade cannot be talked up (M14)" bash -c "cd '$ROOT/engine' && \
+      .venv/bin/pytest -q tests/test_evidence.py::TestTheDemoGradesHonestly \
+      tests/test_evidence.py::TestTheGradeIsTheLowestRung"
+  run "deploy exports, never proxies (M14)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
+      tests/test_export.py"
 else
   skip "pytest + coverage" "no tests yet"
   skip "adversarial judge (U1)" "no tests yet"
@@ -103,6 +110,8 @@ else
   skip "no greedy pick on a tie (U7)" "no tests yet"
   skip "the cap stops a recording (M13)" "no tests yet"
   skip "the projection brackets the bill (M13)" "no tests yet"
+  skip "the evidence grade cannot be talked up (M14)" "no tests yet"
+  skip "deploy exports, never proxies (M14)" "no tests yet"
 fi
 
 # ---------------------------------------------------------------- 3. web build

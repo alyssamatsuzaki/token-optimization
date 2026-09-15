@@ -256,6 +256,14 @@ def record(
     typer.echo("\nNext: tokop prove, then tokop report --write-readme")
 
 
+def _short(path: Path) -> str:
+    """Repository-relative where that makes sense, absolute where it does not."""
+    try:
+        return str(path.relative_to(repo_root()))
+    except ValueError:
+        return str(path)
+
+
 def _echo_cap_reached(exc: Any, guard: Any) -> None:
     """The cap did its job. Say what was bought, and that none of it is lost.
 
@@ -699,6 +707,48 @@ def _echo_scorer_comparison(payload: ReportPayload) -> None:
         typer.echo(f"  {ties['fallback_reason']}")
 
 
+@app.command("export")
+def export_cmd(
+    artifact: str = typer.Option(
+        "all", "--artifact", help="prompt-diff, cascade-config, routing-rule, or all."
+    ),
+    out: str = typer.Option("exports", "--out", help="Directory to write into."),
+    workload: str = typer.Option("data/demo/workload.yaml", "--workload"),
+) -> None:
+    """Export what the proof recommends, as artifacts you apply yourself.
+
+    Deploy means export, not proxy. SPEC.md section 3 excludes any gateway carrying other
+    applications' traffic and that exclusion stands, so what ships is a diff, a config file and
+    a routing rule you can read before you run them — each generated from the report, so what is
+    exported is what was proven.
+    """
+    from tokop.optimize.export import ARTIFACTS, ExportError, export
+    from tokop.optimize.report import build_report
+    from tokop.workloads.spec import load_workload
+
+    wanted = list(ARTIFACTS) if artifact == "all" else [artifact]
+    payload = build_report()
+    spec = load_workload(repo_root() / workload)
+    destination = repo_root() / out
+    try:
+        results = [export(payload, name, destination, spec) for name in wanted]  # type: ignore[arg-type]
+    except ExportError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+
+    for result in results:
+        typer.echo(f"  {_short(result.path)}")
+        typer.echo(f"      {result.note}")
+    evidence = payload["evidence"]
+    typer.echo(f"\nEvidence: {evidence['grade']}. {evidence['headline']}")
+    if evidence["grade"] != "recording":
+        typer.echo(
+            "These artifacts describe a result that is not yet backed by a recording. They are "
+            "correct about\nthe traces they were computed over; deploying them is a decision "
+            "about how far that generalises."
+        )
+
+
 @app.command()
 def power(
     workload: str = typer.Option("data/demo/workload.yaml", "--workload"),
@@ -783,15 +833,17 @@ def report(
         build_report,
         cached_report,
         clear_cache,
+        method_doc_current,
         readme_metrics_current,
+        write_method_doc,
         write_readme_metrics,
     )
 
     payload = build_report()
 
     if write_readme:
-        path = write_readme_metrics(payload)
-        typer.echo(f"wrote the metrics block to {path.relative_to(repo_root())}")
+        for path in (write_readme_metrics(payload), write_method_doc(payload)):
+            typer.echo(f"wrote the generated block in {path.relative_to(repo_root())}")
 
     if out:
         destination = repo_root() / out
@@ -847,10 +899,12 @@ def report(
         else:
             typer.echo("  ok    GET /api/report serves the same numbers")
 
-    # 3. The README's metrics block is current.
-    current, message = readme_metrics_current(payload)
-    typer.echo(f"  {'ok  ' if current else 'FAIL'}  {message}")
-    failures += 0 if current else 1
+    # 3. Both generated documents are current. One code path writes them, so a check that
+    #    covered only the README would let the method document drift away from the report it
+    #    is supposed to be the derivation of.
+    for current, message in (method_doc_current(payload), readme_metrics_current(payload)):
+        typer.echo(f"  {'ok  ' if current else 'FAIL'}  {message}")
+        failures += 0 if current else 1
 
     # 4. The gold-free estimate is available, and it lands where the labelled one does.
     #    An annotation set drawn against a different operating point judges answers this

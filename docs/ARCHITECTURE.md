@@ -242,6 +242,24 @@ whose cost-per-successful-task intervals overlap the cheapest are tied; the repo
 survive is not one — and the exploration weights over a tie are uniform, because greedy selection
 amplifies whichever option won the last sample.
 
+### Two documents, one code path
+
+`report.py` generates the block between `<!-- metrics:start -->` and `<!-- metrics:end -->` in
+**both** `README.md` and `docs/METHOD.md`: `readme_block` is the headline result and the evidence
+grade, `method_block` is every table behind it. `tokop report --check` fails if either has moved.
+The split is UPGRADE_V4.md M14 — the qualifications are one click away rather than in front of
+the promise — and checking both is what stops "one click away" becoming "gone".
+
+`evidence.py` grades that result. Eight links — verdict, split size, discordance, real traffic,
+provider answers, grader agreement, prices, token counter — each with a reading, its source, and
+what would change it. The grade is the **lowest** rung any link forces, so a single blocking link
+makes the whole result `insufficient` no matter how good the rest look.
+
+`export.py` is what Deploy means. SPEC.md section 3 excludes any gateway for other applications'
+traffic, so Tokop hands over artifacts instead of carrying requests: the prompt as a unified diff,
+the operating point as JSON, and the routing rule as Python. All three are generated from the
+report, and each carries the verdict and evidence grade it rests on.
+
 ## Modes
 
 | | replay | live |
@@ -294,9 +312,9 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
 
 ## Testing
 
-- **731 engine tests**, 91% line coverage on `core/` and `optimize/`
+- **764 engine tests**, 91% line coverage on `core/` and `optimize/`
   (`pytest --cov=tokop/core --cov=tokop/optimize`).
-- **45 Playwright tests** against the production build in replay mode.
+- **49 Playwright tests** against the production build in replay mode.
 - **Exit-code tests for `tokop prove`** run through a subprocess, because an exit code asserted
   in-process is not the thing CI observes. They pin the case that matters: an *inconclusive*
   verdict fails the build.
@@ -325,8 +343,12 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
   the two runs together paying for the step once.
 - A **projection test** that brackets the committed recording: every step's real cost has to
   land between the floor and the ceiling the projection would have shown before it ran.
-- `make verify` runs all twenty-three checks in SPEC.md section 10 plus the UPGRADE_V3.md and
-  UPGRADE_V4.md acceptance checks, in order, and prints `VERIFY PASSED (23 checks)`.
+- An **evidence test** that fails if the grade can be talked upwards — the demo's inconclusive
+  verdict has to read `insufficient` rather than the more comfortable `simulated` — and a
+  **routing-rule test** that executes the exported Python and checks it escalates the way the
+  cascade proved.
+- `make verify` runs all twenty-five checks in SPEC.md section 10 plus the UPGRADE_V3.md and
+  UPGRADE_V4.md acceptance checks, in order, and prints `VERIFY PASSED (25 checks)`.
 
 ## What is simulated in this build
 
