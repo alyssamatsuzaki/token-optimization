@@ -1,0 +1,95 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "b8f193442c5e12041d4b61254edfbf04ab4ca210f323f2c25e23086368a857bd",
+  "latency_ms": 673.69,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"no\", \"evidence\": \"Every alert has an escalation code. The code selects the ladder: the owning team is paged first, the tier duty engineer after the acknowledgement window has passed, and the incident commander after a further thirty minutes with no acknowledgement. An alert that is acknowledged but not resolved does not climb the ladder; it stays with the owning team.\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_b8f193442c5e1204",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 6204,
+      "input_tokens": 92,
+      "output_tokens": 98
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 6204,
+    "input_tokens": 92,
+    "output_tokens": 98
+  },
+  "recorded_at": "2026-09-15T14:41:27.798021+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Does an alert on session-reconciler page outside working hours?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "d7debd6f892722296676932a5f9c0754efbadf03a850481d0036043148149be6"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Answer from the catalogue. A policy section beats a service's own entry wherever it\nsays so.\n\nReply with JSON only: {\"answer\": \"<the answer>\", \"evidence\": \"<the line>\"}.\nFor a yes/no question the answer is exactly \"yes\" or \"no\"."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"no\", \"evidence\": \"Every alert has an escalation code. The code selects the ladder: the owning team is paged first, the tier duty engineer after the acknowledgement window has passed, and the incident commander after a further thirty minutes with no acknowledgement. An alert that is acknowledged but not resolved does not climb the ladder; it stays with the owning team.\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 330.69,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 6204,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 92,
+    "output_reasoning": 0,
+    "output_visible": 98,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 6204,
+      "input_tokens": 92,
+      "output_tokens": 98
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

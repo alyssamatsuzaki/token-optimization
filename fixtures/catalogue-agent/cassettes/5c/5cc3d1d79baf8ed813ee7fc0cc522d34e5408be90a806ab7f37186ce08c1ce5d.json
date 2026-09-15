@@ -1,0 +1,95 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "5cc3d1d79baf8ed813ee7fc0cc522d34e5408be90a806ab7f37186ce08c1ce5d",
+  "latency_ms": 346.2,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "Reading the reference, the answer works out to E22.",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_5cc3d1d79baf8ed8",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 6204,
+      "input_tokens": 89,
+      "output_tokens": 14
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 6204,
+    "input_tokens": 89,
+    "output_tokens": 14
+  },
+  "recorded_at": "2026-09-15T14:41:27.135507+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "What escalation code does an alert on refund-broker carry?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "d7debd6f892722296676932a5f9c0754efbadf03a850481d0036043148149be6"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Answer from the catalogue. A policy section beats a service's own entry wherever it\nsays so.\n\nReply with JSON only: {\"answer\": \"<the answer>\", \"evidence\": \"<the line>\"}.\nFor a yes/no question the answer is exactly \"yes\" or \"no\"."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "Reading the reference, the answer works out to E22.",
+  "stop_reason": "end_turn",
+  "ttft_ms": 297.2,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 6204,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 89,
+    "output_reasoning": 0,
+    "output_visible": 14,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 6204,
+      "input_tokens": 89,
+      "output_tokens": 14
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

@@ -1113,3 +1113,71 @@ task, and a workload that declared steps would compile, validate and then be run
 had not. Executing a graph, the five findings over it, and proof at the graph-level outcome are
 M16b and M16c. The spec landing first is deliberate — it is the part every later commit depends
 on, and the part that could have forced the fallback to a parallel `GraphSpec`.
+
+## D47. A graph executes, and what had to be decided to let it (M16b, UPGRADE_V4.md M16)
+
+M16a could compile a pipeline into a graph and refuse a bad one. Running it needed nine decisions
+the spec left open, and one correction to M16a itself.
+
+1. **`LLMRequest` gained a `step`, hashed only when set.** A graph can send two steps the same
+   text — a retry re-asking what it just asked is the clearest case, and it is one of the
+   findings M16 exists to compute — and a content-addressed cassette cannot hold two of those.
+   Without the discriminator a retry is served the draft's own answer from the store and the
+   trace shows one call where there were two. It follows the `sample_index` precedent exactly:
+   absent from `canonical()` when empty, so every cassette ever recorded keeps its key. The
+   single-call path never sets it.
+2. **A step's output is the variable named after the step, and only its declared inputs are in
+   scope.** `{{draft}}` renders the draft step's output in a step that declared `draft` as an
+   input, and raises in one that did not. A step that can reach an output it did not declare is
+   a dependency edge nobody wrote down, and the run order is computed from those edges. Step ids
+   that collide with `grounding`, `question` or `timestamp` are refused at compile time.
+3. **Only a retry is conditional, and only on a verify step it consumes.** That is the entire
+   conditional vocabulary. A general expression language was available and rejected: a condition
+   Tokop cannot read is a step whose cost nobody can attribute, and the question this milestone
+   has to answer — did the verifier ever change an outcome — needs the trigger to be legible.
+   A retry that consumes no verify step is refused, and so is one that consumes *only* verify
+   steps, because when the verifier is satisfied there would be nothing for it to fall back on.
+4. **A skipped step is a result, not a gap.** `TaskResult.skipped` records the step and the
+   reason. A retry that never fired is the evidence for "the verifier changed nothing", so
+   losing it would lose the finding.
+5. **`loop` is gone from `STEP_KINDS`.** M16a listed it and nothing could run one. A loop's cost
+   is its trip count, which is a fact about traces rather than about a spec, so a bounded repeat
+   is written as the steps it takes and an unbounded one is not expressible. A kind that compiles
+   and then cannot execute is exactly the state this milestone exists to leave — and removing it
+   makes the refusal stronger, not weaker. **This corrects D46.**
+6. **Tool calls are their own table, not rows in `calls`.** A tool call has no model, no tokens
+   and no price, and every column of `calls` is about one of those three. Folding one in would
+   have diluted every figure that averages tokens per call — silently, across some thirty call
+   sites. What a tool actually costs is the input tokens its result adds to the next step's
+   prompt, and that is charged to that step's call, where `tokop graph` can show it. It is still
+   recorded, because "the same tool called twice with identical arguments" is a question about
+   arguments.
+7. **Tokop does not stand in for a tool it has not implemented.** `workloads/tools.py` holds a
+   registry of one: `grounding-lookup-v1`, keyword retrieval over the document the workload
+   already ships. A step naming anything else is refused at *compile* time with the implemented
+   ones listed — before a recording, not during one, because a misspelled tool found mid-run has
+   already been paid for. A graph whose steps return plausible strings produces a number for
+   every step and evidence for none.
+8. **The retriever was fixed rather than the dataset.** Its first version scored a section by how
+   many of the query's words it contained, and missed the governing section on a third of the
+   tasks — not because that section scored badly but because a question asked in the reader's
+   words scores well against the policy section that taught them those words. It now scores by
+   inverse document frequency, treats a plural as its singular, and returns six sections rather
+   than three. That is the direction that *costs the agent money*, which is the honest way round:
+   give the agent its best case, then measure. Measured after: it finds the governing section on
+   89% of tasks, returning 10% of the catalogue. `tests/test_tools.py` pins that rate between
+   0.80 and 0.95 so it cannot quietly become zero or one.
+9. **There is no "accuracy without the governing section" parameter.** It was the obvious knob
+   and it would have been the number that decided the workload's headline. Instead the simulated
+   provider checks whether the sections that answer the task are in the prompt that was actually
+   sent, and when they are not it answers from what it was given — right only by coincidence. A
+   model cannot read a section it was not handed, and that is a consequence of the setup rather
+   than a rate somebody chose.
+
+**Two cassette-store consequences worth writing down.** B0's `draft` step and B1's `draft` step
+render byte-identical requests, so they share a cassette. That is correct — the same request is
+the same call — and it makes the comparison exact: B1 is B0 minus two steps, over identical draft
+answers. And the responder's per-attempt salt is appended only when the attempt is greater than
+one, so every cassette recorded before graphs existed is still the cassette this responder would
+record today. Verified by rebuilding `fixtures/incident-triage/` into a temporary directory and
+comparing all 662 cassettes field by field: zero moved.

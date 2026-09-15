@@ -1,0 +1,99 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "5d1c8074604cea842a33b91d6e6b7c6fbbed3cb6f0162151eb5e358ae661072f",
+  "latency_ms": 1232.11,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"correct\": true, \"confidence\": 0.7, \"why\": \"the answer follows from the catalogue extract\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_5d1c8074604cea84",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 1031,
+      "output_tokens": 44
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 1031,
+    "output_tokens": 44
+  },
+  "recorded_at": "2026-09-15T14:41:30.592988+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": {
+              "$blob": "cf4638cd1a3b42824e191244eedc80831fb72c31ff8d418e1f8c6a1fa11c5320"
+            }
+          },
+          {
+            "cache": null,
+            "text": "Which team owns shipment-sweeper?"
+          },
+          {
+            "cache": null,
+            "text": "{\"answer\": \"support-tooling\", \"evidence\": \"- Known failure mode: a hot partition serialising what should be parallel work.\"}"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "step": "check",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "You review answers about a service catalogue. Say whether the answer given below\nfollows from the extract, applying any policy that beats a service's own entry.\n\nReply with JSON only: {\"correct\": true|false, \"confidence\": 0.0-1.0, \"why\": \"...\"}."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"correct\": true, \"confidence\": 0.7, \"why\": \"the answer follows from the catalogue extract\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 748.11,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 1031,
+    "output_reasoning": 0,
+    "output_visible": 44,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 1031,
+      "output_tokens": 44
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

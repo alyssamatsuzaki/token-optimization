@@ -1,0 +1,95 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "00149bc4ade1fece0e3902d029f93b6cd2c76afe0cc4a14ad02568b02682ff29",
+  "latency_ms": 1136.07,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"E36\", \"evidence\": \"- Dashboard: grafana/notification-broker-overview\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_00149bc4ade1fece",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 833,
+      "output_tokens": 43
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 833,
+    "output_tokens": 43
+  },
+  "recorded_at": "2026-09-15T14:41:30.828681+00:00",
+  "request": {
+    "max_tokens": 400,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": {
+              "$blob": "83964d144c0c499c0eee335a1cfcadd5ea1c6abc90e9b67ec27a44e35f518bdf"
+            }
+          },
+          {
+            "cache": null,
+            "text": "What escalation code does an alert on shipment-broker carry?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "step": "draft",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "You are an on-call assistant. Answer the question from the catalogue extract\nbelow. Apply any policy that beats a service's own entry.\n\nReply with JSON only: {\"answer\": \"<the answer>\", \"evidence\": \"<the line>\"}.\nFor a yes/no question the answer is exactly \"yes\" or \"no\"."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"E36\", \"evidence\": \"- Dashboard: grafana/notification-broker-overview\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 663.07,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 833,
+    "output_reasoning": 0,
+    "output_visible": 43,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 833,
+      "output_tokens": 43
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

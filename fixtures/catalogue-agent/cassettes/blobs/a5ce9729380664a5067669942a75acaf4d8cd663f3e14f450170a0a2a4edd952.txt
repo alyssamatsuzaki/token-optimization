@@ -1,0 +1,55 @@
+## Escalation ladder
+
+Every alert has an escalation code. The code selects the ladder: the owning team is paged first, the tier duty engineer after the acknowledgement window has passed, and the incident commander after a further thirty minutes with no acknowledgement. An alert that is acknowledged but not resolved does not climb the ladder; it stays with the owning team.
+
+## Change freeze
+
+A change freeze is declared before a release train and lifted after it. While one is in effect, every service in the platform tier pages outside working hours regardless of its own entry, because a freeze means nobody is standing by to pick up a ticket in the morning. Services in other tiers keep the paging rule written in their own entry. A freeze changes nothing about escalation codes, owning teams or acknowledgement windows.
+
+## service: invoice-router
+
+- Owning team: growth
+- Escalation code: E84
+- Service tier: product
+- Pages outside working hours: no
+- Acknowledge within: 120 minutes
+- Runs in: us-east-1, eu-west-1
+- Depends on: shipment-sweeper, invoice-scorer
+- Known failure mode: schema drift between the writer and the reader.
+- Dashboard: grafana/invoice-router-overview
+
+## service: checkout-writer
+
+- Owning team: identity
+- Escalation code: E87
+- Service tier: internal
+- Pages outside working hours: no
+- Acknowledge within: 240 minutes
+- Runs in: us-west-2, eu-west-1
+- Depends on: session-reconciler, shipment-sweeper
+- Known failure mode: clock skew rejecting otherwise valid tokens.
+- Dashboard: grafana/checkout-writer-overview
+
+## service: invoice-collector
+
+- Owning team: data
+- Escalation code: E77
+- Service tier: platform
+- Pages outside working hours: yes
+- Acknowledge within: 60 minutes
+- Runs in: eu-west-1, ap-southeast-2
+- Depends on: shipment-sweeper, billing-sweeper
+- Known failure mode: back-pressure arriving as timeouts rather than as refusals.
+- Dashboard: grafana/invoice-collector-overview
+
+## service: shipment-sweeper
+
+- Owning team: support-tooling
+- Escalation code: E19
+- Service tier: internal
+- Pages outside working hours: no
+- Acknowledge within: 240 minutes
+- Runs in: ap-southeast-2, us-east-1
+- Depends on: shipment-indexer, invoice-scorer
+- Known failure mode: a hot partition serialising what should be parallel work.
+- Dashboard: grafana/shipment-sweeper-overview

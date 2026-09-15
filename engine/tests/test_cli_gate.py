@@ -98,6 +98,14 @@ class TestProveGate:
         assert "n = 200" in demo.stdout
         assert "Returns-policy" not in second.stdout
 
+    def test_a_graph_workload_is_answered_with_its_own_numbers(self) -> None:
+        """A third workload, and the first whose baseline makes more than one call per task."""
+        third = prove("--workload", "data/catalogue-agent/workload.yaml")
+        assert third.returncode in (0, 1), third.stdout + third.stderr
+        assert "Service catalogue agent" in third.stdout
+        assert "n = 100" in third.stdout, third.stdout
+        assert "Incident triage" not in third.stdout
+
     def test_simulated_data_is_announced_on_stderr(self) -> None:
         """Non-negotiable 2. A CI log that did not say this would let simulated numbers pass
         for recorded ones in the one place nobody looks twice."""

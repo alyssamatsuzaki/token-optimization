@@ -1,0 +1,99 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "fe67cd5d6eb5700896ff90223cf37829a189d9da1b869260fc6c5d70eab7f3a0",
+  "latency_ms": 1379.54,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"correct\": true, \"confidence\": 0.7, \"why\": \"the answer follows from the catalogue extract\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_fe67cd5d6eb57008",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 913,
+      "output_tokens": 44
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 913,
+    "output_tokens": 44
+  },
+  "recorded_at": "2026-09-15T14:41:30.385043+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": {
+              "$blob": "3267683c589ca07a49592aa02d25e585356f4d3def4193f7fef54030e087433d"
+            }
+          },
+          {
+            "cache": null,
+            "text": "A change freeze is in effect. Does an alert on identity-dispatcher raised at 03:00 on a Sunday page?"
+          },
+          {
+            "cache": null,
+            "text": "{\"answer\": \"no\", \"evidence\": \"- Known failure mode: cache stampede after a deploy invalidates every key at once.\"}"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "step": "check",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "You review answers about a service catalogue. Say whether the answer given below\nfollows from the extract, applying any policy that beats a service's own entry.\n\nReply with JSON only: {\"correct\": true|false, \"confidence\": 0.0-1.0, \"why\": \"...\"}."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"correct\": true, \"confidence\": 0.7, \"why\": \"the answer follows from the catalogue extract\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 895.54,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 913,
+    "output_reasoning": 0,
+    "output_visible": 44,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 913,
+      "output_tokens": 44
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

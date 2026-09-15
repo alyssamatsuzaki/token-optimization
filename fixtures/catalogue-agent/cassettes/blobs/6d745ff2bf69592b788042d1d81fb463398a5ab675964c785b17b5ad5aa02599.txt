@@ -1,0 +1,49 @@
+## service: shipment-indexer
+
+- Owning team: growth
+- Escalation code: E12
+- Service tier: product
+- Pages outside working hours: no
+- Acknowledge within: 120 minutes
+- Runs in: us-west-2, ap-southeast-2
+- Depends on: fraud-reconciler, shipment-broker
+- Known failure mode: schema drift between the writer and the reader.
+- Dashboard: grafana/shipment-indexer-overview
+
+## service: fraud-reconciler
+
+- Owning team: data
+- Escalation code: E21
+- Service tier: product
+- Pages outside working hours: no
+- Acknowledge within: 15 minutes
+- Runs in: ap-southeast-2, eu-west-1
+- Depends on: shipment-indexer, checkout-writer
+- Known failure mode: back-pressure arriving as timeouts rather than as refusals.
+- Dashboard: grafana/fraud-reconciler-overview
+
+## service: checkout-router
+
+- Owning team: fulfilment
+- Escalation code: E80
+- Service tier: product
+- Pages outside working hours: yes
+- Acknowledge within: 120 minutes
+- Runs in: us-west-2, us-east-1
+- Depends on: fraud-reconciler, notification-validator
+- Known failure mode: cache stampede after a deploy invalidates every key at once.
+- Dashboard: grafana/checkout-router-overview
+
+## Working hours
+
+Working hours are 09:00 to 18:00 local time for the owning team, Monday to Friday, excluding public holidays in the team's own location. Anything else is outside working hours. An alert raised at 17:59 is inside working hours; one raised at 18:01 is not.
+
+# Service catalogue
+
+This catalogue is the source of truth for who owns a service, how an alert on it
+escalates, and whether it pages outside working hours. The policy sections apply to
+every service and beat an individual entry wherever they say so.
+
+## Incident folding
+
+An alert that names a service already listed on an open incident is folded into that incident and does not page again, whatever its own entry says. Folding applies for as long as the incident is open and stops the moment it is resolved. A folded alert is still recorded against the owning team.

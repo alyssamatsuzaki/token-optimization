@@ -1,0 +1,51 @@
+Catalogue extract:
+
+## Working hours
+
+Working hours are 09:00 to 18:00 local time for the owning team, Monday to Friday, excluding public holidays in the team's own location. Anything else is outside working hours. An alert raised at 17:59 is inside working hours; one raised at 18:01 is not.
+
+## Change freeze
+
+A change freeze is declared before a release train and lifted after it. While one is in effect, every service in the platform tier pages outside working hours regardless of its own entry, because a freeze means nobody is standing by to pick up a ticket in the morning. Services in other tiers keep the paging rule written in their own entry. A freeze changes nothing about escalation codes, owning teams or acknowledgement windows.
+
+## service: search-validator
+
+- Owning team: checkout
+- Escalation code: E57
+- Service tier: internal
+- Pages outside working hours: no
+- Acknowledge within: 240 minutes
+- Runs in: eu-west-1, us-east-1
+- Depends on: catalogue-dispatcher, payments-gateway
+- Known failure mode: a slow downstream turning into unbounded queue growth.
+- Dashboard: grafana/search-validator-overview
+
+## service: notification-broker
+
+- Owning team: identity
+- Escalation code: E39
+- Service tier: platform
+- Pages outside working hours: yes
+- Acknowledge within: 60 minutes
+- Runs in: ap-southeast-2, eu-west-1
+- Depends on: inventory-dispatcher, search-validator
+- Known failure mode: clock skew rejecting otherwise valid tokens.
+- Dashboard: grafana/notification-broker-overview
+
+## service: notification-validator
+
+- Owning team: data
+- Escalation code: E53
+- Service tier: internal
+- Pages outside working hours: no
+- Acknowledge within: 240 minutes
+- Runs in: eu-west-1, us-west-2
+- Depends on: search-resolver, search-validator
+- Known failure mode: back-pressure arriving as timeouts rather than as refusals.
+- Dashboard: grafana/notification-validator-overview
+
+# Service catalogue
+
+This catalogue is the source of truth for who owns a service, how an alert on it
+escalates, and whether it pages outside working hours. The policy sections apply to
+every service and beat an individual entry wherever they say so.

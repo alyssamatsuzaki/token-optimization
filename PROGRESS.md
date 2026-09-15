@@ -22,6 +22,7 @@
 | M15a The engine without the demo | **done** | `Item` protocol, datasets loaded not generated, no neutral module imports the demo |
 | M15b A second workload | **done** | `incident-triage` proves clean, `tokop ingest` for JSONL/CSV/OTel; `tokop label` not built |
 | M16a Pipelines as graphs | **done** | `steps:` compiles to a graph; a single call is still byte-identical, pinned by cassette key |
+| M16b A graph executes | **done** | the runner walks the steps, tools spend nothing, `tokop graph` prices each step; `catalogue-agent` is a four-step agent |
 
 ## Next
 
@@ -47,10 +48,12 @@ recording moves two of its eight links and the verdict moves a third.
 evidence chain reads "not measured" for any workload with no judged arm, which is the honest
 state. The 50 hand labels UPGRADE_V4.md M15.3 asks for are a human's to write.
 
-**M16b** executes a graph. Nothing does yet: the runner still makes one call per task, and a
-workload that declared steps would compile, validate and then be run as though it had not. After
-that, M16c is the five graph findings and proof at the graph-level outcome — the point of the
-milestone, where the optimizer can propose *deleting a step* rather than only swapping a model.
+**M16c is the five graph findings**, computed rather than read off a table: the same context sent
+to more than one step, a tool called twice with identical arguments, a verifier that never
+changed an outcome, a retry that returns what it retried, and a frontier step whose input an
+earlier step could compress. Every one of them is now computable — M16b put the step on the call
+row and the tool call in the ledger — and none of them is computed yet. The numbers below were
+got by hand from the traces, which is exactly the work M16c makes the engine do.
 
 **U9, the serving-cost basis**, is deferred rather than renumbered (D41). It prices a hosted tier
 in GPU-hours over achieved throughput so a cascade can mix an API tier with a hosted one. Nothing
@@ -484,6 +487,111 @@ then be run as though it had not. That is M16b, and the spec landing first is de
 what every later commit depends on, and the part that could have forced the fallback to a
 parallel `GraphSpec`.
 
+## A graph executes, and the agent loses to one cached call (M16b, UPGRADE_V4.md M16)
+
+M16a could compile a pipeline into a graph and refuse a bad one, and then the runner ran it as
+though it had not. This is the difference. `data/catalogue-agent/` is the first workload whose
+baseline makes more than one call per task: a service catalogue of 48 entries and 4 policy
+sections, 19,819 characters, and an on-call assistant built the way internal assistants get
+built — **retrieve, draft, check, revise**.
+
+**The whole comparison, on its own 100-task test split:**
+
+| Pipeline | Steps | Accuracy | $ per successful task |
+| --- | --- | --- | --- |
+| B0 the agent as shipped | 4 | 89.0% | $0.01351 |
+| B1 the agent without its checker | 2 | 89.0% | $0.00639 |
+| B2 one call against the cached catalogue | 1 | 94.0% | $0.00632 |
+| B3 cascade on that single call | 1 | 85.0% | $0.00172 |
+
+The winning plan deletes steps, which is M16's acceptance condition, and it deletes them for two
+reasons the engine computed rather than assumed.
+
+**The checker cost 47% of the run and changed nothing.** `tokop graph --pipeline B0`:
+
+    step       kind       calls  skipped        in     out       cost   share
+    lookup     retrieve       —        0         —       —          —       —
+    draft      generate     100        0    88,454   5,040 $   0.5683   47.2%
+    check      verify       100        0    91,815   4,422 $   0.5696   47.4%
+    revise     retry         11       89    10,775     441 $   0.0649    5.4%
+
+    211 calls over 100 tasks (2.11 per task), total $1.2028
+
+It objected on 11 of 100 tasks. The revision fixed one wrong answer, broke one right answer, and
+returned something no better on the other nine; it also waved through 5 answers that were wrong.
+**Net outcomes changed: zero.** Deleting the pair halves the bill and loses nothing — and note
+that this is the *optimistic* reading, because a revision here is a fresh independent draw and a
+real second attempt is correlated with the first (the caveat D27 first recorded about repeated
+samples).
+
+**The retrieval step's saving is undone by the cache it gives up.** This is the one worth having.
+B1 retrieves about a tenth of the catalogue per task and sends 88,454 input tokens over the
+split. B2 sends the whole catalogue every time — **818,676 input tokens, 9.3 times as many** —
+and costs 13% more, because everything after the cache breakpoint is billed at a tenth of the
+input rate. The retrieval avoids three-quarters of a million tokens and saves $0.077 across the
+whole split, 4% of what the alternative costs. Then it loses 5 accuracy points, because a
+keyword retriever misses the governing section on 11% of these tasks and a model cannot read a
+section it was not given.
+
+Which is not an argument against retrieval. It is an argument that *this* retrieval, on *this*
+document, at *this* size, does not pay — and that is a sentence nobody could have written before
+the engine could price a step.
+
+**What had to be built.** `LLMRequest` gained a `step`, hashed only when set, so a retry re-asking
+what it just asked is a second call rather than a cache hit on the first. A step's output renders
+as the variable named after it, and only in the steps that declared it as an input, so the run
+order is computed from edges somebody wrote down. Only a retry is conditional, and only on a
+verify step it consumes — the entire conditional vocabulary, because a condition Tokop cannot
+read is a step whose cost nobody can attribute. Tool calls got their own table: a tool call has
+no model, no tokens and no price, and folding one into `calls` would have diluted every figure
+that averages tokens per call. Eleven decisions in all, in DECISIONS.md D47.
+
+**`loop` is gone from the step kinds, and that corrects M16a.** It was listed and nothing could
+run one. A kind that compiles and then cannot execute is the state this milestone exists to
+leave; a bounded repeat is written as the steps it takes and an unbounded one is not expressible.
+
+**Tokop does not stand in for a tool it has not implemented.** `workloads/tools.py` registers
+exactly one — `grounding-lookup-v1`, keyword retrieval over the document the workload already
+ships — and refuses every other name at compile time, with the implemented ones listed. A graph
+whose steps return plausible strings produces a number for every step and evidence for none.
+
+**The retriever was fixed rather than the dataset.** Its first version missed the governing
+section on a third of the tasks, not because that section scored badly but because a question
+asked in the reader's words scores well against the policy section that taught them those words.
+It now weights a shared word by inverse document frequency, treats a plural as its singular, and
+returns six sections rather than three: 134 of 150 tasks, 89%, at 2,056 characters a task. Every
+one of those changes *costs the agent money*, which is the honest direction — give the agent its
+best case, then measure. A test pins the rate between 0.80 and 0.95 so it cannot quietly become
+zero or one.
+
+**And there is deliberately no "accuracy without the governing section" parameter.** It was the
+obvious knob and it would have been the number that decided the headline. The simulated provider
+checks whether the sections that answer the task are in the prompt that was actually sent, and
+when they are not it answers from what it was given.
+
+**The verdict, reported as it came out.** Inconclusive: the cascade cuts cost per successful task
+by 87.2% (interval 82.9 to 90.6%) against the agent, and the accuracy difference is −4.0 points,
+95% CI [−13.0, +5.0], against a 3-point margin. The proof cost $3.30 and repays after 313 tasks.
+The label-free calibration comes apart here the way it does on `incident-triage`: `penalized-v1`
+excludes the 17 tasks it cannot settle and agrees with gold perfectly on what remains, while
+majority-vote agrees on 86%.
+
+**A defect the schema change surfaced.** `db.reset()` had been in the ledger since M3 with no
+caller — the same shape as the `SpendGuard.preflight` defect D42 found. `create_all` adds a table
+that does not exist and never alters one that does, so a ledger written before the `step` column
+kept working until something selected it, and then failed as a SQL error three layers from the
+cause. `make_engine` now refuses a stale ledger by name and prints the command that fixes it, and
+rebuilds rather than refuses when the caller is the fixture builder — whose ledger is generated
+from committed cassettes and holds nothing a rebuild would lose. The ledger of a real run is
+never dropped.
+
+**What M16b does not do.** No finding reads any of this yet: the paragraphs above were computed
+by hand from the traces. A cascade still runs over a single-call pipeline only — what it would
+mean for a cascade to route a *step* is a question this build has not answered, and the workload
+says so beside its own cascade rather than approximating one. And a graph refuses repeated
+samples, because what k repeats of a multi-call pipeline means — the whole graph again, or only
+its last step — is unanswered too, and guessing would charge for one and report the other.
+
 ## Demo result (simulated test fixtures, 200-task test split)
 
 Generated into README.md by `tokop report --write-readme`. Headline: B0 $0.05172 per successful
@@ -498,7 +606,7 @@ These are simulated, not recorded (DECISIONS.md D1).
 
 ## Known issues
 
-- `make verify` runs all 21 checks with none skipped.
+- `make verify` runs all 30 checks with none skipped.
 - **The demo's own calibration is still gold, by choice.** `--calibration penalized-v1` runs the
   label-free path end to end, and the demo reports what it would have chosen; the shipped
   operating point stays gold because the fixtures cannot show whether the label-free one is any
@@ -571,8 +679,8 @@ everything around it.
   Playwright's own resolution when that path is absent, which is everywhere but here.
 
 438 engine tests, 39 Playwright tests, 91% line coverage on `core/` and `optimize/`.
-`make verify`: 12 checks, none skipped, green. (At M16a: 805 engine tests, 49 Playwright tests,
-91% coverage, 21 checks.)
+`make verify`: 12 checks, none skipped, green. (At M16b: 848 engine tests, 49 Playwright tests,
+91% coverage, 30 checks.)
 
 ## The tokenizer divergence (D26)
 
@@ -655,5 +763,5 @@ byte-identical. 466 engine tests, 91% line coverage, `make verify` green on all 
 
 ## Where the build stands
 
-805 engine tests, 49 Playwright tests, 91% line coverage on `core/` and `optimize/`.
-`make verify`: 21 checks, none skipped, green.
+848 engine tests, 49 Playwright tests, 91% line coverage on `core/` and `optimize/`.
+`make verify`: 30 checks, none skipped, green.

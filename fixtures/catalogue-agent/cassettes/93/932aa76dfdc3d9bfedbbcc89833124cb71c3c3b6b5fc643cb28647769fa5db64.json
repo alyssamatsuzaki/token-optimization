@@ -1,0 +1,88 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "932aa76dfdc3d9bfedbbcc89833124cb71c3c3b6b5fc643cb28647769fa5db64",
+  "latency_ms": 1513.18,
+  "model": "claude-sonnet-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\n  \"amounts\": [\n    {\n      \"value\": 29.95,\n      \"refers_to\": \"shipping\"\n    },\n    {\n      \"value\": 248.75,\n      \"refers_to\": \"tent\"\n    },\n    {\n      \"value\": 24.0,\n      \"refers_to\": \"oversize surcharge\"\n    },\n    {\n      \"value\": 248.75,\n      \"refers_to\": \"net refund\"\n    }\n  ]\n}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_932aa76dfdc3d9bf",
+    "model": "claude-sonnet-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 160,
+      "output_tokens": 151
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 160,
+    "output_tokens": 151
+  },
+  "recorded_at": "2026-09-15T14:41:31.176470+00:00",
+  "request": {
+    "max_tokens": 600,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Extract every monetary amount and what it refers to from this note, as JSON:\n\n\"Order 88-1042 shipped to Zone 3 at 14 lb, so shipping was $29.95. The customer returned a $248.75 tent outside the window; we waived the 10% restocking fee as goodwill but kept the $24.00 oversize surcharge. Net refund issued: $248.75.\""
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-sonnet-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "You are answering a single question as directly as you can. Give the answer first, then at most two sentences of justification."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\n  \"amounts\": [\n    {\n      \"value\": 29.95,\n      \"refers_to\": \"shipping\"\n    },\n    {\n      \"value\": 248.75,\n      \"refers_to\": \"tent\"\n    },\n    {\n      \"value\": 24.0,\n      \"refers_to\": \"oversize surcharge\"\n    },\n    {\n      \"value\": 248.75,\n      \"refers_to\": \"net refund\"\n    }\n  ]\n}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 531.68,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 160,
+    "output_reasoning": 0,
+    "output_visible": 151,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 160,
+      "output_tokens": 151
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

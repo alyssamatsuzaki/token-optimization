@@ -1,0 +1,95 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "2ed7d4027bdf0ebe1e92bddca7d94449b9e8a2646aef4a37c527f2f59e726513",
+  "latency_ms": 2388.82,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"platform\", \"evidence\": \"A change freeze is declared before a release train and lifted after it. While one is in effect, every service in the platform tier pages outside working hours regardless of its own entry, because a freeze means nobody is standing by to pick up a ticket in the morning. Services in other tiers keep the paging rule written in their own entry. A freeze changes nothing about escalation codes, owning teams or acknowledgement windows.\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_2ed7d4027bdf0ebe",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 855,
+      "output_tokens": 153
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 855,
+    "output_tokens": 153
+  },
+  "recorded_at": "2026-09-15T14:41:30.619924+00:00",
+  "request": {
+    "max_tokens": 400,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": {
+              "$blob": "34f03a47131f087e6fc0cbf39374151a51a136b2b7ec25ef96b21e5b41c65491"
+            }
+          },
+          {
+            "cache": null,
+            "text": "Which team owns billing-router?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "step": "draft",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "You are an on-call assistant. Answer the question from the catalogue extract\nbelow. Apply any policy that beats a service's own entry.\n\nReply with JSON only: {\"answer\": \"<the answer>\", \"evidence\": \"<the line>\"}.\nFor a yes/no question the answer is exactly \"yes\" or \"no\"."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"platform\", \"evidence\": \"A change freeze is declared before a release train and lifted after it. While one is in effect, every service in the platform tier pages outside working hours regardless of its own entry, because a freeze means nobody is standing by to pick up a ticket in the morning. Services in other tiers keep the paging rule written in their own entry. A freeze changes nothing about escalation codes, owning teams or acknowledgement windows.\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 705.82,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 855,
+    "output_reasoning": 0,
+    "output_visible": 153,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 855,
+      "output_tokens": 153
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

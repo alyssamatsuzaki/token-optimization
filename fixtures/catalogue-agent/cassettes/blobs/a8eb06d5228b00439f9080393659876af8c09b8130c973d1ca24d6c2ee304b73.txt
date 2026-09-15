@@ -1,0 +1,49 @@
+## Escalation ladder
+
+Every alert has an escalation code. The code selects the ladder: the owning team is paged first, the tier duty engineer after the acknowledgement window has passed, and the incident commander after a further thirty minutes with no acknowledgement. An alert that is acknowledged but not resolved does not climb the ladder; it stays with the owning team.
+
+## Change freeze
+
+A change freeze is declared before a release train and lifted after it. While one is in effect, every service in the platform tier pages outside working hours regardless of its own entry, because a freeze means nobody is standing by to pick up a ticket in the morning. Services in other tiers keep the paging rule written in their own entry. A freeze changes nothing about escalation codes, owning teams or acknowledgement windows.
+
+## service: search-resolver
+
+- Owning team: payments
+- Escalation code: E50
+- Service tier: product
+- Pages outside working hours: yes
+- Acknowledge within: 120 minutes
+- Runs in: eu-west-1, ap-southeast-2
+- Depends on: fraud-broker, refund-validator
+- Known failure mode: connection pool exhaustion under retry storms.
+- Dashboard: grafana/search-resolver-overview
+
+## service: fraud-broker
+
+- Owning team: platform
+- Escalation code: E14
+- Service tier: platform
+- Pages outside working hours: yes
+- Acknowledge within: 10 minutes
+- Runs in: us-west-2, us-east-1
+- Depends on: notification-broker, checkout-writer
+- Known failure mode: a partial region failover leaving writes split across two primaries.
+- Dashboard: grafana/fraud-broker-overview
+
+## service: identity-collector
+
+- Owning team: support-tooling
+- Escalation code: E35
+- Service tier: platform
+- Pages outside working hours: yes
+- Acknowledge within: 60 minutes
+- Runs in: us-east-1, us-west-2
+- Depends on: fraud-broker, invoice-router
+- Known failure mode: a hot partition serialising what should be parallel work.
+- Dashboard: grafana/identity-collector-overview
+
+# Service catalogue
+
+This catalogue is the source of truth for who owns a service, how an alert on it
+escalates, and whether it pages outside working hours. The policy sections apply to
+every service and beat an individual entry wherever they say so.

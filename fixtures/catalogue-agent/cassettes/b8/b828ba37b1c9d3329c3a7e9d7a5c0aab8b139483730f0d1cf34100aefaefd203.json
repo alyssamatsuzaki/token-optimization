@@ -1,0 +1,99 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "b828ba37b1c9d3329c3a7e9d7a5c0aab8b139483730f0d1cf34100aefaefd203",
+  "latency_ms": 1337.33,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"correct\": false, \"confidence\": 0.7, \"why\": \"the answer does not follow from the catalogue extract\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_b828ba37b1c9d332",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 899,
+      "output_tokens": 46
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 899,
+    "output_tokens": 46
+  },
+  "recorded_at": "2026-09-15T14:41:30.650145+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": {
+              "$blob": "7a9a4b91311604062c015c4751eee2f77c4234b78ace75d07a6ffd7919a24a94"
+            }
+          },
+          {
+            "cache": null,
+            "text": "A change freeze is in effect. Does an alert on catalogue-sweeper raised at 03:00 on a Sunday page?"
+          },
+          {
+            "cache": null,
+            "text": "{\"answer\": \"no\", \"evidence\": \"- Known failure mode: connection pool exhaustion under retry storms.\"}"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "step": "check",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "You review answers about a service catalogue. Say whether the answer given below\nfollows from the extract, applying any policy that beats a service's own entry.\n\nReply with JSON only: {\"correct\": true|false, \"confidence\": 0.0-1.0, \"why\": \"...\"}."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"correct\": false, \"confidence\": 0.7, \"why\": \"the answer does not follow from the catalogue extract\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 831.33,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 899,
+    "output_reasoning": 0,
+    "output_visible": 46,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 899,
+      "output_tokens": 46
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

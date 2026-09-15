@@ -114,13 +114,19 @@ the fixture set 34 MB of the same paragraph, and 6.2 MB deduplicated.
 
 ### `workloads/` — running and grading
 
-`graph.py` is a pipeline's shape. A pipeline with no declared steps compiles to a graph of one
-`generate` step carrying the pipeline itself, which is the single-call path expressed as a graph
-of one; a pipeline that declares steps compiles to their topological order, with ties broken by
-declaration order so the same YAML always produces the same order. The compiler is where the
-milestone's safety argument lives: `tests/test_graph.py` renders every shipped pipeline both ways
-and compares cassette keys, so a graph that changed a request by one byte would fail before it
-could change a number.
+`runner.py` runs a pipeline over a split. Since M16 that means one of two things. A pipeline with
+no declared steps takes the path it always did: one call per task, fanned out in parallel behind
+a semaphore. A pipeline that declares steps is walked through its compiled graph — steps in
+order within a task, because a step consumes what the one before it produced; tasks in parallel,
+because they do not. A task's cost is the sum over its steps, which is what lets the optimizer
+propose deleting one rather than only swapping a model. Each call carries the step that rendered
+it, all the way into the ledger.
+
+`tools.py` is what a step of kind `tool` or `retrieve` calls: a registry of named, deterministic
+programs that make no model call and spend nothing. It ships exactly one, `grounding-lookup-v1`,
+and **refuses every name it has not implemented**, at compile time, with the implemented ones
+listed. A graph whose steps return plausible strings produces a number for every step and
+evidence for none.
 
 `ingest.py` reads a JSONL export, a CSV, or OpenTelemetry GenAI spans into that shape. The
 formats differ in one way that matters more than their syntax: an export usually carries an
@@ -203,6 +209,22 @@ cassettes, the same price snapshot. That is what makes a judge verdict a number 
 trace rather than a number a function made up.
 
 ### `optimize/` — the analysis
+
+`graph.py` is a pipeline's shape. A pipeline with no declared steps compiles to a graph of one
+`generate` step carrying the pipeline itself, which is the single-call path expressed as a graph
+of one; a pipeline that declares steps compiles to their topological order, with ties broken by
+declaration order so the same YAML always produces the same order. It refuses, before a run
+rather than during one, a graph that could not be executed: a cycle, a step consuming something
+it does not declare, a step shadowing a workload variable, a tool nobody implemented, a retry
+with no verifier to react to, or two final steps and therefore no answer. The compiler is also
+where the milestone's safety argument lives: `tests/test_graph.py` renders every shipped pipeline
+both ways and compares cassette keys, so a graph that changed a request by one byte would fail
+before it could change a number.
+
+`steps.py` breaks one graph run down by step — calls, tokens, cost, share, and the tasks on which
+a step did not run at all. A single-call pipeline has one cost and one question: is it worth it.
+A graph has one cost per step and a different question at each of them, and that question cannot
+be asked of a total. `tokop graph --pipeline B0` prints it.
 
 `lint.py` is local and deterministic and makes **no model calls**. Its ranking rule is the whole
 point: findings are ordered by projected dollars per 1,000 tasks, weighted by confidence, so
@@ -335,7 +357,7 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
 
 ## Testing
 
-- **805 engine tests**, 91% line coverage on `core/` and `optimize/`
+- **848 engine tests**, 91% line coverage on `core/` and `optimize/`
   (`pytest --cov=tokop/core --cov=tokop/optimize`).
 - **49 Playwright tests** against the production build in replay mode.
 - **Exit-code tests for `tokop prove`** run through a subprocess, because an exit code asserted
@@ -376,11 +398,15 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
 - An **ingest test** that fails if an OpenTelemetry completion is ever promoted to a gold
   answer — the one substitution that would make every number downstream meaningless while
   looking entirely normal.
-- A **graph guarantee test** that renders every pipeline of both workloads and compares
-  cassette keys, so "single-call workloads keep working unchanged" means the same call rather
-  than a similar one.
-- `make verify` runs all twenty-eight checks in SPEC.md section 10 plus the UPGRADE_V3.md and
-  UPGRADE_V4.md acceptance checks, in order, and prints `VERIFY PASSED (28 checks)`.
+- A **graph guarantee test** that renders every single-call pipeline of all three workloads and
+  compares cassette keys, so "single-call workloads keep working unchanged" means the same call
+  rather than a similar one.
+- **Graph execution tests** over a four-step agent: the steps run in order, a step sees only what
+  it declared it consumes, the run's cost is the sum over its steps, the retry fires only when
+  the verifier objected, and a budget refusal ends the run instead of becoming a split of failed
+  tasks.
+- `make verify` runs all thirty checks in SPEC.md section 10 plus the UPGRADE_V3.md and
+  UPGRADE_V4.md acceptance checks, in order, and prints `VERIFY PASSED (30 checks)`.
 
 ## What is simulated in this build
 

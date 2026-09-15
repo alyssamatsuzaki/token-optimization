@@ -96,6 +96,50 @@ def run_pipeline(workload, registry, bundle, pipeline_id, items, tmp_path, split
     return result, snapshot
 
 
+class TestAStaleLedger:
+    """A ledger older than the code that reads it says so (M16b).
+
+    `create_all` adds a table that does not exist and never alters one that does, so a ledger
+    written before a column was added keeps working until something selects that column — and
+    then fails as a SQL error three layers from the cause. `reset` had been sitting in `db.py`
+    since M3 with no caller, which is the same shape of defect D42 found in `SpendGuard`.
+    """
+
+    def test_a_ledger_missing_a_column_is_refused_with_the_command_that_fixes_it(
+        self, tmp_path
+    ) -> None:
+        from sqlalchemy import text
+
+        from tokop.db import StaleLedger, make_engine, stale_tables
+
+        path = Path(tmp_path) / "ledger.db"
+        engine = make_engine(path)
+        assert stale_tables(engine) == {}
+        with session_scope(engine) as session:
+            session.execute(text("ALTER TABLE calls DROP COLUMN step"))
+        engine.dispose()
+
+        with pytest.raises(StaleLedger) as caught:
+            make_engine(path)
+        assert "calls is missing step" in str(caught.value)
+        assert "--ledger-only" in str(caught.value)
+
+    def test_a_fixture_ledger_is_rebuilt_rather_than_refused(self, tmp_path) -> None:
+        """A generated ledger holds nothing a rebuild would lose. A real run's does."""
+        from sqlalchemy import text
+
+        from tokop.db import make_engine, stale_tables
+
+        path = Path(tmp_path) / "ledger.db"
+        engine = make_engine(path)
+        with session_scope(engine) as session:
+            session.execute(text("ALTER TABLE calls DROP COLUMN step"))
+        engine.dispose()
+
+        rebuilt = make_engine(path, rebuild_if_stale=True)
+        assert stale_tables(rebuilt) == {}
+
+
 class TestHandComputedB0:
     """M3 acceptance: B0's metrics reconcile with arithmetic done outside the engine."""
 
@@ -105,7 +149,8 @@ class TestHandComputedB0:
 
         by_hand = Decimal(0)
         for task in result.tasks:
-            for _, response, _, _ in task.calls:
+            for call in task.calls:
+                response = call.response
                 usage = response.usage
                 by_hand += (
                     Decimal(usage.input_uncached) * RATE_INPUT
@@ -121,7 +166,8 @@ class TestHandComputedB0:
         result, _ = run_pipeline(workload, registry, bundle, "B0", items, tmp_path)
         assert result.prewarm_calls == 0
         for task in result.tasks:
-            for request, response, _, _ in task.calls:
+            for call in task.calls:
+                request, response = call.request, call.response
                 assert request.static_prefix_text == ""
                 assert response.usage.cache_read == 0
                 assert response.usage.cache_write_5m == 0
@@ -131,7 +177,7 @@ class TestHandComputedB0:
         items = list(bundle.test)[:20]
         b0, _ = run_pipeline(workload, registry, bundle, "B0", items, tmp_path / "a")
         b1, _ = run_pipeline(workload, registry, bundle, "B1", items, tmp_path / "b")
-        b1_reads = sum(r.usage.cache_read for t in b1.tasks for _, r, _, _ in t.calls)
+        b1_reads = sum(r.usage.cache_read for t in b1.tasks for r in (c.response for c in t.calls))
         assert b1_reads > 0
         assert b1.prewarm_calls == 1
         # Same words, same model, same cap: only the order changed, and it is much cheaper.
@@ -143,8 +189,8 @@ class TestHandComputedB0:
         items = list(bundle.test)[:20]
         b1, _ = run_pipeline(workload, registry, bundle, "B1", items, tmp_path / "a")
         b2, _ = run_pipeline(workload, registry, bundle, "B2", items, tmp_path / "b")
-        b1_out = sum(r.usage.total_output for t in b1.tasks for _, r, _, _ in t.calls)
-        b2_out = sum(r.usage.total_output for t in b2.tasks for _, r, _, _ in t.calls)
+        b1_out = sum(r.usage.total_output for t in b1.tasks for r in (c.response for c in t.calls))
+        b2_out = sum(r.usage.total_output for t in b2.tasks for r in (c.response for c in t.calls))
         assert b2_out < b1_out / 2
 
 

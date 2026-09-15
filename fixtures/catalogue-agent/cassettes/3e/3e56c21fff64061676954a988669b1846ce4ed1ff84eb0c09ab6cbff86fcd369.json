@@ -1,0 +1,88 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "3e56c21fff64061676954a988669b1846ce4ed1ff84eb0c09ab6cbff86fcd369",
+  "latency_ms": 1129.99,
+  "model": "claude-sonnet-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "Prompt caching on the handbook.\n\n7,000 tokens x 40,000 calls = 280M input tokens/month. At $5/M that is $1,400; cached reads at $0.50/M cost $140. Saving roughly $1,260/month. Capping the output would save a little more but far less than the cache.",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_3e56c21fff640616",
+    "model": "claude-sonnet-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 173,
+      "output_tokens": 100
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 173,
+    "output_tokens": 100
+  },
+  "recorded_at": "2026-09-15T14:41:31.171050+00:00",
+  "request": {
+    "max_tokens": 600,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "A team runs 40,000 support answers a month. Each answer sends a 7,000-token handbook that never changes, plus a 60-token question, and gets back about 220 tokens. They are on a model that charges $5 per million input tokens, $25 per million output, and $0.50 per million for a cache read. What is the single largest saving available to them, and roughly what is it worth per month?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-sonnet-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "You are answering a single question as directly as you can. Give the answer first, then at most two sentences of justification."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "Prompt caching on the handbook.\n\n7,000 tokens x 40,000 calls = 280M input tokens/month. At $5/M that is $1,400; cached reads at $0.50/M cost $140. Saving roughly $1,260/month. Capping the output would save a little more but far less than the cache.",
+  "stop_reason": "end_turn",
+  "ttft_ms": 479.99,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 173,
+    "output_reasoning": 0,
+    "output_visible": 100,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 173,
+      "output_tokens": 100
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

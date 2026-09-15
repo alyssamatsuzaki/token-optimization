@@ -1226,6 +1226,99 @@ def dataset_cmd(
         typer.echo(f"  {question_type:12} {counts[question_type]:4}")
 
 
+@app.command()
+def graph(
+    workload: str = typer.Option(DEFAULT_WORKLOAD, "--workload"),
+    pipeline: str = typer.Option(..., "--pipeline", help="Which pipeline's graph to break down."),
+    split: str = typer.Option("test", "--split"),
+    tier: str = typer.Option("frontier", "--tier"),
+) -> None:
+    """What each step of a pipeline cost, replayed from its recorded calls.
+
+    A single-call pipeline has one cost and one question: is it worth it. A graph has one cost
+    per step and a different question at each of them, and the proposal worth making about an
+    agent is almost always to delete one — which cannot be made from a total.
+
+    A single-call pipeline is not refused here. It compiles to a graph of one step and prints as
+    one row, which is the honest answer to "what did each step cost" when there is one step.
+    """
+    from datetime import date
+
+    from tokop.adapters.base import AdapterError
+    from tokop.adapters.cassette import CassetteStore
+    from tokop.optimize.steps import replay_graph, step_costs
+    from tokop.recording_state import describe
+    from tokop.workloads.bundle import load_bundle
+    from tokop.workloads.spec import WorkloadError, load_workload
+
+    registry = load_registry()
+    spec = load_workload(repo_root() / workload)
+    bundle = load_bundle(spec)
+    root = fixtures_dir() / (spec.fixtures or describe().fixture_source)
+    snapshot = registry.snapshot(list(registry.roles.values()), date(2026, 9, 11))
+    try:
+        compiled, result = replay_graph(
+            spec,
+            registry,
+            bundle,
+            snapshot,
+            CassetteStore(root / "cassettes"),
+            pipeline,
+            split=split,
+            tier=tier,
+        )
+    except (WorkloadError, AdapterError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+    run = step_costs(compiled, result, snapshot)
+
+    typer.echo(f"workload:  {spec.name} ({workload})")
+    typer.echo(f"pipeline:  {pipeline} — {spec.pipeline(pipeline).name}")
+    typer.echo(f"split:     {split}, {run.tasks} tasks at the {tier} tier")
+    typer.echo("")
+    typer.echo(
+        f"  {'step':10} {'kind':9} {'calls':>6} {'skipped':>8} {'in':>9} {'out':>7} "
+        f"{'cost':>10} {'share':>7}"
+    )
+    for step in run.steps:
+        if step.is_free:
+            # A tool step has no calls, no tokens and no price. Printing zeros in the money
+            # columns would read as "this step is free", and what it actually is is a step whose
+            # cost lands in the prompt of whatever consumes it — which the note below says.
+            typer.echo(
+                f"  {step.step:10} {step.kind:9} {'—':>6} {step.skipped:>8} {'—':>9} {'—':>7} "
+                f"{'—':>10} {'—':>7}"
+            )
+            continue
+        typer.echo(
+            f"  {step.step:10} {step.kind:9} {step.calls:>6} {step.skipped:>8} "
+            f"{step.input_tokens:>9,} {step.output_tokens:>7,} "
+            f"${float(step.cost_usd):>9.4f} {run.share(step) * 100:>6.1f}%"
+        )
+    if run.prewarm_calls:
+        typer.echo(
+            f"  {'prewarm':10} {'—':9} {run.prewarm_calls:>6} {'—':>8} {'—':>9} {'—':>7} "
+            f"${float(run.prewarm_cost_usd):>9.4f}"
+        )
+    typer.echo("")
+    typer.echo(f"  {run.calls} calls over {run.tasks} tasks ({run.calls_per_task:.2f} per task)")
+    typer.echo(f"  total ${float(run.total_cost_usd):.4f}")
+    for step in run.steps:
+        if step.tool_calls:
+            typer.echo(
+                f"  {step.step} ran {step.tool_calls} times and returned "
+                f"{step.tool_chars / max(1, step.tool_calls):,.0f} characters on average, which "
+                f"is what the steps consuming it pay for."
+            )
+        if step.skipped:
+            typer.echo(
+                f"  {step.step} did not run on {step.skipped} of {run.tasks} tasks. A step that "
+                "rarely runs is cheap; a step that never changes an outcome is free to delete."
+            )
+    typer.echo("")
+    typer.echo("Computed over recorded calls. See `tokop recording-state` for what recorded them.")
+
+
 @app.command("fixtures-check")
 def fixtures_check() -> None:
     """Regenerate gold answers from YAML and assert they match the stored dataset.

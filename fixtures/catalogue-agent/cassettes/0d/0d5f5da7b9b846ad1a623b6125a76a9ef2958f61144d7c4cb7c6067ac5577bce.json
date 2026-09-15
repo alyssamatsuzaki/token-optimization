@@ -1,0 +1,95 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "0d5f5da7b9b846ad1a623b6125a76a9ef2958f61144d7c4cb7c6067ac5577bce",
+  "latency_ms": 380.36,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"no\", \"evidence\": \"- Known failure mode: connection pool exhaustion under retry storms.\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_0d5f5da7b9b846ad",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 6204,
+      "input_tokens": 91,
+      "output_tokens": 32
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 6204,
+    "input_tokens": 91,
+    "output_tokens": 32
+  },
+  "recorded_at": "2026-09-15T14:41:26.995446+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Does an alert on fraud-reconciler page outside working hours?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "d7debd6f892722296676932a5f9c0754efbadf03a850481d0036043148149be6"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Answer from the catalogue. A policy section beats a service's own entry wherever it\nsays so.\n\nReply with JSON only: {\"answer\": \"<the answer>\", \"evidence\": \"<the line>\"}.\nFor a yes/no question the answer is exactly \"yes\" or \"no\"."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"no\", \"evidence\": \"- Known failure mode: connection pool exhaustion under retry storms.\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 268.36,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 6204,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 91,
+    "output_reasoning": 0,
+    "output_visible": 32,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 6204,
+      "input_tokens": 91,
+      "output_tokens": 32
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

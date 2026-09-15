@@ -1,0 +1,49 @@
+## service: ledger-resolver
+
+- Owning team: payments
+- Escalation code: E18
+- Service tier: platform
+- Pages outside working hours: yes
+- Acknowledge within: 10 minutes
+- Runs in: eu-west-1, us-west-2
+- Depends on: shipment-broker, fraud-validator
+- Known failure mode: connection pool exhaustion under retry storms.
+- Dashboard: grafana/ledger-resolver-overview
+
+## service: refund-validator
+
+- Owning team: growth
+- Escalation code: E36
+- Service tier: internal
+- Pages outside working hours: no
+- Acknowledge within: 30 minutes
+- Runs in: eu-west-1, us-east-1
+- Depends on: payments-collector, ledger-resolver
+- Known failure mode: schema drift between the writer and the reader.
+- Dashboard: grafana/refund-validator-overview
+
+## service: checkout-dispatcher
+
+- Owning team: checkout
+- Escalation code: E73
+- Service tier: platform
+- Pages outside working hours: yes
+- Acknowledge within: 60 minutes
+- Runs in: us-west-2, us-east-1
+- Depends on: ledger-resolver, pricing-router
+- Known failure mode: a slow downstream turning into unbounded queue growth.
+- Dashboard: grafana/checkout-dispatcher-overview
+
+## Working hours
+
+Working hours are 09:00 to 18:00 local time for the owning team, Monday to Friday, excluding public holidays in the team's own location. Anything else is outside working hours. An alert raised at 17:59 is inside working hours; one raised at 18:01 is not.
+
+## Change freeze
+
+A change freeze is declared before a release train and lifted after it. While one is in effect, every service in the platform tier pages outside working hours regardless of its own entry, because a freeze means nobody is standing by to pick up a ticket in the morning. Services in other tiers keep the paging rule written in their own entry. A freeze changes nothing about escalation codes, owning teams or acknowledgement windows.
+
+# Service catalogue
+
+This catalogue is the source of truth for who owns a service, how an alert on it
+escalates, and whether it pages outside working hours. The policy sections apply to
+every service and beat an individual entry wherever they say so.

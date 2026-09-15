@@ -1,0 +1,99 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "61386854c03de13f5b3c2a3bd640629b0af82c8e40cc963db4a8ed50e653166b",
+  "latency_ms": 1235.87,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"correct\": true, \"confidence\": 0.7, \"why\": \"the answer follows from the catalogue extract\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_61386854c03de13f",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 881,
+      "output_tokens": 44
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 881,
+    "output_tokens": 44
+  },
+  "recorded_at": "2026-09-15T14:41:30.542040+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": {
+              "$blob": "4df7a704ac61beacacf6142f7ec40689d5ad0765c4b14d1b94dbc76b625436ba"
+            }
+          },
+          {
+            "cache": null,
+            "text": "Which team owns refund-gateway?"
+          },
+          {
+            "cache": null,
+            "text": "{\"answer\": \"data\", \"evidence\": \"- Dashboard: grafana/notification-validator-overview\"}"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "step": "check",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "You review answers about a service catalogue. Say whether the answer given below\nfollows from the extract, applying any policy that beats a service's own entry.\n\nReply with JSON only: {\"correct\": true|false, \"confidence\": 0.0-1.0, \"why\": \"...\"}."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"correct\": true, \"confidence\": 0.7, \"why\": \"the answer follows from the catalogue extract\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 751.87,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 881,
+    "output_reasoning": 0,
+    "output_visible": 44,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 881,
+      "output_tokens": 44
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

@@ -33,6 +33,7 @@ from sqlalchemy import (
     Text,
     create_engine,
     delete,
+    inspect,
     select,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
@@ -115,6 +116,10 @@ class Call(Base):
     task_id: Mapped[str] = mapped_column(String(64), index=True)
     #: Which cascade tier made this call; "single" for a non-cascade pipeline.
     tier: Mapped[str] = mapped_column(String(32), default="single")
+    #: Which step of the pipeline's graph made it. A single-call pipeline compiles to one step
+    #: and every call belongs to it, so this defaults to that name and nothing about an existing
+    #: run changes (UPGRADE_V4.md M16).
+    step: Mapped[str] = mapped_column(String(64), default="generate")
     tier_index: Mapped[int] = mapped_column(Integer, default=0)
     attempt: Mapped[int] = mapped_column(Integer, default=1)
     provider: Mapped[str] = mapped_column(String(64))
@@ -174,6 +179,33 @@ class Call(Base):
             setattr(self, bucket, getattr(usage, bucket))
         self.usage_sources = dict(usage.sources)
         self.raw_usage = dict(usage.raw)
+
+
+class ToolCall(Base):
+    """One tool call a graph step made (UPGRADE_V4.md M16).
+
+    Its own table rather than a row in ``calls``, because a tool call has no model, no tokens
+    and no price, and every column of ``calls`` is about one of those three. What a tool costs
+    is the input tokens its result adds to the next step's prompt, and that is charged to that
+    step's call, where it can be seen.
+
+    It is still recorded, because "the same tool called twice with identical arguments" is a
+    finding about arguments, and a trace that dropped the free calls could not compute it.
+    """
+
+    __tablename__ = "tool_calls"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"))
+    task_id: Mapped[str] = mapped_column(String(64), index=True)
+    step: Mapped[str] = mapped_column(String(64), default="")
+    tool: Mapped[str] = mapped_column(String(64), default="")
+    query: Mapped[str] = mapped_column(Text, default="")
+    #: How much text the call returned. A metric, so it survives content deletion.
+    result_chars: Mapped[int] = mapped_column(Integer, default=0)
+    # Deletable content (non-negotiable 10).
+    result_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
 class GradeRow(Base):
@@ -263,10 +295,54 @@ def db_path() -> Path:
     return state_dir() / DB_FILENAME
 
 
-def make_engine(path: Path | None = None, echo: bool = False) -> Any:
+class StaleLedger(RuntimeError):
+    """A ledger file older than the code that reads it, named so it can be fixed."""
+
+
+def stale_tables(engine: Any) -> dict[str, list[str]]:
+    """Tables in the file that are missing columns this build expects.
+
+    ``create_all`` adds tables that do not exist and never alters one that does, so a ledger
+    written before a column was added keeps working until something selects that column — and
+    then fails as a SQL error three layers from the cause. This is the check that turns it into
+    a sentence somebody can act on.
+    """
+    inspector = inspect(engine)
+    present = set(inspector.get_table_names())
+    missing: dict[str, list[str]] = {}
+    for name, table in Base.metadata.tables.items():
+        if name not in present:
+            continue
+        have = {column["name"] for column in inspector.get_columns(name)}
+        absent = [column.name for column in table.columns if column.name not in have]
+        if absent:
+            missing[name] = absent
+    return missing
+
+
+def make_engine(
+    path: Path | None = None, echo: bool = False, *, rebuild_if_stale: bool = False
+) -> Any:
+    """Open the ledger, refusing one that predates this build.
+
+    ``rebuild_if_stale`` is for the generated fixture ledgers, which are rebuilt from committed
+    cassettes and hold nothing a rebuild would lose. It is off by default, because the same
+    function opens the ledger of a real run and dropping *that* would be data loss dressed up
+    as a migration.
+    """
     target = path or db_path()
     engine = create_engine(f"sqlite:///{target}", echo=echo, future=True)
     Base.metadata.create_all(engine)
+    stale = stale_tables(engine)
+    if stale:
+        detail = "; ".join(f"{name} is missing {', '.join(cols)}" for name, cols in stale.items())
+        if not rebuild_if_stale:
+            raise StaleLedger(
+                f"the ledger at {target} predates this build ({detail}). It is generated from "
+                "the committed cassettes and holds nothing a rebuild would lose: delete it and "
+                "run `tokop build-test-fixtures --ledger-only`."
+            )
+        reset(engine)
     return engine
 
 
@@ -293,6 +369,8 @@ def delete_run_content(session: Session, run_id: str) -> int:
     for call in calls:
         call.request_json = None
         call.response_text = None
+    for tool_call in session.scalars(select(ToolCall).where(ToolCall.run_id == run_id)).all():
+        tool_call.result_text = None
     run = session.get(Run, run_id)
     if run is not None:
         run.content_deleted = True
@@ -305,6 +383,7 @@ def delete_run(session: Session, run_id: str) -> bool:
     if run is None:
         return False
     session.execute(delete(Call).where(Call.run_id == run_id))
+    session.execute(delete(ToolCall).where(ToolCall.run_id == run_id))
     session.execute(delete(GradeRow).where(GradeRow.run_id == run_id))
     session.execute(delete(ScoreRow).where(ScoreRow.run_id == run_id))
     session.delete(run)

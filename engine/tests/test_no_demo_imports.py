@@ -208,6 +208,34 @@ class TestTheAcceptanceCheck:
         )
         assert not ({item.question for item in second.items} & {i.question for i in demo.items})
 
+    def test_proving_a_graph_workload_imports_nothing_from_the_demo_either(self) -> None:
+        """The same check with steps in it (UPGRADE_V4.md M16).
+
+        A graph reaches further into the engine than a single call does — the tool registry, the
+        step executor, the verdict parser — so it is the stronger version of M15's question. It
+        also runs the whole report over a workload whose baseline is a four-step agent, which is
+        the first time that path has been exercised end to end.
+        """
+        result = run_python("""
+            import sys
+            from tokop.optimize.report import build_report
+
+            payload = build_report(workload_path="data/catalogue-agent/workload.yaml")
+            assert payload["workload"]["id"] == "catalogue-agent", payload["workload"]
+            assert payload["proof"]["candidate"]["n"] == 100, payload["proof"]["candidate"]["n"]
+            graphs = {p: s["graph"]["steps"] for p, s in payload["pipelines"].items()}
+            assert [s["id"] for s in graphs["B0"]] == ["lookup", "draft", "check", "revise"]
+            assert [s["kind"] for s in graphs["B0"]] == [
+                "retrieve", "generate", "verify", "retry"
+            ]
+            assert [s["id"] for s in graphs["B2"]] == ["generate"]
+            leaked = sorted(m for m in sys.modules if m.startswith("tokop.workloads.demo"))
+            print("\\n".join(leaked))
+        """)
+        assert result.returncode == 0, result.stderr
+        leaked = [line for line in result.stdout.splitlines() if line]
+        assert not leaked, f"proving the graph workload imported {leaked}"
+
     def test_its_provenance_refuses_certification_for_the_honest_reason(self) -> None:
         """Not one of these tasks was observed in production, and the gate says so."""
         result = run_python("""

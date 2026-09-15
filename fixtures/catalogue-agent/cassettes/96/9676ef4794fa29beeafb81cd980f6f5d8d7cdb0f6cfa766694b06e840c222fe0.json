@@ -1,0 +1,95 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "9676ef4794fa29beeafb81cd980f6f5d8d7cdb0f6cfa766694b06e840c222fe0",
+  "latency_ms": 1306.53,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"support-tooling\", \"evidence\": \"- Depends on: refund-gateway, search-resolver\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_9676ef4794fa29be",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 1008,
+      "output_tokens": 46
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 1008,
+    "output_tokens": 46
+  },
+  "recorded_at": "2026-09-15T14:41:30.121015+00:00",
+  "request": {
+    "max_tokens": 400,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": {
+              "$blob": "d3209bc63550877274c4ed196fcf3229fd891f3109400b8b42f8887bca8b6a8d"
+            }
+          },
+          {
+            "cache": null,
+            "text": "Which team owns identity-collector?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "step": "draft",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "You are an on-call assistant. Answer the question from the catalogue extract\nbelow. Apply any policy that beats a service's own entry.\n\nReply with JSON only: {\"answer\": \"<the answer>\", \"evidence\": \"<the line>\"}.\nFor a yes/no question the answer is exactly \"yes\" or \"no\"."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"support-tooling\", \"evidence\": \"- Depends on: refund-gateway, search-resolver\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 800.53,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 1008,
+    "output_reasoning": 0,
+    "output_visible": 46,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 1008,
+      "output_tokens": 46
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "56190c44ada5ef414f3d7ff81d3bb1bfbe2d5991166dbd65f9c66e5ff286dde7",
+  "latency_ms": 1170.7,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"yes\", \"evidence\": \"- Dashboard: grafana/fraud-broker-overview\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_56190c44ada5ef41",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 837,
+      "output_tokens": 39
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 837,
+    "output_tokens": 39
+  },
+  "recorded_at": "2026-09-15T14:41:30.558821+00:00",
+  "request": {
+    "max_tokens": 400,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": {
+              "$blob": "f57967de23b2532b8751a96dbb66e569d578db9338851c99b1914508117e5c84"
+            }
+          },
+          {
+            "cache": null,
+            "text": "Does an alert on search-resolver page outside working hours?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "step": "draft",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "You are an on-call assistant. Answer the question from the catalogue extract\nbelow. Apply any policy that beats a service's own entry.\n\nReply with JSON only: {\"answer\": \"<the answer>\", \"evidence\": \"<the line>\"}.\nFor a yes/no question the answer is exactly \"yes\" or \"no\"."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"yes\", \"evidence\": \"- Dashboard: grafana/fraud-broker-overview\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 741.7,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 837,
+    "output_reasoning": 0,
+    "output_visible": 39,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 837,
+      "output_tokens": 39
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

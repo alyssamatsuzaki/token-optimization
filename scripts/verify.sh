@@ -109,6 +109,13 @@ if have engine/.venv/bin/pytest && [ -n "$(find engine/tests -name 'test_*.py' 2
   # graph work. Pinned by cassette key, which is what every fixture and every number rests on.
   run "a single call is still a single call (M16)" bash -c "cd '$ROOT/engine' && \
       .venv/bin/pytest -q tests/test_graph.py::TestTheByteIdenticalGuarantee"
+  # M16b. A graph that compiles and is then run as one call is the state this milestone exists
+  # to leave, and it would look exactly like a graph that ran. These check that it did: the
+  # steps in order, the cost summing over them, and the retry firing only on an objection.
+  run "a graph actually executes (M16)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
+      tests/test_graph_run.py::TestTheGraphRuns tests/test_graph_run.py::TestTheRetry"
+  run "a tool step spends nothing (M16)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
+      tests/test_tools.py tests/test_graph_run.py::TestWhatIsRefused"
 else
   skip "pytest + coverage" "no tests yet"
   skip "adversarial judge (U1)" "no tests yet"
@@ -127,6 +134,8 @@ else
   skip "the engine runs without the demo (M15)" "no tests yet"
   skip "ingest never invents an answer key (M15)" "no tests yet"
   skip "a single call is still a single call (M16)" "no tests yet"
+  skip "a graph actually executes (M16)" "no tests yet"
+  skip "a tool step spends nothing (M16)" "no tests yet"
 fi
 
 # ---------------------------------------------------------------- 3. web build

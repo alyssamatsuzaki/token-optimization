@@ -1,0 +1,99 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "94a56a78416a174853f2f2bdbb74c9c97c2f8b94ab9264d9e9cb1e763519e9dd",
+  "latency_ms": 1282.87,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"correct\": true, \"confidence\": 0.7, \"why\": \"the answer follows from the catalogue extract\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_94a56a78416a1748",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 913,
+      "output_tokens": 44
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 913,
+    "output_tokens": 44
+  },
+  "recorded_at": "2026-09-15T14:41:30.601191+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": {
+              "$blob": "9820a243a9ec6e297a6ee7cb372dda0303fad023030961fa8ad0f9b09f0f5ff4"
+            }
+          },
+          {
+            "cache": null,
+            "text": "Within how many minutes must an alert on audit-validator be acknowledged before it climbs the ladder?"
+          },
+          {
+            "cache": null,
+            "text": "{\"answer\": \"15\", \"evidence\": \"- Dashboard: grafana/inventory-indexer-overview\"}"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "step": "check",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "You review answers about a service catalogue. Say whether the answer given below\nfollows from the extract, applying any policy that beats a service's own entry.\n\nReply with JSON only: {\"correct\": true|false, \"confidence\": 0.0-1.0, \"why\": \"...\"}."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"correct\": true, \"confidence\": 0.7, \"why\": \"the answer follows from the catalogue extract\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 798.87,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 913,
+    "output_reasoning": 0,
+    "output_visible": 44,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 913,
+      "output_tokens": 44
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

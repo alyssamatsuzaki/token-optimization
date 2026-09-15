@@ -1,0 +1,57 @@
+Catalogue extract:
+
+## Working hours
+
+Working hours are 09:00 to 18:00 local time for the owning team, Monday to Friday, excluding public holidays in the team's own location. Anything else is outside working hours. An alert raised at 17:59 is inside working hours; one raised at 18:01 is not.
+
+## service: refund-validator
+
+- Owning team: growth
+- Escalation code: E36
+- Service tier: internal
+- Pages outside working hours: no
+- Acknowledge within: 30 minutes
+- Runs in: eu-west-1, us-east-1
+- Depends on: payments-collector, ledger-resolver
+- Known failure mode: schema drift between the writer and the reader.
+- Dashboard: grafana/refund-validator-overview
+
+## service: inventory-indexer
+
+- Owning team: identity
+- Escalation code: E63
+- Service tier: product
+- Pages outside working hours: no
+- Acknowledge within: 15 minutes
+- Runs in: us-west-2, ap-southeast-2
+- Depends on: payments-collector, billing-sweeper
+- Known failure mode: clock skew rejecting otherwise valid tokens.
+- Dashboard: grafana/inventory-indexer-overview
+
+## service: payments-collector
+
+- Owning team: growth
+- Escalation code: E60
+- Service tier: platform
+- Pages outside working hours: yes
+- Acknowledge within: 10 minutes
+- Runs in: us-west-2, us-east-1
+- Depends on: payments-dispatcher, search-resolver
+- Known failure mode: schema drift between the writer and the reader.
+- Dashboard: grafana/payments-collector-overview
+
+## service: payments-dispatcher
+
+- Owning team: support-tooling
+- Escalation code: E67
+- Service tier: product
+- Pages outside working hours: no
+- Acknowledge within: 15 minutes
+- Runs in: ap-southeast-2, eu-west-1
+- Depends on: payments-collector, identity-collector
+- Known failure mode: a hot partition serialising what should be parallel work.
+- Dashboard: grafana/payments-dispatcher-overview
+
+## Change freeze
+
+A change freeze is declared before a release train and lifted after it. While one is in effect, every service in the platform tier pages outside working hours regardless of its own entry, because a freeze means nobody is standing by to pick up a ticket in the morning. Services in other tiers keep the paging rule written in their own entry. A freeze changes nothing about escalation codes, owning teams or acknowledgement windows.

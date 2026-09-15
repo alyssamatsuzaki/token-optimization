@@ -1,0 +1,99 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "69ffec948e9e614d3032db81380fd7822ac34d405d4fdbe204b9ef455ee2d8c7",
+  "latency_ms": 1243.89,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"correct\": true, \"confidence\": 0.7, \"why\": \"the answer follows from the catalogue extract\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_69ffec948e9e614d",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 862,
+      "output_tokens": 44
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 862,
+    "output_tokens": 44
+  },
+  "recorded_at": "2026-09-15T14:41:30.206478+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": {
+              "$blob": "31d8d5805ec6b3d9acd8ffbbcc1aa93916293c0e03b653ae0bde19d5e2517b90"
+            }
+          },
+          {
+            "cache": null,
+            "text": "Does an alert on refund-validator page outside working hours?"
+          },
+          {
+            "cache": null,
+            "text": "{\"answer\": \"no\", \"evidence\": \"- Known failure mode: a slow downstream turning into unbounded queue growth.\"}"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "step": "check",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "You review answers about a service catalogue. Say whether the answer given below\nfollows from the extract, applying any policy that beats a service's own entry.\n\nReply with JSON only: {\"correct\": true|false, \"confidence\": 0.0-1.0, \"why\": \"...\"}."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"correct\": true, \"confidence\": 0.7, \"why\": \"the answer follows from the catalogue extract\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 759.89,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 862,
+    "output_reasoning": 0,
+    "output_visible": 44,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 862,
+      "output_tokens": 44
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

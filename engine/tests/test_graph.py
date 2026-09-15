@@ -20,8 +20,10 @@ from tokop.core.registry import load_registry
 from tokop.optimize.graph import SINGLE_STEP, GraphError, compile_graph
 from tokop.paths import repo_root
 from tokop.workloads.bundle import load_bundle
-from tokop.workloads.spec import PipelineSpec, StepSpec, load_workload
+from tokop.workloads.spec import BlockSpec, PipelineSpec, StepSpec, load_workload
 
+#: The single-call workloads. `catalogue-agent` is deliberately not among them: two of its
+#: pipelines are graphs, which is what it exists for, and it is covered by `test_graph_run.py`.
 WORKLOADS = ("data/demo/workload.yaml", "data/incident-triage/workload.yaml")
 
 
@@ -31,7 +33,24 @@ def registry():
 
 
 def step(step_id: str, *inputs: str, kind: str = "generate") -> StepSpec:
-    return StepSpec(id=step_id, kind=kind, inputs=list(inputs))
+    """A step that is valid to run, so a topology test is testing topology.
+
+    Since M16b a step has to be executable to compile: a tool step names a tool that exists and
+    a generation step has something to send. Those are checks at compile time on purpose — a
+    misspelled tool found during a recording has already been paid for — so the fixtures here
+    carry the minimum that satisfies them.
+    """
+    if kind in ("tool", "retrieve"):
+        return StepSpec(
+            id=step_id,
+            kind=kind,
+            inputs=list(inputs),
+            tool="grounding-lookup-v1",
+            query="{{question}}",
+        )
+    return StepSpec(
+        id=step_id, kind=kind, inputs=list(inputs), user=[BlockSpec(text="{{question}}")]
+    )
 
 
 class TestTheByteIdenticalGuarantee:
@@ -78,6 +97,30 @@ class TestTheByteIdenticalGuarantee:
         workload = load_workload(repo_root() / "data/demo/workload.yaml")
         assert not any(pipeline.is_graph for pipeline in workload.pipelines.values())
 
+    def test_the_graph_workload_still_has_a_single_call_pipeline_that_replays(
+        self, registry
+    ) -> None:
+        """The two shapes live in one workload, so the guarantee is checked where they meet.
+
+        `catalogue-agent` exists to compare an agent against one call on the same tasks. B2 is
+        that one call, and it has to render exactly what a pipeline without the graph machinery
+        would have rendered — otherwise the comparison is between a graph and a rewritten
+        baseline rather than between a graph and the thing it replaced.
+        """
+        workload = load_workload(repo_root() / "data/catalogue-agent/workload.yaml")
+        bundle = load_bundle(workload)
+        variables = {
+            "grounding": bundle.grounding,
+            "question": bundle.test[0].question,
+            "timestamp": "2026-09-11T00:00:00Z",
+        }
+        assert {pid for pid, p in workload.pipelines.items() if p.is_graph} == {"B0", "B1"}
+        single = workload.pipeline("B2")
+        assert compile_graph(single).is_single_call
+        request = single.render("simulated", registry.roles[single.model_role], variables)
+        assert request.step == ""
+        assert "step" not in request.canonical()
+
 
 class TestCompilation:
     def test_steps_run_after_the_steps_they_consume(self) -> None:
@@ -104,9 +147,9 @@ class TestCompilation:
             description="d",
             model_role="cheap",
             max_tokens=10,
-            steps=[step("b"), step("a"), step("c")],
+            steps=[step("b"), step("a"), step("c"), step("join", "b", "a", "c")],
         )
-        assert [s.id for s in compile_graph(pipeline).steps] == ["b", "a", "c"]
+        assert [s.id for s in compile_graph(pipeline).steps] == ["b", "a", "c", "join"]
 
     def test_a_cycle_is_refused_by_name(self) -> None:
         pipeline = PipelineSpec(
@@ -151,8 +194,8 @@ class TestCompilation:
             description="d",
             model_role="cheap",
             max_tokens=10,
-            steps=[step("a"), step("b", "a"), step("c", "a")],
+            steps=[step("a"), step("b", "a"), step("c", "a"), step("d", "b", "c")],
         )
         graph = compile_graph(pipeline)
         assert {s.id for s in graph.dependents("a")} == {"b", "c"}
-        assert graph.dependents("c") == ()
+        assert graph.dependents("d") == ()

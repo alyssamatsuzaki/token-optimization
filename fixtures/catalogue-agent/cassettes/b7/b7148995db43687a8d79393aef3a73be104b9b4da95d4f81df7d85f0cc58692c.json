@@ -1,0 +1,99 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "b7148995db43687a8d79393aef3a73be104b9b4da95d4f81df7d85f0cc58692c",
+  "latency_ms": 1314.35,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"E67\", \"evidence\": \"- Known failure mode: schema drift between the writer and the reader.\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_b7148995db43687a",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 941,
+      "output_tokens": 44
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 941,
+    "output_tokens": 44
+  },
+  "recorded_at": "2026-09-15T14:41:30.833568+00:00",
+  "request": {
+    "max_tokens": 400,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": {
+              "$blob": "83964d144c0c499c0eee335a1cfcadd5ea1c6abc90e9b67ec27a44e35f518bdf"
+            }
+          },
+          {
+            "cache": null,
+            "text": "What escalation code does an alert on shipment-broker carry?"
+          },
+          {
+            "cache": null,
+            "text": "The answer that was rejected:\n\n{\"answer\": \"E36\", \"evidence\": \"- Dashboard: grafana/notification-broker-overview\"}\n\nThe reviewer said:\n\n{\"correct\": false, \"confidence\": 0.7, \"why\": \"the answer does not follow from the catalogue extract\"}"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "step": "revise",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "A reviewer objected to an answer about a service catalogue. Answer the question\nagain from the extract, taking the objection into account.\n\nReply with JSON only: {\"answer\": \"<the answer>\", \"evidence\": \"<the line>\"}.\nFor a yes/no question the answer is exactly \"yes\" or \"no\"."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"E67\", \"evidence\": \"- Known failure mode: schema drift between the writer and the reader.\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 830.35,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 941,
+    "output_reasoning": 0,
+    "output_visible": 44,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 941,
+      "output_tokens": 44
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

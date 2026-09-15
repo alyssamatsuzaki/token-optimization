@@ -1,0 +1,95 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "2dabedaeb166e425965dba6fab174cfc39dfd23ec22d389b5cdc50aeeebff55c",
+  "latency_ms": 1265.75,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"E57\", \"evidence\": \"- Known failure mode: back-pressure arriving as timeouts rather than as refusals.\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_2dabedaeb166e425",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 902,
+      "output_tokens": 51
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 902,
+    "output_tokens": 51
+  },
+  "recorded_at": "2026-09-15T14:41:30.224548+00:00",
+  "request": {
+    "max_tokens": 400,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": {
+              "$blob": "235caba4d2a19cf43a5edec857ac7c5193cceb07452ff96058bcc025ddfe0dc2"
+            }
+          },
+          {
+            "cache": null,
+            "text": "What escalation code does an alert on search-validator carry?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "step": "draft",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "You are an on-call assistant. Answer the question from the catalogue extract\nbelow. Apply any policy that beats a service's own entry.\n\nReply with JSON only: {\"answer\": \"<the answer>\", \"evidence\": \"<the line>\"}.\nFor a yes/no question the answer is exactly \"yes\" or \"no\"."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"E57\", \"evidence\": \"- Known failure mode: back-pressure arriving as timeouts rather than as refusals.\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 704.75,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 902,
+    "output_reasoning": 0,
+    "output_visible": 51,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 902,
+      "output_tokens": 51
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

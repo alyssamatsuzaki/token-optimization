@@ -1,0 +1,49 @@
+## Escalation ladder
+
+Every alert has an escalation code. The code selects the ladder: the owning team is paged first, the tier duty engineer after the acknowledgement window has passed, and the incident commander after a further thirty minutes with no acknowledgement. An alert that is acknowledged but not resolved does not climb the ladder; it stays with the owning team.
+
+## Change freeze
+
+A change freeze is declared before a release train and lifted after it. While one is in effect, every service in the platform tier pages outside working hours regardless of its own entry, because a freeze means nobody is standing by to pick up a ticket in the morning. Services in other tiers keep the paging rule written in their own entry. A freeze changes nothing about escalation codes, owning teams or acknowledgement windows.
+
+## service: ledger-scorer
+
+- Owning team: checkout
+- Escalation code: E25
+- Service tier: product
+- Pages outside working hours: yes
+- Acknowledge within: 15 minutes
+- Runs in: eu-west-1, us-west-2
+- Depends on: catalogue-sweeper, catalogue-dispatcher
+- Known failure mode: a slow downstream turning into unbounded queue growth.
+- Dashboard: grafana/ledger-scorer-overview
+
+## service: catalogue-dispatcher
+
+- Owning team: growth
+- Escalation code: E52
+- Service tier: platform
+- Pages outside working hours: yes
+- Acknowledge within: 10 minutes
+- Runs in: eu-west-1, us-east-1
+- Depends on: identity-collector, session-scorer
+- Known failure mode: schema drift between the writer and the reader.
+- Dashboard: grafana/catalogue-dispatcher-overview
+
+## service: search-validator
+
+- Owning team: checkout
+- Escalation code: E57
+- Service tier: internal
+- Pages outside working hours: no
+- Acknowledge within: 240 minutes
+- Runs in: eu-west-1, us-east-1
+- Depends on: catalogue-dispatcher, payments-gateway
+- Known failure mode: a slow downstream turning into unbounded queue growth.
+- Dashboard: grafana/search-validator-overview
+
+# Service catalogue
+
+This catalogue is the source of truth for who owns a service, how an alert on it
+escalates, and whether it pages outside working hours. The policy sections apply to
+every service and beat an individual entry wherever they say so.

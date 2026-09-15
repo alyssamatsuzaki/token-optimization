@@ -1,0 +1,59 @@
+Catalogue extract:
+
+## service: checkout-writer
+
+- Owning team: identity
+- Escalation code: E87
+- Service tier: internal
+- Pages outside working hours: no
+- Acknowledge within: 240 minutes
+- Runs in: us-west-2, eu-west-1
+- Depends on: session-reconciler, shipment-sweeper
+- Known failure mode: clock skew rejecting otherwise valid tokens.
+- Dashboard: grafana/checkout-writer-overview
+
+## Escalation ladder
+
+Every alert has an escalation code. The code selects the ladder: the owning team is paged first, the tier duty engineer after the acknowledgement window has passed, and the incident commander after a further thirty minutes with no acknowledgement. An alert that is acknowledged but not resolved does not climb the ladder; it stays with the owning team.
+
+## service: fraud-reconciler
+
+- Owning team: data
+- Escalation code: E21
+- Service tier: product
+- Pages outside working hours: no
+- Acknowledge within: 15 minutes
+- Runs in: ap-southeast-2, eu-west-1
+- Depends on: shipment-indexer, checkout-writer
+- Known failure mode: back-pressure arriving as timeouts rather than as refusals.
+- Dashboard: grafana/fraud-reconciler-overview
+
+## service: fraud-broker
+
+- Owning team: platform
+- Escalation code: E14
+- Service tier: platform
+- Pages outside working hours: yes
+- Acknowledge within: 10 minutes
+- Runs in: us-west-2, us-east-1
+- Depends on: notification-broker, checkout-writer
+- Known failure mode: a partial region failover leaving writes split across two primaries.
+- Dashboard: grafana/fraud-broker-overview
+
+## service: catalogue-reconciler
+
+- Owning team: support-tooling
+- Escalation code: E59
+- Service tier: product
+- Pages outside working hours: no
+- Acknowledge within: 15 minutes
+- Runs in: eu-west-1, ap-southeast-2
+- Depends on: checkout-writer, payments-dispatcher
+- Known failure mode: a hot partition serialising what should be parallel work.
+- Dashboard: grafana/catalogue-reconciler-overview
+
+# Service catalogue
+
+This catalogue is the source of truth for who owns a service, how an alert on it
+escalates, and whether it pages outside working hours. The policy sections apply to
+every service and beat an individual entry wherever they say so.

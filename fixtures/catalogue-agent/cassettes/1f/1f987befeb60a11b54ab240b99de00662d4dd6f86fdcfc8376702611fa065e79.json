@@ -1,0 +1,95 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "1f987befeb60a11b54ab240b99de00662d4dd6f86fdcfc8376702611fa065e79",
+  "latency_ms": 1164.88,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"E70\", \"evidence\": \"- Dashboard: grafana/billing-collector-overview\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_1f987befeb60a11b",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 857,
+      "output_tokens": 43
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 857,
+    "output_tokens": 43
+  },
+  "recorded_at": "2026-09-15T14:41:30.708784+00:00",
+  "request": {
+    "max_tokens": 400,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": {
+              "$blob": "cd342fab52b6d84e8797bb03d959908e87612ccdc298f7e8ee5f9f80ca9c1d1b"
+            }
+          },
+          {
+            "cache": null,
+            "text": "What escalation code does an alert on inventory-sweeper carry?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "step": "draft",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "You are an on-call assistant. Answer the question from the catalogue extract\nbelow. Apply any policy that beats a service's own entry.\n\nReply with JSON only: {\"answer\": \"<the answer>\", \"evidence\": \"<the line>\"}.\nFor a yes/no question the answer is exactly \"yes\" or \"no\"."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"E70\", \"evidence\": \"- Dashboard: grafana/billing-collector-overview\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 691.88,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 857,
+    "output_reasoning": 0,
+    "output_visible": 43,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 857,
+      "output_tokens": 43
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

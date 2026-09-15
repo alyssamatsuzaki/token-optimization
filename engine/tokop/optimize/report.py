@@ -258,7 +258,8 @@ def replay_run(
         per_sample_cost: list[Decimal] = []
         per_sample_output: list[str] = []
         per_sample_correct: list[int] = []
-        for request, response, _, _ in task.calls:
+        for call in task.calls:
+            request, response = call.request, call.response
             breakdown = snapshot.cost(response.model, response.usage)
             per_sample_cost.append(breakdown.total)
             per_sample_output.append(response.text)
@@ -289,6 +290,7 @@ def replay_run(
                     system_text=request.system_text,
                     user_text=request.messages[0].text if request.messages else "",
                     static_prefix=request.static_prefix_text,
+                    step=call.step,
                 )
             )
         costs.append(task_cost)

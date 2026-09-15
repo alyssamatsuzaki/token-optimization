@@ -1,0 +1,57 @@
+## service: identity-dispatcher
+
+- Owning team: payments
+- Escalation code: E42
+- Service tier: product
+- Pages outside working hours: no
+- Acknowledge within: 120 minutes
+- Runs in: us-east-1, eu-west-1
+- Depends on: catalogue-reconciler, ledger-sweeper
+- Known failure mode: connection pool exhaustion under retry storms.
+- Dashboard: grafana/identity-dispatcher-overview
+
+## service: billing-sweeper
+
+- Owning team: data
+- Escalation code: E45
+- Service tier: internal
+- Pages outside working hours: yes
+- Acknowledge within: 240 minutes
+- Runs in: us-east-1, eu-west-1
+- Depends on: refund-broker, catalogue-reconciler
+- Known failure mode: back-pressure arriving as timeouts rather than as refusals.
+- Dashboard: grafana/billing-sweeper-overview
+
+## service: refund-broker
+
+- Owning team: platform
+- Escalation code: E22
+- Service tier: platform
+- Pages outside working hours: yes
+- Acknowledge within: 10 minutes
+- Runs in: us-west-2, us-east-1
+- Depends on: catalogue-reconciler, identity-validator
+- Known failure mode: a partial region failover leaving writes split across two primaries.
+- Dashboard: grafana/refund-broker-overview
+
+## service: catalogue-reconciler
+
+- Owning team: support-tooling
+- Escalation code: E59
+- Service tier: product
+- Pages outside working hours: no
+- Acknowledge within: 15 minutes
+- Runs in: eu-west-1, ap-southeast-2
+- Depends on: checkout-writer, payments-dispatcher
+- Known failure mode: a hot partition serialising what should be parallel work.
+- Dashboard: grafana/catalogue-reconciler-overview
+
+## Working hours
+
+Working hours are 09:00 to 18:00 local time for the owning team, Monday to Friday, excluding public holidays in the team's own location. Anything else is outside working hours. An alert raised at 17:59 is inside working hours; one raised at 18:01 is not.
+
+# Service catalogue
+
+This catalogue is the source of truth for who owns a service, how an alert on it
+escalates, and whether it pages outside working hours. The policy sections apply to
+every service and beat an individual entry wherever they say so.

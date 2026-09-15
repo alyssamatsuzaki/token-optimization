@@ -88,15 +88,25 @@ class LLMRequest(BaseModel):
     #: cannot represent. This field is that discriminator. It is never sent to a provider:
     #: neither adapter reads it when building a payload.
     sample_index: int = 0
+    #: Which step of a pipeline's graph rendered this request (UPGRADE_V4.md M16). A graph can
+    #: send two steps the *same* text — a retry re-asking what it just asked is the clearest
+    #: case, and it is one of the findings M16 exists to compute — and a content-addressed
+    #: cassette cannot hold two of those. This field is that discriminator, and it is why a
+    #: retry's call is a second call in the trace rather than a cache hit on the first.
+    #: Empty for a single-call pipeline, which is what keeps every committed cassette valid.
+    #: It is never sent to a provider: neither adapter reads it when building a payload.
+    step: str = ""
 
     model_config = {"frozen": True}
 
     def canonical(self) -> dict[str, Any]:
         """The request as it is hashed. Sorted keys, no volatile fields.
 
-        ``sample_index`` appears only when it is non-zero, because sample 0 *is* the ordinary
-        single call: hashing it in unconditionally would rekey every cassette ever recorded and
-        move committed numbers that have nothing to do with sampling.
+        ``sample_index`` appears only when it is non-zero, and ``step`` only when it is set,
+        for the same reason in both cases: sample 0 of the compiled single step *is* the
+        ordinary single call, and hashing either in unconditionally would rekey every cassette
+        ever recorded and move committed numbers that have nothing to do with sampling or with
+        graphs.
         """
         canonical: dict[str, Any] = {
             "provider": self.provider,
@@ -114,6 +124,8 @@ class LLMRequest(BaseModel):
         }
         if self.sample_index:
             canonical["sample_index"] = self.sample_index
+        if self.step:
+            canonical["step"] = self.step
         return canonical
 
     def cassette_key(self) -> str:

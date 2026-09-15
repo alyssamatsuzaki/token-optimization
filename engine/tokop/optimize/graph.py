@@ -29,12 +29,24 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from tokop.workloads.spec import StepSpec, WorkloadError
+from tokop.workloads.spec import WORKLOAD_VARIABLES, PipelineSpec, StepSpec, WorkloadError
+from tokop.workloads.tools import get_tool
 
 #: Kinds of work a step can be. `generate` is a model call; the rest exist so a graph can say
 #: what a step *is* before Tokop can price it, because a finding about a tool called twice with
 #: identical arguments needs to know which calls were tool calls.
-STEP_KINDS: tuple[str, ...] = ("generate", "tool", "retrieve", "verify", "retry", "loop")
+#:
+#: There is no `loop`. M16a listed one and nothing could run it; a kind that compiles and then
+#: cannot execute is the state this milestone exists to leave (DECISIONS.md D47). A loop's cost
+#: is its trip count, which is a fact about traces rather than about a spec, so a bounded repeat
+#: is written as the steps it actually takes and an unbounded one is not expressible.
+STEP_KINDS: tuple[str, ...] = ("generate", "tool", "retrieve", "verify", "retry")
+
+#: Kinds that make a model call. The rest run in-process and spend nothing.
+GENERATION_KINDS: tuple[str, ...] = ("generate", "verify", "retry")
+
+#: Kinds that call a tool rather than a model.
+TOOL_KINDS: tuple[str, ...] = ("tool", "retrieve")
 
 #: The id the single-call path compiles to. Named rather than spelled out, because it appears in
 #: the ledger, in findings and in the trace drawer, and three spellings would become two names.
@@ -56,10 +68,32 @@ class Step:
 
     @property
     def is_generation(self) -> bool:
-        return self.kind in ("generate", "retry", "verify")
+        return self.kind in GENERATION_KINDS
+
+    @property
+    def is_tool(self) -> bool:
+        return self.kind in TOOL_KINDS
+
+    def model_role(self, pipeline: PipelineSpec) -> str:
+        """Which tier runs this step. A step that names none runs on the pipeline's own.
+
+        This is the lever M16 adds to the two a single call had: a graph can put its cheap work
+        on a cheap model without the whole pipeline moving.
+        """
+        if self.spec is not None and self.spec.model_role:
+            return self.spec.model_role
+        return pipeline.model_role
+
+    def max_tokens(self, pipeline: PipelineSpec) -> int:
+        if self.spec is not None and self.spec.max_tokens is not None:
+            return self.spec.max_tokens
+        return pipeline.max_tokens
 
     def as_dict(self) -> dict[str, Any]:
-        return {"id": self.id, "kind": self.kind, "inputs": list(self.inputs)}
+        out: dict[str, Any] = {"id": self.id, "kind": self.kind, "inputs": list(self.inputs)}
+        if self.spec is not None and self.spec.tool:
+            out["tool"] = self.spec.tool
+        return out
 
 
 @dataclass(frozen=True)
@@ -86,6 +120,20 @@ class Graph:
 
     def dependents(self, step_id: str) -> tuple[Step, ...]:
         return tuple(step for step in self.steps if step_id in step.inputs)
+
+    @property
+    def terminal(self) -> Step:
+        """The step whose output is the pipeline's answer.
+
+        The one step nothing else consumes. A graph with two of them has not said which answer
+        is the answer, and a grader picking either would be grading a coin flip — which is why
+        :func:`compile_graph` refuses it rather than leaving the choice to run order.
+        """
+        return self.steps[-1] if len(self.steps) == 1 else _terminal(self.pipeline_id, self.steps)
+
+    @property
+    def generation_steps(self) -> tuple[Step, ...]:
+        return tuple(step for step in self.steps if step.is_generation)
 
     def as_dict(self) -> dict[str, Any]:
         return {"pipeline": self.pipeline_id, "steps": [step.as_dict() for step in self.steps]}
@@ -134,7 +182,71 @@ def _topological(pipeline_id: str, specs: Sequence[StepSpec]) -> tuple[Step, ...
     return tuple(order)
 
 
-def compile_graph(pipeline: Any) -> Graph:
+def _terminal(pipeline_id: str, steps: Sequence[Step]) -> Step:
+    """The unique step nothing consumes."""
+    leaves = [step for step in steps if not any(step.id in other.inputs for other in steps)]
+    if len(leaves) == 1:
+        return leaves[0]
+    if not leaves:
+        # Unreachable through _topological, which refuses a cycle first. Kept because a graph
+        # with no leaf is a graph with no answer, and a silent IndexError here would surface
+        # three layers away as a missing output.
+        raise GraphError(f"{pipeline_id} has no final step; every step feeds another one")
+    raise GraphError(
+        f"{pipeline_id} ends in {len(leaves)} steps ({', '.join(sorted(s.id for s in leaves))}) "
+        "and so does not say which one answers the task. Give the others a consumer, or delete "
+        "the ones whose output nothing uses — a step whose output nothing reads is a step that "
+        "costs money and changes no outcome."
+    )
+
+
+def _validate_executable(pipeline_id: str, steps: Sequence[Step]) -> None:
+    """Refuse a graph that would compile and then not run, naming what is wrong with it.
+
+    Every check here is one that would otherwise fail mid-run, after some of a split had been
+    paid for. A recording that stops half way through because step four names a tool nobody
+    implemented has spent real money to discover a typo.
+    """
+    for step in steps:
+        if step.id in WORKLOAD_VARIABLES:
+            raise GraphError(
+                f"{pipeline_id} names a step {step.id!r}, which is also what every prompt calls "
+                f"the workload's own {step.id}. A step's output is rendered as {{{{{step.id}}}}}, "
+                "so this one would shadow it. Rename the step."
+            )
+        if step.is_tool:
+            if step.spec is None or not step.spec.tool:
+                raise GraphError(
+                    f"{pipeline_id} step {step.id!r} is a {step.kind} step and names no tool. "
+                    "A tool step is the tool it calls; there is nothing else for it to do."
+                )
+            # Raises with the implemented tools listed. Done at compile time on purpose: a
+            # misspelled tool is found before the run rather than during it.
+            get_tool(step.spec.tool)
+        if step.kind == "retry":
+            consumed = [other for other in steps if other.id in step.inputs]
+            if not any(other.kind == "verify" for other in consumed):
+                raise GraphError(
+                    f"{pipeline_id} step {step.id!r} is a retry and consumes no verify step. A "
+                    "retry that always runs is a second attempt, and the trace could not say "
+                    "what triggered it — which is exactly the question 'did the verifier ever "
+                    "change an outcome?' needs answered. Give it the verify step it reacts to."
+                )
+            if all(other.kind == "verify" for other in consumed):
+                raise GraphError(
+                    f"{pipeline_id} step {step.id!r} retries nothing: every step it consumes is "
+                    "a verify step, so when the verifier is satisfied there is no answer for it "
+                    "to fall back on. Give it the step whose answer it revises."
+                )
+        if step.is_generation and step.spec is not None and not step.spec.user:
+            raise GraphError(
+                f"{pipeline_id} step {step.id!r} makes a model call and has no user blocks, so "
+                "there is nothing to send."
+            )
+    _terminal(pipeline_id, steps)
+
+
+def compile_graph(pipeline: PipelineSpec) -> Graph:
     """The graph a pipeline runs as.
 
     A pipeline that declares no steps compiles to one `generate` step carrying the pipeline
@@ -146,4 +258,6 @@ def compile_graph(pipeline: Any) -> Graph:
             pipeline_id=pipeline.id,
             steps=(Step(id=SINGLE_STEP, kind="generate", spec=None, inputs=()),),
         )
-    return Graph(pipeline_id=pipeline.id, steps=_topological(pipeline.id, pipeline.steps))
+    steps = _topological(pipeline.id, pipeline.steps)
+    _validate_executable(pipeline.id, steps)
+    return Graph(pipeline_id=pipeline.id, steps=steps)

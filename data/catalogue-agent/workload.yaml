@@ -1,0 +1,278 @@
+# The workload that is a graph (UPGRADE_V4.md M16).
+#
+# Every workload before this one is a single model call per task, which can be made cheaper in
+# exactly two ways: run a smaller model, or write a shorter prompt. This one is an agent —
+# retrieve, draft, check, revise — and the proposal worth making about an agent is usually to
+# delete a step, which a single-call spec cannot even express.
+#
+# The comparison it exists to make: a retrieval step fetches about a tenth of the catalogue per
+# task, which sounds like the obvious saving, and the whole catalogue behind a cache breakpoint
+# is billed at a tenth of the input rate after the first call. Which of those wins is arithmetic
+# over recorded calls, and it is what `tokop prove --workload data/catalogue-agent/workload.yaml`
+# computes.
+#
+# Everything here is simulated and says so. The tasks were written by
+# `scripts/make_catalogue_agent.py` and the answers by the in-process simulated provider at the
+# rates `simulation` declares. None of it is evidence about production.
+
+workload:
+  id: catalogue-agent
+  name: Service catalogue agent
+  description: >-
+    An on-call assistant answering one question at a time about a service — who owns it, how an
+    alert on it escalates, whether it pages out of hours — from a catalogue of forty-eight
+    entries and four policy sections. A fifth of the questions turn on a policy that beats the
+    service's own entry, which is where an agent that fetched the entry and stopped reading
+    goes wrong.
+  dataset:
+    generator: script:make_catalogue_agent
+    seed: 20260916
+    size: 150
+    calibration_size: 50
+    source: dataset.jsonl
+    grounding: catalogue.md
+  fixtures: catalogue-agent
+  margin: 0.03
+  latency_sensitive: true
+  allowed_providers: [anthropic, simulated]
+  scorer_features:
+    - output_parses
+    - answer_type_matches
+    - output_length
+    - question_length
+    - question_numerals
+
+# ------------------------------------------------------------------ provenance
+dataset_provenance:
+  real_traffic_items: 0
+  model_generated_items: 0
+  program_generated_items: 150
+  generators: ["scripts/make_catalogue_agent.py"]
+  real_traffic_accumulating: false
+  notes:
+    - >-
+      Templated by a committed script from a fixed catalogue, so every answer is derivable and a
+      wrong answer is a reasoning failure rather than missing knowledge. No model wrote any of
+      it. It is still not traffic anybody observed, and an agent's real trace — fourteen calls,
+      two retries, a tool that fails — is exactly the thing this set does not contain.
+
+# ------------------------------------------------------------------ simulation
+#
+# The invented numbers, in the workload they belong to rather than in the engine.
+#
+# There is deliberately no rate for "answered without the governing section in the prompt". When
+# the retrieval misses, the text that answers the task is not in the request, and the simulated
+# provider answers from what it was given — right only by coincidence. That is measured from the
+# prompt that really was sent rather than declared here, because a tunable number there would be
+# the number that decided this workload's headline.
+simulation:
+  accuracy:
+    cheap: 0.76
+    mid: 0.89
+    frontier: 0.96
+  accuracy_by_type:
+    # The override questions are the hard ones: a policy section beats the service's own entry,
+    # so a model that reads the entry and stops gets them wrong.
+    cheap: {owner: 0.93, code: 0.90, ack: 0.86, paging: 0.84, override: 0.60}
+    mid: {owner: 0.98, code: 0.96, ack: 0.93, paging: 0.92, override: 0.78}
+    frontier: {owner: 0.99, code: 0.99, ack: 0.98, paging: 0.97, override: 0.90}
+  parse_failure_rate: 0.015
+  verifier:
+    # A checker that is good but not free. It catches half of what is wrong and objects to one
+    # right answer in twenty, which is the shape of every cheap verifier anybody ships.
+    catches_wrong: 0.50
+    flags_right: 0.05
+    confidence: 0.7
+  notes:
+    - >-
+      These are parameters, not measurements. They set what the simulated provider does; they
+      are not an estimate of what any real model would do on this task.
+    - >-
+      A revise step is a fresh independent draw at the same rate. Real second attempts are
+      correlated with the first — a model that misreads a policy misreads it again — so the
+      benefit a retry shows here is the optimistic case, the same caveat DECISIONS.md D27
+      records for repeated samples.
+
+pipelines:
+  # ---------------------------------------------------------------- B0: the agent as shipped
+  B0:
+    name: Current agent
+    description: >-
+      Retrieve, draft, check, revise. The shape an internal assistant usually ships as, and the
+      one whose cost nobody has ever added up.
+    model_role: frontier
+    max_tokens: 800
+    output_contract: json_answer
+    notes:
+      - Three model calls per task where the answer needs one, and the third only sometimes.
+      - >-
+        The retrieved extract is different on every task, so no cache can hold it. A pipeline
+        whose only large block is per-task input pays the full input rate forever.
+    known_antipatterns:
+      PL06: Nothing in any step sits behind a cache breakpoint, because nothing is stable.
+    steps:
+      - id: lookup
+        kind: retrieve
+        tool: grounding-lookup-v1
+        query: "{{question}}"
+        notes:
+          - Keyword retrieval over the catalogue. It spends nothing and costs the draft step.
+
+      - id: draft
+        kind: generate
+        inputs: [lookup]
+        max_tokens: 400
+        system:
+          - label: instructions
+            text: |-
+              You are an on-call assistant. Answer the question from the catalogue extract
+              below. Apply any policy that beats a service's own entry.
+
+              Reply with JSON only: {"answer": "<the answer>", "evidence": "<the line>"}.
+              For a yes/no question the answer is exactly "yes" or "no".
+        user:
+          - label: extract
+            text: |-
+              Catalogue extract:
+
+              {{lookup}}
+          - label: question
+            text: "{{question}}"
+
+      - id: check
+        kind: verify
+        inputs: [draft, lookup]
+        max_tokens: 200
+        notes:
+          - >-
+            The answer under review is the last user block. That is the contract between a
+            verify step and the simulated provider: reading the whole prompt instead would let
+            the retrieved extract, which quotes the catalogue, decide the verdict.
+        system:
+          - label: instructions
+            text: |-
+              You review answers about a service catalogue. Say whether the answer given below
+              follows from the extract, applying any policy that beats a service's own entry.
+
+              Reply with JSON only: {"correct": true|false, "confidence": 0.0-1.0, "why": "..."}.
+        user:
+          - label: extract
+            text: "{{lookup}}"
+          - label: question
+            text: "{{question}}"
+          - label: answer-under-review
+            text: "{{draft}}"
+
+      - id: revise
+        kind: retry
+        inputs: [draft, check, lookup]
+        max_tokens: 400
+        notes:
+          - Runs only when the check objected. A retry that always ran would be a second attempt.
+        system:
+          - label: instructions
+            text: |-
+              A reviewer objected to an answer about a service catalogue. Answer the question
+              again from the extract, taking the objection into account.
+
+              Reply with JSON only: {"answer": "<the answer>", "evidence": "<the line>"}.
+              For a yes/no question the answer is exactly "yes" or "no".
+        user:
+          - label: extract
+            text: |-
+              Catalogue extract:
+
+              {{lookup}}
+          - label: question
+            text: "{{question}}"
+          - label: objection
+            text: |-
+              The answer that was rejected:
+
+              {{draft}}
+
+              The reviewer said:
+
+              {{check}}
+
+  # ---------------------------------------------------------------- B1: two steps, not four
+  B1:
+    name: Agent without the checker
+    description: Retrieve and draft. The check and revise steps are deleted.
+    model_role: frontier
+    max_tokens: 800
+    output_contract: json_answer
+    notes:
+      - >-
+        Identical retrieval and an identical draft prompt to B0. The only difference is the two
+        steps that are not there, which is the proposal a single-call spec could not express.
+    steps:
+      - id: lookup
+        kind: retrieve
+        tool: grounding-lookup-v1
+        query: "{{question}}"
+
+      - id: draft
+        kind: generate
+        inputs: [lookup]
+        max_tokens: 400
+        system:
+          - label: instructions
+            text: |-
+              You are an on-call assistant. Answer the question from the catalogue extract
+              below. Apply any policy that beats a service's own entry.
+
+              Reply with JSON only: {"answer": "<the answer>", "evidence": "<the line>"}.
+              For a yes/no question the answer is exactly "yes" or "no".
+        user:
+          - label: extract
+            text: |-
+              Catalogue extract:
+
+              {{lookup}}
+          - label: question
+            text: "{{question}}"
+
+  # ---------------------------------------------------------------- B2: one call, cached
+  B2:
+    name: One call against the cached catalogue
+    description: >-
+      No retrieval and no checker. The whole catalogue sits behind a cache breakpoint, which is
+      what a provider cache is for.
+    model_role: frontier
+    max_tokens: 200
+    output_contract: json_answer
+    notes:
+      - >-
+        Sends about ten times the input of a retrieved extract and is billed for a tenth of it
+        after the first call. Whether that wins is the point of the workload.
+    system:
+      - label: catalogue
+        text: |-
+          You answer questions about the service catalogue below.
+
+          {{grounding}}
+        cache: 5m
+      - label: contract
+        text: |-
+          Answer from the catalogue. A policy section beats a service's own entry wherever it
+          says so.
+
+          Reply with JSON only: {"answer": "<the answer>", "evidence": "<the line>"}.
+          For a yes/no question the answer is exactly "yes" or "no".
+    user:
+      - label: question
+        text: "{{question}}"
+
+cascades:
+  B3:
+    name: Cascade on the single call
+    description: Route each question to the cheapest tier that can be trusted with it.
+    base_pipeline: B2
+    tiers: [cheap, mid, frontier]
+    scorer: logistic-v1
+    notes:
+      - >-
+        The cascade runs on B2 because a cascade over a graph is a different question — which
+        step moves tier — and this build has not answered it. Reported as a limit rather than
+        approximated.

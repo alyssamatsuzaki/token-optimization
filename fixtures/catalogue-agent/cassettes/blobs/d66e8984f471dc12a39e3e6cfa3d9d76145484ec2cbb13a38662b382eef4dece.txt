@@ -1,0 +1,59 @@
+Catalogue extract:
+
+## service: refund-gateway
+
+- Owning team: data
+- Escalation code: E29
+- Service tier: product
+- Pages outside working hours: no
+- Acknowledge within: 15 minutes
+- Runs in: us-east-1, us-west-2
+- Depends on: session-scorer, billing-sweeper
+- Known failure mode: back-pressure arriving as timeouts rather than as refusals.
+- Dashboard: grafana/refund-gateway-overview
+
+## service: inventory-indexer
+
+- Owning team: identity
+- Escalation code: E63
+- Service tier: product
+- Pages outside working hours: no
+- Acknowledge within: 15 minutes
+- Runs in: us-west-2, ap-southeast-2
+- Depends on: payments-collector, billing-sweeper
+- Known failure mode: clock skew rejecting otherwise valid tokens.
+- Dashboard: grafana/inventory-indexer-overview
+
+## Escalation ladder
+
+Every alert has an escalation code. The code selects the ladder: the owning team is paged first, the tier duty engineer after the acknowledgement window has passed, and the incident commander after a further thirty minutes with no acknowledgement. An alert that is acknowledged but not resolved does not climb the ladder; it stays with the owning team.
+
+## service: billing-sweeper
+
+- Owning team: data
+- Escalation code: E45
+- Service tier: internal
+- Pages outside working hours: yes
+- Acknowledge within: 240 minutes
+- Runs in: us-east-1, eu-west-1
+- Depends on: refund-broker, catalogue-reconciler
+- Known failure mode: back-pressure arriving as timeouts rather than as refusals.
+- Dashboard: grafana/billing-sweeper-overview
+
+## service: invoice-collector
+
+- Owning team: data
+- Escalation code: E77
+- Service tier: platform
+- Pages outside working hours: yes
+- Acknowledge within: 60 minutes
+- Runs in: eu-west-1, ap-southeast-2
+- Depends on: shipment-sweeper, billing-sweeper
+- Known failure mode: back-pressure arriving as timeouts rather than as refusals.
+- Dashboard: grafana/invoice-collector-overview
+
+# Service catalogue
+
+This catalogue is the source of truth for who owns a service, how an alert on it
+escalates, and whether it pages outside working hours. The policy sections apply to
+every service and beat an individual entry wherever they say so.

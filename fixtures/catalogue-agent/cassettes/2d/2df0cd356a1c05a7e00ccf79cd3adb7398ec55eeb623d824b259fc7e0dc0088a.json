@@ -1,0 +1,99 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "2df0cd356a1c05a7e00ccf79cd3adb7398ec55eeb623d824b259fc7e0dc0088a",
+  "latency_ms": 1210.99,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"correct\": false, \"confidence\": 0.7, \"why\": \"the answer does not follow from the catalogue extract\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_2df0cd356a1c05a7",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 873,
+      "output_tokens": 46
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 873,
+    "output_tokens": 46
+  },
+  "recorded_at": "2026-09-15T14:41:30.187449+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": {
+              "$blob": "d251a4a4612ffdc99adfd1a3762135da9ae07aea8a44d15139adbde44453b823"
+            }
+          },
+          {
+            "cache": null,
+            "text": "What escalation code does an alert on payments-dispatcher carry?"
+          },
+          {
+            "cache": null,
+            "text": "{\"answer\": \"E17\", \"evidence\": \"- Depends on: search-resolver, search-validator\"}"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "step": "check",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "You review answers about a service catalogue. Say whether the answer given below\nfollows from the extract, applying any policy that beats a service's own entry.\n\nReply with JSON only: {\"correct\": true|false, \"confidence\": 0.0-1.0, \"why\": \"...\"}."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"correct\": false, \"confidence\": 0.7, \"why\": \"the answer does not follow from the catalogue extract\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 704.99,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 873,
+    "output_reasoning": 0,
+    "output_visible": 46,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 873,
+      "output_tokens": 46
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

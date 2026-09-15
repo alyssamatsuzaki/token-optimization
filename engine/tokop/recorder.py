@@ -40,6 +40,7 @@ from tokop.core.pricing import PriceSnapshot
 from tokop.core.registry import Registry
 from tokop.core.tokenize import BaseCounter, get_base_counter
 from tokop.db import make_engine
+from tokop.optimize.graph import compile_graph
 from tokop.optimize.scorers import TaskView
 from tokop.settings import get_settings
 from tokop.workloads.bundle import Bundle
@@ -406,6 +407,10 @@ class Recorder:
                 simulation=self.workload.simulation,
                 pipeline_id=pipeline_id,
                 output_contract=pipeline.output_contract,
+                # A graph's request says which step asked, and the step's kind says what the
+                # reply has to be. Passed only when the pipeline is one, so a single-call
+                # workload builds the responder it always built.
+                graph=compile_graph(pipeline) if pipeline.is_graph else None,
             )
         else:
             # Imported here and not at module scope: this is the *demo's* invented behaviour,
@@ -630,7 +635,7 @@ class Recorder:
             outputs += [
                 response.usage.output_visible + response.usage.output_reasoning
                 for task in step.result.tasks
-                for _, response, _, _ in task.calls
+                for response in (call.response for call in task.calls)
             ]
         return PilotOutcome(
             tasks=ran,
@@ -750,7 +755,7 @@ class Recorder:
                 )
                 by_id = {item.id: item for item in items}
                 for task in result.tasks:
-                    outputs = [response.text for _, response, _, _ in task.calls][:samples]
+                    outputs = [call.response.text for call in task.calls][:samples]
                     view = TaskView(
                         task_id=task.task_id,
                         question=by_id[task.task_id].question,
@@ -826,7 +831,10 @@ def build_test_fixtures(
         provider="simulated",
         origin="simulated",
     )
-    engine = make_engine(fixtures_root / "ledger.db")
+    # A fixture ledger is generated from the committed cassettes, so a schema older than this
+    # build is rebuilt rather than refused. The ledger of a real run is not, which is why the
+    # flag is per-caller rather than the default.
+    engine = make_engine(fixtures_root / "ledger.db", rebuild_if_stale=True)
     report = asyncio.run(recorder.run(engine=engine))
     report.cassette_count = len(recorder.store)
 

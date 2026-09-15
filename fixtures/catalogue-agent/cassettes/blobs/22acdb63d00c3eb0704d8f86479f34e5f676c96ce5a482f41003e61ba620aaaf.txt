@@ -1,0 +1,59 @@
+Catalogue extract:
+
+## service: catalogue-dispatcher
+
+- Owning team: growth
+- Escalation code: E52
+- Service tier: platform
+- Pages outside working hours: yes
+- Acknowledge within: 10 minutes
+- Runs in: eu-west-1, us-east-1
+- Depends on: identity-collector, session-scorer
+- Known failure mode: schema drift between the writer and the reader.
+- Dashboard: grafana/catalogue-dispatcher-overview
+
+## Escalation ladder
+
+Every alert has an escalation code. The code selects the ladder: the owning team is paged first, the tier duty engineer after the acknowledgement window has passed, and the incident commander after a further thirty minutes with no acknowledgement. An alert that is acknowledged but not resolved does not climb the ladder; it stays with the owning team.
+
+## service: identity-collector
+
+- Owning team: support-tooling
+- Escalation code: E35
+- Service tier: platform
+- Pages outside working hours: yes
+- Acknowledge within: 60 minutes
+- Runs in: us-east-1, us-west-2
+- Depends on: fraud-broker, invoice-router
+- Known failure mode: a hot partition serialising what should be parallel work.
+- Dashboard: grafana/identity-collector-overview
+
+## service: invoice-scorer
+
+- Owning team: support-tooling
+- Escalation code: E11
+- Service tier: internal
+- Pages outside working hours: no
+- Acknowledge within: 240 minutes
+- Runs in: us-west-2, eu-west-1
+- Depends on: identity-collector, payments-dispatcher
+- Known failure mode: a hot partition serialising what should be parallel work.
+- Dashboard: grafana/invoice-scorer-overview
+
+## service: payments-dispatcher
+
+- Owning team: support-tooling
+- Escalation code: E67
+- Service tier: product
+- Pages outside working hours: no
+- Acknowledge within: 15 minutes
+- Runs in: ap-southeast-2, eu-west-1
+- Depends on: payments-collector, identity-collector
+- Known failure mode: a hot partition serialising what should be parallel work.
+- Dashboard: grafana/payments-dispatcher-overview
+
+# Service catalogue
+
+This catalogue is the source of truth for who owns a service, how an alert on it
+escalates, and whether it pages outside working hours. The policy sections apply to
+every service and beat an individual entry wherever they say so.

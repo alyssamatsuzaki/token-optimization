@@ -12,6 +12,7 @@ Variables are ``{{name}}``. The demo supplies ``handbook``, ``question`` and ``t
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -23,6 +24,11 @@ from pydantic import BaseModel, Field
 from tokop.adapters.base import Block, LLMRequest, Message
 
 VARIABLE = re.compile(r"\{\{(\w+)\}\}")
+
+#: What every workload supplies to every prompt block, whatever it is about. A graph step's
+#: output is rendered as the variable named after the step, so a step may not be named one of
+#: these: ``{{question}}`` has to keep meaning the task's question in every step of every graph.
+WORKLOAD_VARIABLES: tuple[str, ...] = ("grounding", "question", "timestamp")
 
 OutputContract = Literal["final_answer_line", "json_answer"]
 
@@ -77,16 +83,23 @@ class StepSpec(BaseModel):
     #: What this step does. `generate` is a model call; the others exist so a graph can say what
     #: a step *is* before Tokop can price it — a finding about a tool called twice with the same
     #: arguments has to know which calls were tool calls.
-    kind: Literal["generate", "tool", "retrieve", "verify", "retry", "loop"] = "generate"
+    #: There is deliberately no ``loop``. A loop's cost is its trip count, which is a property
+    #: of the traces and not of the spec, and a kind Tokop cannot run is a kind a workload must
+    #: not be able to declare (DECISIONS.md D47). A bounded repeat is written as declared steps.
+    kind: Literal["generate", "tool", "retrieve", "verify", "retry"] = "generate"
     #: Step ids whose output this one consumes. Empty means it runs first.
     inputs: list[str] = Field(default_factory=list)
     model_role: str | None = None
     max_tokens: int | None = None
     system: list[BlockSpec] = Field(default_factory=list)
     user: list[BlockSpec] = Field(default_factory=list)
-    #: For a `tool` step, the tool it calls. Recorded so two calls to the same tool with the
-    #: same arguments are recognisable as the same call.
+    #: For a `tool` or `retrieve` step, the tool it calls. Registered in ``workloads/tools.py``;
+    #: a name with no implementation there is refused rather than stood in for. Recorded so two
+    #: calls to the same tool with the same arguments are recognisable as the same call.
     tool: str = ""
+    #: What the tool is asked. A template over the same variables a prompt block sees, so a
+    #: query built from an earlier step's output is written the same way a prompt is.
+    query: str = ""
     notes: list[str] = Field(default_factory=list)
 
     model_config = {"frozen": True}
@@ -128,15 +141,34 @@ class PipelineSpec(BaseModel):
         return bool(self.steps)
 
     def render(self, provider: str, model: str, variables: dict[str, str]) -> LLMRequest:
-        system = [b.render(variables) for b in self.system]
-        user_blocks = [b.render(variables) for b in self.user]
-        return LLMRequest(
-            provider=provider,
-            model=model,
-            system=system,
-            messages=[Message(role="user", blocks=user_blocks)],
-            max_tokens=self.max_tokens,
-        )
+        return render_request(provider, model, self.system, self.user, self.max_tokens, variables)
+
+
+def render_request(
+    provider: str,
+    model: str,
+    system: Sequence[BlockSpec],
+    user: Sequence[BlockSpec],
+    max_tokens: int,
+    variables: dict[str, str],
+    *,
+    step: str = "",
+) -> LLMRequest:
+    """Blocks plus variables into one request.
+
+    The single rendering path. A pipeline renders through it and so does a graph step, because
+    two functions that both turn blocks into a request are two functions that can drift, and the
+    milestone's whole guarantee is that a compiled single step renders exactly what the pipeline
+    always did (UPGRADE_V4.md M16).
+    """
+    return LLMRequest(
+        provider=provider,
+        model=model,
+        system=[b.render(variables) for b in system],
+        messages=[Message(role="user", blocks=[b.render(variables) for b in user])],
+        max_tokens=max_tokens,
+        step=step,
+    )
 
 
 class JudgeSpec(BaseModel):
@@ -301,6 +333,26 @@ class CascadeSpec(BaseModel):
     model_config = {"frozen": True}
 
 
+class VerifierSimulation(BaseModel):
+    """How good a graph's `verify` step is at its job, declared by the workload.
+
+    Two numbers, because a verifier has two ways to be wrong and reporting one without the other
+    is how a checker that objects to everything looks like a checker that catches everything.
+    Both are invented, and they live here for the reason the rest of :class:`SimulationSpec`
+    does (UPGRADE_V4.md M16).
+    """
+
+    #: Probability it objects to an answer that really is wrong.
+    catches_wrong: float = 0.0
+    #: Probability it objects to an answer that is right.
+    flags_right: float = 0.0
+    #: What it says it is when it gives a verdict. A judge's confidence is a feature, never
+    #: evidence (UPGRADE_V3.md U1), so a declared constant is honest about being one.
+    confidence: float = 0.7
+
+    model_config = {"frozen": True}
+
+
 class SimulationSpec(BaseModel):
     """How a workload's simulated provider behaves, declared by the workload itself.
 
@@ -317,9 +369,20 @@ class SimulationSpec(BaseModel):
     accuracy_by_type: dict[str, dict[str, float]] = Field(default_factory=dict)
     #: How often an answer arrives in a form the parser cannot read.
     parse_failure_rate: float = 0.01
+    #: Only for a workload with a `verify` step. Absent means the workload has none.
+    verifier: VerifierSimulation | None = None
     notes: list[str] = Field(default_factory=list)
 
     model_config = {"frozen": True}
+
+    def verifier_or_raise(self) -> VerifierSimulation:
+        if self.verifier is None:
+            raise WorkloadError(
+                "this workload declares a verify step and no simulated verifier. A checker "
+                "whose accuracy nobody stated would be a checker whose value this build "
+                "invented, and the whole question is whether it has any."
+            )
+        return self.verifier
 
     def accuracy_for(self, role: str, question_type: str) -> float:
         by_type = self.accuracy_by_type.get(role, {})

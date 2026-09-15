@@ -1,0 +1,95 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "b9f4c77895f6fd9ba985bc9479f95b2b07292823aa07752f58fe11d89129f03a",
+  "latency_ms": 1272.98,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"data\", \"evidence\": \"- Depends on: ledger-sweeper, invoice-scorer\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_b9f4c77895f6fd9b",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 928,
+      "output_tokens": 40
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 928,
+    "output_tokens": 40
+  },
+  "recorded_at": "2026-09-15T14:41:30.746964+00:00",
+  "request": {
+    "max_tokens": 400,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": {
+              "$blob": "31513fbe2af3ef12508fd444ffb8b0f2ab30bf302c4fb461bbc44712fb9ea00c"
+            }
+          },
+          {
+            "cache": null,
+            "text": "Which team owns notification-validator?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "step": "draft",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "You are an on-call assistant. Answer the question from the catalogue extract\nbelow. Apply any policy that beats a service's own entry.\n\nReply with JSON only: {\"answer\": \"<the answer>\", \"evidence\": \"<the line>\"}.\nFor a yes/no question the answer is exactly \"yes\" or \"no\"."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"data\", \"evidence\": \"- Depends on: ledger-sweeper, invoice-scorer\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 832.98,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 928,
+    "output_reasoning": 0,
+    "output_visible": 40,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 928,
+      "output_tokens": 40
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

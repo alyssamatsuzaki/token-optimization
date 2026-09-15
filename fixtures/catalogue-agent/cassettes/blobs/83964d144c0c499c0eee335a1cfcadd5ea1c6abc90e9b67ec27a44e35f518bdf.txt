@@ -1,0 +1,43 @@
+Catalogue extract:
+
+## Escalation ladder
+
+Every alert has an escalation code. The code selects the ladder: the owning team is paged first, the tier duty engineer after the acknowledgement window has passed, and the incident commander after a further thirty minutes with no acknowledgement. An alert that is acknowledged but not resolved does not climb the ladder; it stays with the owning team.
+
+# Service catalogue
+
+This catalogue is the source of truth for who owns a service, how an alert on it
+escalates, and whether it pages outside working hours. The policy sections apply to
+every service and beat an individual entry wherever they say so.
+
+## Working hours
+
+Working hours are 09:00 to 18:00 local time for the owning team, Monday to Friday, excluding public holidays in the team's own location. Anything else is outside working hours. An alert raised at 17:59 is inside working hours; one raised at 18:01 is not.
+
+## Incident folding
+
+An alert that names a service already listed on an open incident is folded into that incident and does not page again, whatever its own entry says. Folding applies for as long as the incident is open and stops the moment it is resolved. A folded alert is still recorded against the owning team.
+
+## service: ledger-resolver
+
+- Owning team: payments
+- Escalation code: E18
+- Service tier: platform
+- Pages outside working hours: yes
+- Acknowledge within: 10 minutes
+- Runs in: eu-west-1, us-west-2
+- Depends on: shipment-broker, fraud-validator
+- Known failure mode: connection pool exhaustion under retry storms.
+- Dashboard: grafana/ledger-resolver-overview
+
+## service: shipment-indexer
+
+- Owning team: growth
+- Escalation code: E12
+- Service tier: product
+- Pages outside working hours: no
+- Acknowledge within: 120 minutes
+- Runs in: us-west-2, ap-southeast-2
+- Depends on: fraud-reconciler, shipment-broker
+- Known failure mode: schema drift between the writer and the reader.
+- Dashboard: grafana/shipment-indexer-overview

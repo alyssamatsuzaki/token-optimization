@@ -206,5 +206,9 @@ def prewarm_request(request: LLMRequest) -> LLMRequest:
     split in parallel makes every first request a miss. One pre-warm call, awaited, fixes that.
     The API rejects ``max_tokens: 0`` alongside streaming, extended thinking, structured
     outputs or a forced tool choice, none of which v1 uses.
+
+    ``step`` is cleared. A pre-warm is about a prefix, not about who is going to send it, and two
+    steps of a graph sharing a prefix should share one warm call rather than pay for two — which
+    is also why the runner dedups these by (model, prefix).
     """
-    return request.model_copy(update={"max_tokens": 0, "prewarm": True})
+    return request.model_copy(update={"max_tokens": 0, "prewarm": True, "step": ""})

@@ -1,0 +1,43 @@
+Catalogue extract:
+
+## Working hours
+
+Working hours are 09:00 to 18:00 local time for the owning team, Monday to Friday, excluding public holidays in the team's own location. Anything else is outside working hours. An alert raised at 17:59 is inside working hours; one raised at 18:01 is not.
+
+# Service catalogue
+
+This catalogue is the source of truth for who owns a service, how an alert on it
+escalates, and whether it pages outside working hours. The policy sections apply to
+every service and beat an individual entry wherever they say so.
+
+## Incident folding
+
+An alert that names a service already listed on an open incident is folded into that incident and does not page again, whatever its own entry says. Folding applies for as long as the incident is open and stops the moment it is resolved. A folded alert is still recorded against the owning team.
+
+## Escalation ladder
+
+Every alert has an escalation code. The code selects the ladder: the owning team is paged first, the tier duty engineer after the acknowledgement window has passed, and the incident commander after a further thirty minutes with no acknowledgement. An alert that is acknowledged but not resolved does not climb the ladder; it stays with the owning team.
+
+## service: fraud-validator
+
+- Owning team: growth
+- Escalation code: E28
+- Service tier: internal
+- Pages outside working hours: no
+- Acknowledge within: 30 minutes
+- Runs in: eu-west-1, us-west-2
+- Depends on: refund-broker, payments-gateway
+- Known failure mode: schema drift between the writer and the reader.
+- Dashboard: grafana/fraud-validator-overview
+
+## service: payments-gateway
+
+- Owning team: payments
+- Escalation code: E74
+- Service tier: internal
+- Pages outside working hours: no
+- Acknowledge within: 30 minutes
+- Runs in: us-east-1, us-west-2
+- Depends on: fraud-validator, search-resolver
+- Known failure mode: connection pool exhaustion under retry storms.
+- Dashboard: grafana/payments-gateway-overview

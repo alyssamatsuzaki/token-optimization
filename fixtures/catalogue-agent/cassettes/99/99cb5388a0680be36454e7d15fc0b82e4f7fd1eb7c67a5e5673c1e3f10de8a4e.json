@@ -1,0 +1,95 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "99cb5388a0680be36454e7d15fc0b82e4f7fd1eb7c67a5e5673c1e3f10de8a4e",
+  "latency_ms": 1342.58,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"10\", \"evidence\": \"- Known failure mode: back-pressure arriving as timeouts rather than as refusals.\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_99cb5388a0680be3",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 896,
+      "output_tokens": 49
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 896,
+    "output_tokens": 49
+  },
+  "recorded_at": "2026-09-15T14:41:30.230302+00:00",
+  "request": {
+    "max_tokens": 400,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": {
+              "$blob": "99a64bd474852abbdf62f94237332cea7d81860e6ed8f12671b6b9a14b49f90a"
+            }
+          },
+          {
+            "cache": null,
+            "text": "Within how many minutes must an alert on session-reconciler be acknowledged before it climbs the ladder?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "step": "draft",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "You are an on-call assistant. Answer the question from the catalogue extract\nbelow. Apply any policy that beats a service's own entry.\n\nReply with JSON only: {\"answer\": \"<the answer>\", \"evidence\": \"<the line>\"}.\nFor a yes/no question the answer is exactly \"yes\" or \"no\"."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"10\", \"evidence\": \"- Known failure mode: back-pressure arriving as timeouts rather than as refusals.\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 803.58,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 896,
+    "output_reasoning": 0,
+    "output_visible": 49,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 896,
+      "output_tokens": 49
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

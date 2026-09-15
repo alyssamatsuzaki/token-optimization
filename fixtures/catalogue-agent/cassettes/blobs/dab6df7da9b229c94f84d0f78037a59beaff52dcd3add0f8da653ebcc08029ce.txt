@@ -1,0 +1,51 @@
+Catalogue extract:
+
+## service: ledger-sweeper
+
+- Owning team: fulfilment
+- Escalation code: E32
+- Service tier: internal
+- Pages outside working hours: no
+- Acknowledge within: 30 minutes
+- Runs in: us-east-1, us-west-2
+- Depends on: session-scorer, audit-writer
+- Known failure mode: cache stampede after a deploy invalidates every key at once.
+- Dashboard: grafana/ledger-sweeper-overview
+
+## service: audit-writer
+
+- Owning team: fulfilment
+- Escalation code: E24
+- Service tier: internal
+- Pages outside working hours: no
+- Acknowledge within: 30 minutes
+- Runs in: ap-southeast-2, us-west-2
+- Depends on: catalogue-sweeper, search-resolver
+- Known failure mode: cache stampede after a deploy invalidates every key at once.
+- Dashboard: grafana/audit-writer-overview
+
+## service: search-gateway
+
+- Owning team: support-tooling
+- Escalation code: E43
+- Service tier: platform
+- Pages outside working hours: yes
+- Acknowledge within: 60 minutes
+- Runs in: us-west-2, ap-southeast-2
+- Depends on: shipment-broker, audit-writer
+- Known failure mode: a hot partition serialising what should be parallel work.
+- Dashboard: grafana/search-gateway-overview
+
+## Working hours
+
+Working hours are 09:00 to 18:00 local time for the owning team, Monday to Friday, excluding public holidays in the team's own location. Anything else is outside working hours. An alert raised at 17:59 is inside working hours; one raised at 18:01 is not.
+
+# Service catalogue
+
+This catalogue is the source of truth for who owns a service, how an alert on it
+escalates, and whether it pages outside working hours. The policy sections apply to
+every service and beat an individual entry wherever they say so.
+
+## Incident folding
+
+An alert that names a service already listed on an open incident is folded into that incident and does not page again, whatever its own entry says. Folding applies for as long as the incident is open and stops the moment it is resolved. A folded alert is still recorded against the owning team.

@@ -1,0 +1,106 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "8e74e3b89904e76aacf233ca1ce46ddf5c5aa7bb046a244b03215e52dda68e75",
+  "latency_ms": 315.25,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_8e74e3b89904e76a",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "max_tokens",
+    "type": "message",
+    "usage": {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 6204
+      },
+      "cache_creation_input_tokens": 6204,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 90,
+      "output_tokens": 0
+    }
+  },
+  "raw_usage": {
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 6204
+    },
+    "cache_creation_input_tokens": 6204,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 90,
+    "output_tokens": 0
+  },
+  "recorded_at": "2026-09-15T14:41:26.892276+00:00",
+  "request": {
+    "max_tokens": 0,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "What escalation code does an alert on audit-validator carry?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": true,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "d7debd6f892722296676932a5f9c0754efbadf03a850481d0036043148149be6"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Answer from the catalogue. A policy section beats a service's own entry wherever it\nsays so.\n\nReply with JSON only: {\"answer\": \"<the answer>\", \"evidence\": \"<the line>\"}.\nFor a yes/no question the answer is exactly \"yes\" or \"no\"."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "",
+  "stop_reason": "max_tokens",
+  "ttft_ms": 315.25,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 6204,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 90,
+    "output_reasoning": 0,
+    "output_visible": 0,
+    "raw": {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 6204
+      },
+      "cache_creation_input_tokens": 6204,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 90,
+      "output_tokens": 0
+    },
+    "sources": {
+      "cache_write_5m": "provider",
+      "input_uncached": "provider"
+    }
+  }
+}

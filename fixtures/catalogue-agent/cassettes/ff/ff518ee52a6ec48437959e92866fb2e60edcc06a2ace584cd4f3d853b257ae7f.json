@@ -1,0 +1,95 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "ff518ee52a6ec48437959e92866fb2e60edcc06a2ace584cd4f3d853b257ae7f",
+  "latency_ms": 1413.38,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"fulfilment\", \"evidence\": \"- Known failure mode: a slow downstream turning into unbounded queue growth.\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_ff518ee52a6ec484",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 858,
+      "output_tokens": 47
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 858,
+    "output_tokens": 47
+  },
+  "recorded_at": "2026-09-15T14:41:30.771146+00:00",
+  "request": {
+    "max_tokens": 400,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": {
+              "$blob": "dccc12a614023a83865e697ffebbc35f576c46c40e3f566105deef40072fabc9"
+            }
+          },
+          {
+            "cache": null,
+            "text": "Which team owns pricing-reconciler?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "step": "draft",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "You are an on-call assistant. Answer the question from the catalogue extract\nbelow. Apply any policy that beats a service's own entry.\n\nReply with JSON only: {\"answer\": \"<the answer>\", \"evidence\": \"<the line>\"}.\nFor a yes/no question the answer is exactly \"yes\" or \"no\"."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"fulfilment\", \"evidence\": \"- Known failure mode: a slow downstream turning into unbounded queue growth.\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 896.38,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 858,
+    "output_reasoning": 0,
+    "output_visible": 47,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 858,
+      "output_tokens": 47
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}
