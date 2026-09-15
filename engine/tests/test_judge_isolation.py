@@ -90,7 +90,7 @@ class TestThePromptItself:
         assert workload.judge is not None
         rendered = "".join(block.text for block in [*workload.judge.system, *workload.judge.user])
         referenced = set(VARIABLE.findall(rendered))
-        assert referenced <= {"handbook", "question", "answer", "timestamp"}
+        assert referenced <= {"grounding", "question", "answer", "timestamp"}
         assert not (referenced & GOLD_FIELDS)
 
     def test_the_runner_supplies_exactly_those_variables(self) -> None:
@@ -107,12 +107,12 @@ class TestThePromptItself:
             registry.snapshot(list(registry.roles.values()), date(2026, 9, 11)),
             adapter=None,  # type: ignore[arg-type]
             provider="simulated",
-            handbook="HANDBOOK",
+            grounding="HANDBOOK",
         )
         variables = runner.judge_variables(
             AnswerView(task_id="t1", question="q", answer="a", arm="baseline")
         )
-        assert set(variables) == {"handbook", "question", "answer", "timestamp"}
+        assert set(variables) == {"grounding", "question", "answer", "timestamp"}
 
 
 class TestBehaviouralIsolation:

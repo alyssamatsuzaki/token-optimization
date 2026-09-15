@@ -19,7 +19,7 @@ from __future__ import annotations
 import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 from scipy import stats as scipy_stats
@@ -355,7 +355,16 @@ class Verdict:
         return f"Inconclusive: about {self.additional_tasks_needed:,} more tasks would settle it"
 
 
-def required_n(p10: float, p01: float, delta_hat: float, margin: float) -> int | None:
+def z_for(alpha: float) -> float:
+    """The two-sided normal critical value at ``alpha``. ``z_for(0.05)`` is exactly ``Z_95``."""
+    if not 0 < alpha < 1:
+        raise StatsError(f"alpha must be strictly between 0 and 1, got {alpha}")
+    return float(scipy_stats.norm.ppf(1 - alpha / 2))
+
+
+def required_n(
+    p10: float, p01: float, delta_hat: float, margin: float, alpha: float = 0.05
+) -> int | None:
     """Tasks needed for the lower bound of the delta interval to clear -margin.
 
     ``v = p10 + p01 - (p10 - p01)^2`` is the variance of the per-task paired difference, which
@@ -374,7 +383,145 @@ def required_n(p10: float, p01: float, delta_hat: float, margin: float) -> int |
     v = p10 + p01 - (p10 - p01) ** 2
     if v <= 0:
         return 1
-    return math.ceil(Z_95**2 * v / slack**2)
+    return math.ceil(z_for(alpha) ** 2 * v / slack**2)
+
+
+@dataclass(frozen=True)
+class PowerEstimate:
+    """How many test tasks a conclusive verdict needs, from a run that already happened.
+
+    Sizing a split before recording it is the one calculation that has to happen *before* the
+    money moves: a split too small to conclude spends the whole budget and returns
+    "inconclusive", which is the most expensive outcome available (UPGRADE_V4.md M13.1).
+
+    Every field is read off an observed run rather than assumed, and ``source`` says which run.
+    That matters more than it looks: a discordance rate measured on simulated arms whose errors
+    are drawn independently is the *optimistic* case, and a real pair of models that fail on the
+    same hard tasks will be more concordant, need more tasks, or both.
+    """
+
+    required_n: int | None
+    observed_n: int
+    p10: float
+    p01: float
+    delta_hat: float
+    margin: float
+    alpha: float
+    source: str
+
+    @property
+    def discordant(self) -> int:
+        return round((self.p10 + self.p01) * self.observed_n)
+
+    @property
+    def is_sufficient(self) -> bool:
+        return self.required_n is not None and self.observed_n >= self.required_n
+
+    @property
+    def shortfall(self) -> int:
+        """How many tasks short the observed split is. Zero when it is already large enough."""
+        if self.required_n is None:
+            return 0
+        return max(0, self.required_n - self.observed_n)
+
+    @property
+    def display(self) -> str:
+        if self.required_n is None:
+            return (
+                f"No split size settles this: the observed difference of "
+                f"{self.delta_hat * 100:+.1f} points is already at or past the "
+                f"{self.margin * 100:.0f}-point margin, so more tasks tighten the interval "
+                "around a point on the wrong side of it."
+            )
+        if self.is_sufficient:
+            return (
+                f"{self.required_n:,} tasks at the observed discordance; the split has "
+                f"{self.observed_n:,}."
+            )
+        return (
+            f"{self.required_n:,} tasks at the observed discordance, "
+            f"{self.shortfall:,} more than the {self.observed_n:,} in the split."
+        )
+
+    @classmethod
+    def from_counts(
+        cls,
+        *,
+        baseline_only: int,
+        candidate_only: int,
+        n: int,
+        margin: float = DEFAULT_MARGIN,
+        alpha: float = 0.05,
+        source: str = "the observed run",
+    ) -> PowerEstimate:
+        """Size a split from discordant counts a run already reported.
+
+        The CLI reads the counts the proof published rather than re-deriving them from the
+        arms, so the tasks-needed figure and the verdict's own interval cannot drift apart.
+        """
+        if n <= 0:
+            raise StatsError("a power estimate needs at least one task")
+        if baseline_only < 0 or candidate_only < 0:
+            raise StatsError("discordant counts cannot be negative")
+        if baseline_only + candidate_only > n:
+            raise StatsError(
+                f"{baseline_only + candidate_only} discordant pairs in a split of {n} tasks"
+            )
+        p10 = baseline_only / n
+        p01 = candidate_only / n
+        delta_hat = p01 - p10
+        return cls(
+            required_n=required_n(p10, p01, delta_hat, margin, alpha),
+            observed_n=n,
+            p10=p10,
+            p01=p01,
+            delta_hat=delta_hat,
+            margin=margin,
+            alpha=alpha,
+            source=source,
+        )
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "required_n": self.required_n,
+            "observed_n": self.observed_n,
+            "discordant": self.discordant,
+            "p10": self.p10,
+            "p01": self.p01,
+            "delta_hat": self.delta_hat,
+            "margin": self.margin,
+            "alpha": self.alpha,
+            "source": self.source,
+            "sufficient": self.is_sufficient,
+            "shortfall": self.shortfall,
+            "display": self.display,
+        }
+
+
+def power_for_split(
+    baseline: Sequence[int | bool],
+    candidate: Sequence[int | bool],
+    *,
+    margin: float = DEFAULT_MARGIN,
+    alpha: float = 0.05,
+    source: str = "the observed run",
+) -> PowerEstimate:
+    """Size the test split a conclusive McNemar verdict would need.
+
+    Takes the two arms of a run that already happened, because the quantity that drives the
+    answer — how often the arms disagree — cannot be guessed from accuracy alone. Two pipelines
+    both at 96% might disagree on 2% of tasks or on 8%, and the required split differs by a
+    factor of four.
+    """
+    result = mcnemar(baseline, candidate)
+    return PowerEstimate.from_counts(
+        baseline_only=result.baseline_only,
+        candidate_only=result.candidate_only,
+        n=len(baseline),
+        margin=margin,
+        alpha=alpha,
+        source=source,
+    )
 
 
 def verdict_from_interval(

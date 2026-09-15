@@ -82,6 +82,33 @@ if have engine/.venv/bin/pytest && [ -n "$(find engine/tests -name 'test_*.py' 2
       tests/test_entailment.py::TestSepRefuses"
   run "no greedy pick on a tie (U7)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
       tests/test_ties.py::TestTheAcceptanceCheck"
+  # M13. The cap was never enforced anywhere until this milestone and the projection is what
+  # an operator approves a spend against, so both are release blockers rather than unit tests.
+  run "the cap stops a recording (M13)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
+      tests/test_spend_cap.py::TestTheCapStopsARecording \
+      tests/test_spend_cap.py::TestReplayedCallsAreFree"
+  run "the projection brackets the bill (M13)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
+      tests/test_recording_projection.py::TestTheProjectionBracketsTheRealCost \
+      tests/test_recording_projection.py::TestPower"
+  # M14. The grade is the load-bearing word on the first screen; what it must never do is read
+  # better than the data supports, which is what these pin.
+  run "the evidence grade cannot be talked up (M14)" bash -c "cd '$ROOT/engine' && \
+      .venv/bin/pytest -q tests/test_evidence.py::TestTheDemoGradesHonestly \
+      tests/test_evidence.py::TestTheGradeIsTheLowestRung"
+  run "deploy exports, never proxies (M14)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
+      tests/test_export.py"
+  # M15. The engine has to be able to run a workload it did not generate. Checked at import
+  # time and at run time, because half the demo imports are lazy and a source scan misses them.
+  run "the engine runs without the demo (M15)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest -q \
+      tests/test_no_demo_imports.py"
+  # M15. A span says what the model answered, never what the right answer was. Promoting one to
+  # a gold label would make every number downstream meaningless and look entirely normal.
+  run "ingest never invents an answer key (M15)" bash -c "cd '$ROOT/engine' && .venv/bin/pytest \
+      -q tests/test_ingest.py"
+  # M16. UPGRADE_V4.md section 3.4: single-call workloads keep working unchanged through the
+  # graph work. Pinned by cassette key, which is what every fixture and every number rests on.
+  run "a single call is still a single call (M16)" bash -c "cd '$ROOT/engine' && \
+      .venv/bin/pytest -q tests/test_graph.py::TestTheByteIdenticalGuarantee"
 else
   skip "pytest + coverage" "no tests yet"
   skip "adversarial judge (U1)" "no tests yet"
@@ -93,6 +120,13 @@ else
   skip "collapse refusal (U8)" "no tests yet"
   skip "meaning clustering (U6)" "no tests yet"
   skip "no greedy pick on a tie (U7)" "no tests yet"
+  skip "the cap stops a recording (M13)" "no tests yet"
+  skip "the projection brackets the bill (M13)" "no tests yet"
+  skip "the evidence grade cannot be talked up (M14)" "no tests yet"
+  skip "deploy exports, never proxies (M14)" "no tests yet"
+  skip "the engine runs without the demo (M15)" "no tests yet"
+  skip "ingest never invents an answer key (M15)" "no tests yet"
+  skip "a single call is still a single call (M16)" "no tests yet"
 fi
 
 # ---------------------------------------------------------------- 3. web build

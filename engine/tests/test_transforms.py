@@ -203,7 +203,7 @@ class TestApplySafeFixes:
             "anthropic",
             registry.roles["frontier"],
             {
-                "handbook": render_handbook(load_policy()),
+                "grounding": render_handbook(load_policy()),
                 "question": "How many days to return a backpack?",
                 "timestamp": demo_timestamp(),
             },

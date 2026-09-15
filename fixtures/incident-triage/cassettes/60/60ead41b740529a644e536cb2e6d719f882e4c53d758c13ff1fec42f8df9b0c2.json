@@ -1,0 +1,94 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "60ead41b740529a644e536cb2e6d719f882e4c53d758c13ff1fec42f8df9b0c2",
+  "latency_ms": 1034.06,
+  "model": "claude-sonnet-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"E05\", \"evidence\": \"- `error_rate_pct` (elevated error rate) has escalation code E05, is owned by the checkout team, pages outside working hours, and must be acknowledged within 10 minutes.\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_60ead41b740529a6",
+    "model": "claude-sonnet-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 1032,
+      "output_tokens": 82
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 1032,
+    "output_tokens": 82
+  },
+  "recorded_at": "2026-09-15T09:23:02.521037+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "ALERT error_rate_pct=18 host=web-02. Which escalation code does the runbook give this signature?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-sonnet-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "367406c3d5ba879997e1398eccc539ceac2f6b1bad2bdf8b3cbc2b268572af64"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Find the runbook entry that governs the alert. Apply any override that applies: an\nalert folded into an open incident does not page, and during a change freeze every\nplatform-owned signature pages.\n\nReply with JSON only: {\"answer\": \"<the answer>\", \"evidence\": \"<the runbook line>\"}.\nFor a yes/no question the answer is exactly \"yes\" or \"no\"."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"E05\", \"evidence\": \"- `error_rate_pct` (elevated error rate) has escalation code E05, is owned by the checkout team, pages outside working hours, and must be acknowledged within 10 minutes.\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 501.06,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 1032,
+    "output_reasoning": 0,
+    "output_visible": 82,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 1032,
+      "output_tokens": 82
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

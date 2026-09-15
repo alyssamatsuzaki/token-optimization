@@ -17,19 +17,44 @@
 | M10 Label-free calibration, priced checkability | **done** | `penalized-v1` pseudo-labels, B2c contract lever, negative-delta disclosure |
 | M11 Expiry and provenance | **done** | certificates with a canary and alpha spending, dataset provenance that refuses |
 | M12 Meaning and ties | **done** | `semantic-entropy-v1` with effective-k, `sep-v1` refuses, the report names every tie |
+| M13 One real recording | **blocked on a key** | the four gates are built and tested; no generation request has been made |
+| M14 The first screen | **done** | README reordered into `docs/METHOD.md`, an evidence grade, a summary block, Deploy exports |
+| M15a The engine without the demo | **done** | `Item` protocol, datasets loaded not generated, no neutral module imports the demo |
+| M15b A second workload | **done** | `incident-triage` proves clean, `tokop ingest` for JSONL/CSV/OTel; `tokop label` not built |
+| M16a Pipelines as graphs | **done** | `steps:` compiles to a graph; a single call is still byte-identical, pinned by cassette key |
 
 ## Next
 
-**M13: U9**, and only if a self-hosted tier is actually in scope — a serving-cost basis that
-prices a hosted tier in GPU-hours over achieved throughput, so a cascade can mix an API tier with
-a hosted one honestly. Nothing in this build has a self-hosted tier, so the milestone is not
-started and would be a fake column if it were.
+**M13b: the recording itself.** Everything that decides whether it should happen is built,
+tested and green. What is missing is consent: `ANTHROPIC_API_KEY` and `RECORD_BUDGET_USD` are
+both unset here, there is no `.env`, and Tokop never sets either. `api.anthropic.com` is
+reachable from this environment — an unauthenticated POST to `/v1/messages` returns 401 — so the
+blocker is a decision, not a network.
 
-Still outstanding, and still the blocker for the same two things: **a live recording of a small
-split**. Every number turns from simulated to recorded, and the scorer comparison in D27 becomes
-a real comparison instead of a statement about the simulator's noise model. M9 adds a third: the
-judge's error rates are invented parameters, and only a recording can say what a real cheap judge
-costs in interval width.
+One command changes it:
+
+    ANTHROPIC_API_KEY=... RECORD_BUDGET_USD=25 TOKOP_MODE=live make record
+
+It will refuse before spending if the test split cannot produce a verdict, print what it expects
+to cost against the cap, ask, run ten tasks per step, re-project from their real answer lengths,
+refuse again if that lands over the cap, and only then record. Until it runs, every number in
+this repository is simulated and labelled so.
+
+**M14 is done and did not wait for it.** The evidence grade reads `insufficient` today; a
+recording moves two of its eight links and the verdict moves a third.
+
+**`tokop label` is the one piece of M15 not built.** Without it the grader-agreement link in the
+evidence chain reads "not measured" for any workload with no judged arm, which is the honest
+state. The 50 hand labels UPGRADE_V4.md M15.3 asks for are a human's to write.
+
+**M16b** executes a graph. Nothing does yet: the runner still makes one call per task, and a
+workload that declared steps would compile, validate and then be run as though it had not. After
+that, M16c is the five graph findings and proof at the graph-level outcome — the point of the
+milestone, where the optimizer can propose *deleting a step* rather than only swapping a model.
+
+**U9, the serving-cost basis**, is deferred rather than renumbered (D41). It prices a hosted tier
+in GPU-hours over achieved throughput so a cascade can mix an API tier with a hosted one. Nothing
+in this build has a self-hosted tier, so it would be a fake column.
 
 ## Proving the demo without its answer key (M9, UPGRADE_V3.md U1 and U2)
 
@@ -225,6 +250,240 @@ Both land in the README's generated block — the comparison with its effective-
 the tie with its note and its missing fallback — so no M12 number in the README is typed by hand
 (non-negotiable 1), and `tokop report --check` fails the build when one moves.
 
+## A cap that was a cap, and a price before the first call (M13a, UPGRADE_V4.md M13)
+
+M13 is the milestone that turns every number here from a statement about a simulator into
+evidence. It splits at the money: everything that decides whether a recording should happen
+spends nothing and is finished; the recording itself needs a key and a budget nobody has set.
+
+**The finding that came first.** `SpendGuard` is written for per-call use — "Every adapter call
+passes through here twice", says its docstring — and nothing called it. A grep for `preflight(`
+over the engine returned its own definition, one call in `Recorder._step` passing a projection of
+zero under a comment claiming the live adapter checked each call, and nothing else. Measured
+before the fix, on the plan a real recording would run:
+
+    cap $0.01, step cost $0.0309, guard spent $0.0309, 25 calls paid for, no refusal
+
+At full size that is B0 on the test split as a single uninterruptible $9.88 purchase.
+`RECORD_BUDGET_USD` could be observed to have been passed; it could not stop anything. The same
+probe after the fix refuses after one call. A second defect sat behind it: all three of the
+runner's gathers use `return_exceptions=True`, which is right for a provider failure and wrong
+for a budget refusal — it would have spent the whole cap and then recorded every remaining task
+as unsuccessful, handing the report an accuracy figure that describes a budget. D42 has both.
+
+**What `tokop record` does now.** Four gates, then it asks:
+
+| Gate | What it refuses |
+| --- | --- |
+| Consent | No key, or no `RECORD_BUDGET_USD`. Tokop never sets either |
+| Power | A test split too small to produce a verdict. `--underpowered` overrides, and the override is stored in the run record and printed in the report |
+| Projection | A plan whose counted input alone costs more than the cap |
+| Pilot | Ten tasks per step, whose measured answer lengths re-project the total. Over the cap, it stops — and the pilot's calls are cassettes the next run replays, so they are not lost |
+
+**`tokop power`, on the demo's own fixtures:**
+
+    split as recorded            200 tasks
+    the arms disagree on         13 of them (6.5%)
+    accuracy difference          +0.5 points (candidate ahead on 7, behind on 6)
+    tasks needed                 204
+    204 tasks at the observed discordance, 4 more than the 200 in the split.
+
+Which is the same 4 the README's verdict line has been quoting all along, now available before a
+recording rather than after one. It prints its own caveat: a discordance rate measured on
+simulated arms whose errors are drawn independently is the optimistic case, and two real models
+that fail on the same hard tasks will be more concordant and need more tasks.
+
+**The projection is a band.** Input is counted — exactly, through the provider's counting
+endpoint, which M13 is the first caller of — with the cache modelled as the recorder runs it.
+Output cannot be counted before the call, so the ceiling prices every call at `max_tokens` and
+the floor at zero. The acceptance check is that the committed recording lands inside it, step by
+step:
+
+| Step | floor | recorded | ceiling |
+| --- | --- | --- | --- |
+| B2 calibration cheap | $0.35 | $0.50 | $0.85 |
+| B2 test frontier | $4.47 | $6.37 | $9.47 |
+| B0 test frontier | $8.72 | $9.88 | $18.72 |
+| B1 test frontier | $0.98 | $2.13 | $10.98 |
+| **whole plan** | **$21.15** | **$28.43** | **$54.75** |
+
+Getting there needed one correction worth remembering: subtracting a base-counter count of the
+cacheable prefix from an exact count of the whole request books the ~30% tokenizer-generation gap
+(D3, D26) as text that changes every call, and prices thousands of cached tokens at the full
+input rate. The first projection read $42.72 against a recorded $28.43. The base counter now
+supplies the cacheable *share* and the exact count supplies the magnitude; the projected prefix
+then reproduces the recording's own cache-write figures to within one token on every step.
+
+**What is checkable now that was not.** `fixtures/*/manifest.json` carries a `cassette_digest`
+over every cassette and blob, and `tokop fixtures-check` compares it to the bytes on disk —
+cassette keys hash the request, so a key set alone cannot notice an edited answer. And the resume
+path is demonstrated on the money rather than assumed: a recording stopped at its cap, resumed
+under a larger one, pays for exactly the remainder, with the two runs together paying for the
+step once.
+
+## The promise first, the qualifications one click in (M14, UPGRADE_V4.md M14)
+
+The README opened with the promise and then spent five screens qualifying it. Ten sections moved
+verbatim to `docs/METHOD.md` — the proof method, the gold-free estimate, label-free calibration,
+the checkability price, certificates, dataset provenance, semantic entropy, ties, the CI gate and
+the citations. Nothing was softened and nothing was cut: **the method document is generated and
+checked exactly as the README is**, because a qualification that moves out of sight and out of
+the build is a deleted one. `metrics_block` split into `readme_block` and `method_block`;
+`tokop report --write-readme` writes both and `tokop report --check` fails if either moves.
+
+**The evidence grade, and what it says about this build.** `optimize/evidence.py` grades eight
+links and takes the *lowest* rung any of them forces:
+
+| Link | Standing | Reading |
+| --- | --- | --- |
+| Verdict | **blocking** | Inconclusive: about 4 more tasks would settle it |
+| Test split | **blocking** | 200 tasks, 204 needed |
+| Tasks the two pipelines disagree on | ok | 13 of 200, exact p = 1.000 |
+| Tasks from real traffic | simulated | 0 of 300 |
+| Answers from a provider | simulated | simulated |
+| Cheap judge agrees with the strong grader | ok | 83.7% on B2, its worst arm |
+| Prices | ok | all verified against the provider's page |
+| Token counts | simulated | `bytes-bpe-approx-v1` |
+
+So the grade is **insufficient**, not `simulated`. That was the interesting decision of the
+milestone: `simulated` was available and true as far as it goes, and it would have implied the
+result holds about the traces, which it does not. One word at the top of Optimize, the whole
+table one click away, and a test that fails if any weak link stops saying what would change it.
+
+**Deploy exports, and never proxies.** SPEC.md section 3 rules out any gateway carrying other
+applications' traffic, so "deploy" ends at handing over artifacts: the prompt as a unified diff
+(B0 to B2, with the cache breakpoint visible, since that breakpoint is most of the saving), the
+operating point as JSON, and the routing rule as Python. A test executes the generated rule and
+checks it escalates cheap → mid → frontier at the thresholds the cascade proved. Each artifact
+carries an `evidence` field, so the config file says `insufficient` about itself rather than
+looking authoritative.
+
+**The summary block is engine-computed.** Non-negotiable 1 bans metric literals in components,
+and a component that divides one number by another to get a saving has written a metric in
+TypeScript. `report["summary"]` carries all six figures ready to print, and the Playwright test
+compares the rendered screen against `/api/report` rather than against itself.
+
+## The engine stops being the demo's engine (M15a, UPGRADE_V4.md M15)
+
+"Ships one workload" undersold the problem. It was not a missing ingestion command: `DemoItem`,
+a type from one workload's *generator*, sat in the signature of the runner, the recorder, the
+annotator and the report; `DatasetBundle` sat beside it; and `build_dataset()` was called
+directly in eight places wherever tasks were needed. Nothing else could run because nothing else
+could be represented.
+
+**`Item` is a protocol**, so `DemoItem` satisfies it without changing and an ingested task
+satisfies it without inheriting anything. Its fields split three ways and the split is the
+interesting part: grading fields every workload has, a description field every workload needs
+something for, and provenance fields — `template_id`, `sections` — that only a *generated*
+workload has. Real traffic has neither, so both default to empty rather than being invented.
+
+**Loading replaced generating.** Every workload, the demo included, is now read from the dataset
+file committed beside it rather than re-run through a generator. `fixtures-check` already
+asserted the two agree, so no number moved — `tokop report --check` passing unchanged is the
+evidence — and the last reason for a neutral module to import a workload-specific one is gone.
+
+**One rename with a real edge.** `handbook` became `grounding` in the engine; the demo still
+calls its own document a handbook, in its own prose, because that is what it is. Only the five
+`{{handbook}}` placeholders changed, and a placeholder rename does not change rendered text —
+confirmed by all 6,856 cassettes still matching.
+
+**A set nothing templated is not a set with zero coverage.** Tail coverage measures how much of
+a generator's space a set reaches. Ingested traffic has no generator, so coverage does not
+exist. It now reports `None`, where `0.0` would have refused the set for a thinned tail and
+`1.0` would have said the tail was checked when nothing checked it.
+
+**The check has to run twice.** `test_scorer_isolation.py` scans source for imports, which is
+right for what it checks and would have seen none of this: half the demo imports are lazy and
+sit inside functions. So `test_no_demo_imports.py` imports each neutral module in a subprocess
+and reads `sys.modules`, then loads a workload nobody generated and reads `sys.modules` again.
+Fourteen checks, and two of them failed until `TierProfile` moved out of the demo's responder.
+
+**What this does not do yet.** `tokop prove --workload` still refuses anything but the demo by
+name, because `report.py` hardcodes its path in six places and `build_report()` takes no
+workload. The engine can represent and load another workload; it cannot report on one. M15b.
+
+## A second workload, and the refusal ingestion exists to make (M15b, UPGRADE_V4.md M15)
+
+`tokop prove --workload data/incident-triage/workload.yaml` runs, and the import test fails if
+the demo is reached for while it does. That is M15's acceptance check, and getting there took
+threading a workload through six entry points in `report.py` that had the demo's path spelled
+out — five more spellings than a default needs.
+
+**The second workload is an on-call triage bot** over a runbook mapping alert signatures to
+escalation codes, owning teams and paging rules. Its answer mix is codes, team names and yes/no
+rather than the demo's money and day counts, and two of its five question shapes turn on
+overrides that beat the signature's own rule. On its own 99-task test split:
+
+| Pipeline | Accuracy | Cost per successful task |
+| --- | --- | --- |
+| B0 current, on the frontier model | 89.9% | $0.00719 |
+| B1 cache-friendly order | 90.9% | $0.00259 |
+| B2 tightened, with an output contract | 90.9% | $0.00348 |
+| B3 cascade on B2 | 85.9% | $0.00600 |
+
+The tiers on B2 alone score 68.7% cheap, 82.8% mid, 90.9% frontier on the test split, and the
+cascade routes 31% of tasks to cheap and 69% straight to frontier — the mid tier earns nothing
+here.
+
+**Verdict: inconclusive, and unlikely to be settled by more tasks.** The cascade cuts cost per
+successful task 16.6% (interval 7.1 to 26.4%) and the accuracy difference is −4.0 points, 95% CI
+[−10.1, +2.0], against a 3-point margin. The point estimate is already past the margin, so more
+tasks would tighten an interval around a point on the wrong side of it. Reported as it came out —
+and note that B1, a pure reordering, beats the cascade on this workload at no accuracy cost.
+
+**And it showed something the demo cannot.** Every pseudo-label on the demo's calibration split
+agrees with its answer key under *both* kinds, which D34 recorded as a fact about the noise model
+rather than evidence that label-free calibration works. Here they come apart: **majority-vote
+agrees with gold on 86%** of the calibration split, while **`penalized-v1` excludes the 21 tasks
+it cannot settle and agrees perfectly on what remains.** That is the mechanism U3 exists for,
+finally exercised by a workload rather than by a constructed test — because a cheap tier
+answering an override question from the signature makes the *same* mistake every time, which is
+exactly what a plurality vote reads as correctness.
+
+**`tokop ingest` reads JSONL, CSV and OpenTelemetry GenAI spans**, and the interesting part is a
+refusal. A span records what was asked and what the model *said*; it does not record what the
+right answer was. Writing `gen_ai.completion` into `gold` would produce a workload on which every
+pipeline scores 100% against itself, and nothing about the result would look wrong. Tokop reads
+the tasks, leaves the answers empty, says how many, and exits 3.
+
+**The invented numbers moved into the workload that owns them.** `simulation:` in the second
+workload's YAML declares what each tier gets right, by task type, beside the provenance block
+saying the whole set is program-generated. The neutral responder reads them from there. It is
+deliberately not a better simulator — section 5 of the upgrade rules that out, and a more
+convincing one would only produce more convincing numbers about nothing.
+
+## A pipeline becomes a graph, and stays exactly as cheap (M16a, UPGRADE_V4.md M16)
+
+A pipeline was one model call, which can express two optimizations — run a cheaper model, write
+a cheaper prompt — and no others. The workloads where the money actually goes are shaped
+differently: an agent making fourteen calls and retrying twice is a larger problem than an
+8,000-token prompt, and the useful proposal there is usually *delete a step*, which a
+single-call spec cannot represent at all.
+
+`PipelineSpec` now takes an optional `steps:` list. Empty — every pipeline in both shipped
+workloads — compiles to a graph of one `generate` step **whose spec is the pipeline itself**, so
+there is no second rendering path to drift from the first.
+
+**The guarantee, and a correction to the plan.** PLAN.md proposed protecting single-call
+workloads by diffing the report JSON against a committed snapshot. That is the wrong instrument:
+M13, M14 and M15 each legitimately changed the payload, so the snapshot would need rewriting
+every milestone and would stop meaning anything the moment it did. The guarantee is asserted
+where it actually lives instead — **the compiled one-step graph renders a request with the same
+cassette key**, for every pipeline of both workloads. A cassette key is a hash of provider, model
+and the canonicalized request, so if the keys match, every committed cassette replays and every
+number is identical by construction. `make verify` runs it by name.
+
+Two details that would have broken it quietly. Run order is Kahn's algorithm with ties broken by
+*declaration* order, because an order that depended on dict iteration would hash differently on a
+different day. And `CallRow` gained a `step`: the graph findings coming in M16c are all questions
+about which step made a call, and a call row that cannot say is one none of them can be computed
+from.
+
+**Nothing executes a graph yet.** A workload that declared steps would compile, validate, and
+then be run as though it had not. That is M16b, and the spec landing first is deliberate: it is
+what every later commit depends on, and the part that could have forced the fallback to a
+parallel `GraphSpec`.
+
 ## Demo result (simulated test fixtures, 200-task test split)
 
 Generated into README.md by `tokop report --write-readme`. Headline: B0 $0.05172 per successful
@@ -312,7 +571,7 @@ everything around it.
   Playwright's own resolution when that path is absent, which is everywhere but here.
 
 438 engine tests, 39 Playwright tests, 91% line coverage on `core/` and `optimize/`.
-`make verify`: 12 checks, none skipped, green. (At M12: 709 engine tests, 45 Playwright tests,
+`make verify`: 12 checks, none skipped, green. (At M16a: 805 engine tests, 49 Playwright tests,
 91% coverage, 21 checks.)
 
 ## The tokenizer divergence (D26)
@@ -396,5 +655,5 @@ byte-identical. 466 engine tests, 91% line coverage, `make verify` green on all 
 
 ## Where the build stands
 
-709 engine tests, 45 Playwright tests, 91% line coverage on `core/` and `optimize/`.
+805 engine tests, 49 Playwright tests, 91% line coverage on `core/` and `optimize/`.
 `make verify`: 21 checks, none skipped, green.

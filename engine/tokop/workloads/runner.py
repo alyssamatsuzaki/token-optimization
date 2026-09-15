@@ -29,12 +29,13 @@ from typing import Any, Protocol
 
 from tokop.adapters.anthropic import prewarm_request
 from tokop.adapters.base import AdapterError, LLMRequest, LLMResponse
+from tokop.core.budget import BudgetExceeded
 from tokop.core.pricing import PriceSnapshot, cost_disagreement
 from tokop.core.registry import Registry
 from tokop.core.usage import TokenUsage
 from tokop.db import Call, GradeRow, Run, Workload, session_scope, store_price_snapshot
-from tokop.workloads.demo.generator import DemoItem
 from tokop.workloads.grading import grade
+from tokop.workloads.item import Item
 from tokop.workloads.spec import (
     EntailmentSpec,
     JudgeSpec,
@@ -113,6 +114,32 @@ def git_sha() -> str:
     return out.stdout.strip() if out.returncode == 0 else "unknown"
 
 
+@dataclass(frozen=True)
+class TierProfile:
+    """One tier: a model id and the role it plays in a cascade.
+
+    Lives here rather than beside the demo's responder, which is where it started, because a
+    tier is not a demo concept — it is what the runner routes between and what a simulated
+    provider needs to know to answer at the right rate (UPGRADE_V4.md M15).
+    """
+
+    model_id: str
+    role: str
+
+
+def _stop_on_budget(outcomes: Sequence[Any]) -> None:
+    """Let a budget refusal end the run instead of becoming a split of failed tasks.
+
+    A provider failure is a task outcome and stays one: it counts as unsuccessful and shows in
+    the trace (non-negotiable 8). A cap being reached is not a model failure but the operator's
+    own limit, and absorbing it here would record every remaining task as unsuccessful, spend
+    the whole budget doing so, and hand the report an accuracy figure that describes a budget.
+    """
+    for outcome in outcomes:
+        if isinstance(outcome, BudgetExceeded):
+            raise outcome
+
+
 class Runner:
     """Executes pipelines. One instance per run."""
 
@@ -124,7 +151,7 @@ class Runner:
         adapter: AnyAdapter,
         *,
         provider: str = "anthropic",
-        handbook: str = "",
+        grounding: str = "",
         concurrency: int = 4,
         origin: str = "simulated",
         timestamp: str | None = None,
@@ -134,7 +161,7 @@ class Runner:
         self.snapshot = snapshot
         self.adapter = adapter
         self.provider = provider
-        self.handbook = handbook
+        self.grounding = grounding
         self.origin = origin
         self.timestamp = timestamp or demo_timestamp()
         self._semaphore = asyncio.Semaphore(concurrency)
@@ -144,14 +171,14 @@ class Runner:
                 f"{workload.allowed_providers} and {provider!r} is not among them"
             )
 
-    def variables(self, item: DemoItem) -> dict[str, str]:
+    def variables(self, item: Item) -> dict[str, str]:
         return {
-            "handbook": self.handbook,
+            "grounding": self.grounding,
             "question": item.question,
             "timestamp": self.timestamp,
         }
 
-    def render(self, pipeline: PipelineSpec, item: DemoItem, model_id: str) -> LLMRequest:
+    def render(self, pipeline: PipelineSpec, item: Item, model_id: str) -> LLMRequest:
         return pipeline.render(self.provider, model_id, self.variables(item))
 
     async def _call(self, request: LLMRequest) -> LLMResponse:
@@ -183,7 +210,7 @@ class Runner:
     async def run_pipeline(
         self,
         pipeline_id: str,
-        items: Sequence[DemoItem],
+        items: Sequence[Item],
         *,
         model_id: str | None = None,
         split: str = "test",
@@ -215,6 +242,7 @@ class Runner:
         responses = await asyncio.gather(
             *(self._call(request) for request in requests), return_exceptions=True
         )
+        _stop_on_budget(responses)
 
         tasks: list[TaskResult] = []
         for position, item in enumerate(items):
@@ -276,7 +304,7 @@ class Runner:
         """Run one verifier over a list of answers (UPGRADE_V3.md U1).
 
         Deliberately not ``run_pipeline``. A pipeline answers a task; a judge reviews an answer,
-        so the unit is an ``AnswerView`` rather than a ``DemoItem`` and there is no grading step
+        so the unit is an ``AnswerView`` rather than a ``Item`` and there is no grading step
         at the end — reading a verdict out of the reply is ``workloads/verification.py``'s job
         and happens above this. What is the same is everything that costs money: the same
         pre-warming, the same concurrency, the same cassette-backed adapter, so a judge call is
@@ -293,6 +321,7 @@ class Runner:
         outcomes = await asyncio.gather(
             *(self._call(request) for request in requests), return_exceptions=True
         )
+        _stop_on_budget(outcomes)
         calls: list[tuple[AnswerView, LLMRequest, LLMResponse]] = []
         for view, request, outcome in zip(views, requests, outcomes, strict=True):
             if isinstance(outcome, BaseException):
@@ -349,7 +378,7 @@ class Runner:
                     "question": question,
                     "answer_a": a,
                     "answer_b": b,
-                    "handbook": self.handbook,
+                    "grounding": self.grounding,
                     "timestamp": self.timestamp,
                 },
             )
@@ -363,6 +392,7 @@ class Runner:
         outcomes = await asyncio.gather(
             *(self._call(request) for request in requests), return_exceptions=True
         )
+        _stop_on_budget(outcomes)
         calls: list[tuple[AnswerView, LLMRequest, LLMResponse]] = []
         for view, request, outcome in zip(views, requests, outcomes, strict=True):
             if isinstance(outcome, BaseException):
@@ -393,12 +423,12 @@ class Runner:
     def judge_variables(self, view: AnswerView) -> dict[str, str]:
         """What a judge prompt may render. ``answer`` is the extra one; gold is not among them.
 
-        The workload supplies the handbook, so the judge checks against the same document the
+        The workload supplies the grounding document, so the judge checks against the same one
         pipeline was given. ``view.context`` is ignored here on purpose: a judge that graded
         against whatever context was attached to the answer could be handed a favourable one.
         """
         return {
-            "handbook": self.handbook,
+            "grounding": self.grounding,
             "question": view.question,
             "answer": view.answer,
             "timestamp": self.timestamp,
@@ -409,7 +439,7 @@ class Runner:
         pipeline_id: str,
         split: str,
         model_ids: list[str],
-        items: Sequence[DemoItem],
+        items: Sequence[Item],
         prewarm_calls: int,
         samples: int = 1,
     ) -> dict[str, Any]:
@@ -457,7 +487,7 @@ def persist(
     engine: Any,
     workload: WorkloadSpec,
     result: RunResult,
-    items: Sequence[DemoItem],
+    items: Sequence[Item],
     snapshot: PriceSnapshot,
     *,
     store_content: bool = True,

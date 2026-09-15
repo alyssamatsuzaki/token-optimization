@@ -45,6 +45,7 @@ import {
   Section,
 } from "../components/Primitives";
 import { NewExperiment } from "../components/NewExperiment";
+import { SummaryBlock } from "../components/Summary";
 import { TraceDrawer } from "../components/TraceDrawer";
 
 type Stage = "baseline" | "candidate" | "proof";
@@ -219,6 +220,9 @@ export default function Optimize() {
           </p>
         )}
       </header>
+
+      {/* ------------------------------------------------- the recommendation, first */}
+      <SummaryBlock summary={report.summary} evidence={report.evidence} />
 
       {/* ---------------------------------------------------------------- headline */}
       <div className="rule-t rule-b py-5 grid grid-cols-2 md:grid-cols-4 gap-6" data-testid="headline-row">

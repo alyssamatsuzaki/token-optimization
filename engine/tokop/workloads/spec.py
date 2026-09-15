@@ -63,8 +63,41 @@ class BlockSpec(BaseModel):
         return Block(text=VARIABLE.sub(replace, self.text), cache=self.cache)
 
 
+class StepSpec(BaseModel):
+    """One step of a multi-call pipeline (UPGRADE_V4.md M16).
+
+    A single-call pipeline declares none of these and keeps working exactly as it did: the
+    compiler turns it into a graph of one `generate` step that renders the identical request.
+    Declaring steps is how a workload says it is an agent rather than a prompt — fourteen calls
+    and two retries, where the useful proposal is usually to delete one of them rather than to
+    run a cheaper model.
+    """
+
+    id: str
+    #: What this step does. `generate` is a model call; the others exist so a graph can say what
+    #: a step *is* before Tokop can price it — a finding about a tool called twice with the same
+    #: arguments has to know which calls were tool calls.
+    kind: Literal["generate", "tool", "retrieve", "verify", "retry", "loop"] = "generate"
+    #: Step ids whose output this one consumes. Empty means it runs first.
+    inputs: list[str] = Field(default_factory=list)
+    model_role: str | None = None
+    max_tokens: int | None = None
+    system: list[BlockSpec] = Field(default_factory=list)
+    user: list[BlockSpec] = Field(default_factory=list)
+    #: For a `tool` step, the tool it calls. Recorded so two calls to the same tool with the
+    #: same arguments are recognisable as the same call.
+    tool: str = ""
+    notes: list[str] = Field(default_factory=list)
+
+    model_config = {"frozen": True}
+
+
 class PipelineSpec(BaseModel):
-    """One pipeline: the prompt, the model, the cap and the contract."""
+    """One pipeline: the prompt, the model, the cap and the contract.
+
+    Or, since M16, a graph of steps. An empty ``steps`` is the single-call shape every workload
+    had before, and it stays byte-identical: same request, same cassette key, same numbers.
+    """
 
     id: str
     name: str
@@ -84,8 +117,15 @@ class PipelineSpec(BaseModel):
     notes: list[str] = Field(default_factory=list)
     #: Anti-patterns present on purpose, by lint rule ID, with an explanation each.
     known_antipatterns: dict[str, str] = Field(default_factory=dict)
+    #: The steps this pipeline runs, if it is a graph. Empty means one model call, which is
+    #: what every workload was before M16 and what the demo still is.
+    steps: list[StepSpec] = Field(default_factory=list)
 
     model_config = {"frozen": True}
+
+    @property
+    def is_graph(self) -> bool:
+        return bool(self.steps)
 
     def render(self, provider: str, model: str, variables: dict[str, str]) -> LLMRequest:
         system = [b.render(variables) for b in self.system]
@@ -261,11 +301,57 @@ class CascadeSpec(BaseModel):
     model_config = {"frozen": True}
 
 
+class SimulationSpec(BaseModel):
+    """How a workload's simulated provider behaves, declared by the workload itself.
+
+    These are invented numbers. They live here, in the workload's own file beside the
+    provenance block that says the set is program-generated, because a reader auditing a result
+    should find the invented parts in the workload rather than by reading the engine
+    (UPGRADE_V4.md M15).
+    """
+
+    #: What each tier role gets right, as a probability.
+    accuracy: dict[str, float] = Field(default_factory=dict)
+    #: Per task type, where a type is harder or easier than the tier's baseline. Missing types
+    #: use the tier's own rate rather than a guess.
+    accuracy_by_type: dict[str, dict[str, float]] = Field(default_factory=dict)
+    #: How often an answer arrives in a form the parser cannot read.
+    parse_failure_rate: float = 0.01
+    notes: list[str] = Field(default_factory=list)
+
+    model_config = {"frozen": True}
+
+    def accuracy_for(self, role: str, question_type: str) -> float:
+        by_type = self.accuracy_by_type.get(role, {})
+        if question_type in by_type:
+            return by_type[question_type]
+        try:
+            return self.accuracy[role]
+        except KeyError:
+            raise WorkloadError(
+                f"the workload declares no simulated accuracy for the {role!r} tier. A "
+                "simulated fixture set cannot be built without saying what it is simulating."
+            ) from None
+
+
 class DatasetSpec(BaseModel):
+    """Where a workload's tasks come from.
+
+    ``generator`` names the code that produced them, or ``"ingested"`` when a file did and
+    nothing generated anything. ``source`` is the file the engine actually reads: every workload
+    is loaded from its committed dataset rather than re-generated, so the demo and an ingested
+    workload travel the same path (UPGRADE_V4.md M15).
+    """
+
     generator: str
     seed: int
     size: int
     calibration_size: int
+    #: The dataset file, relative to ``data/<workload id>/``.
+    source: str = "dataset.jsonl"
+    #: The document every pipeline answers from, relative to the same directory, rendered into
+    #: prompts as ``{{grounding}}``. Empty when a workload's tasks need no shared document.
+    grounding: str = ""
 
     model_config = {"frozen": True}
 
@@ -288,6 +374,17 @@ class WorkloadSpec(BaseModel):
     annotation: AnnotationSpec | None = None
     entailment: EntailmentSpec | None = None
     dataset_provenance: DatasetProvenanceSpec | None = None
+    #: How this workload's simulated provider behaves, when it has one. Absent for a workload
+    #: whose fixtures are a real recording, which needs no simulator at all.
+    simulation: SimulationSpec | None = None
+    #: Which directory under `fixtures/` holds this workload's recording. Empty for the demo,
+    #: whose fixtures are chosen by the recording state — `demo/` when a real recording exists
+    #: and `test/` otherwise. Any other workload names its own (UPGRADE_V4.md M15).
+    fixtures: str = ""
+    #: Where this workload was loaded from. Its dataset and grounding document sit beside it,
+    #: because a workload is its definition *and* its tasks, and splitting them across two
+    #: directories is how a spec starts describing a dataset that is not there.
+    directory: Path | None = None
     margin: float = 0.03
     #: Whether the workload has a latency requirement; drives the Batch API finding (W05).
     latency_sensitive: bool = False
@@ -333,7 +430,19 @@ def load_workload(path: Path) -> WorkloadSpec:
         raise WorkloadError(f"{path} must contain a mapping")
 
     pipelines_raw = raw.get("pipelines") or {}
-    pipelines = {pid: PipelineSpec(id=pid, **spec) for pid, spec in pipelines_raw.items()}
+    pipelines = {
+        pid: PipelineSpec(
+            id=pid,
+            **{
+                **spec,
+                "steps": [
+                    StepSpec(**step) if isinstance(step, dict) else step
+                    for step in spec.get("steps") or []
+                ],
+            },
+        )
+        for pid, spec in pipelines_raw.items()
+    }
     cascades_raw = raw.get("cascades") or {}
     cascades = {cid: CascadeSpec(id=cid, **spec) for cid, spec in cascades_raw.items()}
 
@@ -390,6 +499,8 @@ def load_workload(path: Path) -> WorkloadSpec:
             "dataset's answer key; `judged` has a cheap verifier grade everything and corrects "
             "it from a sampled subset of strong labels."
         )
+    simulation_raw = raw.get("simulation") or workload.get("simulation")
+    simulation = SimulationSpec(**simulation_raw) if isinstance(simulation_raw, dict) else None
     _validate_judging(path, grading, judge, annotation, dataset_provenance)
     _validate_entailment(path, entailment)
 
@@ -398,6 +509,9 @@ def load_workload(path: Path) -> WorkloadSpec:
         name=str(workload["name"]),
         description=str(workload["description"]),
         dataset=DatasetSpec(**workload["dataset"]),
+        directory=path.parent,
+        fixtures=str(workload.get("fixtures", "")),
+        simulation=simulation,
         pipelines=pipelines,
         cascades=cascades,
         scorer_features=list(workload.get("scorer_features") or []),

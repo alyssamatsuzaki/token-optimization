@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
@@ -130,6 +131,31 @@ def report(
     except ReportError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return {**payload.data, "live_controls": _live_controls()}
+
+
+@router.get("/export")
+def export_artifacts() -> dict[str, Any]:
+    """The artifacts Deploy hands over (UPGRADE_V4.md M14.4).
+
+    Rendered rather than written: the browser shows what would be applied, and the operator
+    decides where it goes. Tokop does not sit in anybody's request path (SPEC.md section 3), so
+    "deploy" here ends at handing over a diff, a config file and a rule you can read.
+    """
+    import tempfile
+
+    from tokop.optimize.export import ARTIFACTS, export
+
+    payload = cached_report(False)
+    workload = load_workload(repo_root() / "data/demo/workload.yaml")
+    with tempfile.TemporaryDirectory() as scratch:
+        results = [export(payload, name, Path(scratch), workload) for name in ARTIFACTS]
+        return {
+            "artifacts": [
+                {**result.as_dict(), "filename": result.path.name, "text": result.text}
+                for result in results
+            ],
+            "evidence": payload["evidence"],
+        }
 
 
 @router.get("/trace/{task_id}")

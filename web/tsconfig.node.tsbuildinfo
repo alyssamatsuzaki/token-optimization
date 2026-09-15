@@ -1,1 +1,0 @@
-{"root":["./vite.config.ts","./playwright.config.ts","./e2e/optimize.spec.ts","./e2e/screens.spec.ts"],"version":"5.9.3"}

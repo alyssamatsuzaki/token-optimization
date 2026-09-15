@@ -1,0 +1,90 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "7e119e3ea94799b4eee1c088a930160206d4e29b453370bcff7eaddd95d181e9",
+  "latency_ms": 1656.8,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "# Returns brief\n\n**Windows.** Base window is by category, counted from delivery. Backpacks 60 days, tents /\nsleeping bags / outerwear / stoves 45, footwear / climbing hardware / electronics / water\nfilters / avalanche 30, climbing rope 14. Nutrition and clearance apparel are final sale, 0.\n[sec-returns-windows]\n\n**Tier bonus, added to the base.** Standard +0, Summit +14, Alpine +30. Never applies to a\nfinal-sale category. [sec-loyalty]\n\n**Seasonal.** Orders placed 2026-11-01 to 2026-12-24 get +30 days. Excludes nutrition,\nclearance apparel and climbing rope. Stacks with the tier bonus. [sec-seasonal]\n\n**Restocking, on non-defective returns only.** Climbing rope 20%, climbing hardware and\nelectronics 15%, tents / sleeping bags / stoves / water filters 10%, everything else 0%.\n**Alpine members pay none, ever.** [sec-restocking]\n\n**Exceptions.** Opened electronics: 14-day window and 25% fee. Used climbing rope and avalanche\ngear: no return at all. Footwear worn outdoors: store credit only. Final sale: defect must be\nreported within 7 days. More restrictive exception wins. [sec-exceptions]\n\n**Escalation.** Refunds over $500, or any mention of injury or safety-equipment failure, go to\nthe customer relations manager. [sec-escalation]\n",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_7e119e3ea94799b4",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 1229,
+      "output_tokens": 385
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 1229,
+    "output_tokens": 385
+  },
+  "recorded_at": "2026-09-15T09:23:04.384865+00:00",
+  "request": {
+    "max_tokens": 1200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": {
+              "$blob": "e2325446c006aa90d60e396e30b1ede60b6bb9076cae3878782ee73209452724"
+            }
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "Compress the material into the shortest brief that preserves every rule and number, with a pointer back to the source section for each. Drop prose."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "# Returns brief\n\n**Windows.** Base window is by category, counted from delivery. Backpacks 60 days, tents /\nsleeping bags / outerwear / stoves 45, footwear / climbing hardware / electronics / water\nfilters / avalanche 30, climbing rope 14. Nutrition and clearance apparel are final sale, 0.\n[sec-returns-windows]\n\n**Tier bonus, added to the base.** Standard +0, Summit +14, Alpine +30. Never applies to a\nfinal-sale category. [sec-loyalty]\n\n**Seasonal.** Orders placed 2026-11-01 to 2026-12-24 get +30 days. Excludes nutrition,\nclearance apparel and climbing rope. Stacks with the tier bonus. [sec-seasonal]\n\n**Restocking, on non-defective returns only.** Climbing rope 20%, climbing hardware and\nelectronics 15%, tents / sleeping bags / stoves / water filters 10%, everything else 0%.\n**Alpine members pay none, ever.** [sec-restocking]\n\n**Exceptions.** Opened electronics: 14-day window and 25% fee. Used climbing rope and avalanche\ngear: no return at all. Footwear worn outdoors: store credit only. Final sale: defect must be\nreported within 7 days. More restrictive exception wins. [sec-exceptions]\n\n**Escalation.** Refunds over $500, or any mention of injury or safety-equipment failure, go to\nthe customer relations manager. [sec-escalation]\n",
+  "stop_reason": "end_turn",
+  "ttft_ms": 309.3,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 1229,
+    "output_reasoning": 0,
+    "output_visible": 385,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 1229,
+      "output_tokens": 385
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

@@ -25,7 +25,7 @@ import re
 
 from tokop.adapters.base import LLMRequest
 from tokop.optimize.entailment import entailment_reply
-from tokop.workloads.demo.responder import TierProfile
+from tokop.workloads.runner import TierProfile
 
 #: P(the entailment model gets a pair right), by the model role judging it. Entailment is an
 #: easier question than answering, and the tiers are close together for the same reason the

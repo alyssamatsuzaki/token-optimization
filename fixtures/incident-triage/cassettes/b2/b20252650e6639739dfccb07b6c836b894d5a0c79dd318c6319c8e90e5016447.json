@@ -1,0 +1,95 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "b20252650e6639739dfccb07b6c836b894d5a0c79dd318c6319c8e90e5016447",
+  "latency_ms": 1771.71,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"no\", \"evidence\": \"- `webhook_retries` (webhook backoff) has escalation code E09, is owned by the integrations team, does not page outside working hours, and must be acknowledged within 180 minutes.\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_b20252650e663973",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 868,
+      "input_tokens": 183,
+      "output_tokens": 86
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 868,
+    "input_tokens": 183,
+    "output_tokens": 86
+  },
+  "recorded_at": "2026-09-15T09:23:02.760139+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "ALERT error_rate_pct=28 host=web-21. An incident is already open covering this signature. Does this page outside working hours? Answer yes or no."
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "367406c3d5ba879997e1398eccc539ceac2f6b1bad2bdf8b3cbc2b268572af64"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Find the runbook entry that governs the alert. Apply any override that applies: an\nalert folded into an open incident does not page, and during a change freeze every\nplatform-owned signature pages.\n\nReply with JSON only: {\"answer\": \"<the answer>\", \"evidence\": \"<the runbook line>\"}.\nFor a yes/no question the answer is exactly \"yes\" or \"no\"."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"no\", \"evidence\": \"- `webhook_retries` (webhook backoff) has escalation code E09, is owned by the integrations team, does not page outside working hours, and must be acknowledged within 180 minutes.\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 825.71,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 868,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 183,
+    "output_reasoning": 0,
+    "output_visible": 86,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 868,
+      "input_tokens": 183,
+      "output_tokens": 86
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

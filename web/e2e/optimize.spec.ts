@@ -352,3 +352,84 @@ test("screenshots for the record", async ({ page }) => {
   await page.waitForTimeout(400);
   await page.screenshot({ path: "../docs/screenshots/optimize-proof.png", fullPage: true });
 });
+
+/* --------------------------------------------------------------- the first screen (M14) */
+
+test("the recommendation block renders the engine's summary, not its own arithmetic", async ({
+  page,
+}) => {
+  await openOptimize(page);
+  const block = page.getByTestId("summary-block");
+  await expect(block).toBeVisible();
+
+  // Every figure is compared against `/api/report`. A component that recomputed any of these
+  // would pass its own consistency check and fail this one, which is the point of asserting
+  // against the API rather than against a fixture (non-negotiable 1).
+  const summary = report.summary;
+  await expect(page.getByTestId("summary-sentence")).toHaveText(summary.verdict.sentence);
+  await expect(page.getByTestId("summary-current")).toContainText(
+    `$${Number(summary.current.cost_per_successful_task_usd).toFixed(5)}`,
+  );
+  await expect(page.getByTestId("summary-recommended")).toContainText(
+    `$${Number(summary.recommended.cost_per_successful_task_usd).toFixed(5)}`,
+  );
+  await expect(page.getByTestId("summary-saving")).toContainText(
+    `${(summary.saving.fraction * 100).toFixed(1)}%`,
+  );
+  await expect(page.getByTestId("summary-quality")).toContainText(
+    `${summary.quality.delta_points.toFixed(1)} pt`,
+  );
+  await expect(page.getByTestId("summary-allowed")).toContainText(
+    `${summary.quality.allowed_points.toFixed(0)} pt`,
+  );
+  await expect(page.getByTestId("summary-verdict")).toContainText(summary.verdict.display);
+});
+
+test("the recommendation block is above the graph, and marks simulated figures", async ({
+  page,
+}) => {
+  await openOptimize(page);
+  const summaryBox = await page.getByTestId("summary-block").boundingBox();
+  const headlineBox = await page.getByTestId("headline-row").boundingBox();
+  expect(summaryBox!.y).toBeLessThan(headlineBox!.y);
+  // UPGRADE_V4.md section 3.3: the simulated label goes everywhere, the new block included.
+  if (report.provenance.is_test_data) {
+    await expect(page.getByTestId("summary-current")).toContainText(report.summary.provenance_mark);
+  }
+});
+
+test("the evidence grade is one word, and one click shows the whole chain", async ({ page }) => {
+  await openOptimize(page);
+  await expect(page.getByTestId("evidence-grade")).toHaveText(report.evidence.grade);
+  await expect(page.getByTestId("evidence-headline")).toHaveText(report.evidence.headline);
+
+  await expect(page.getByTestId("evidence-chain")).toHaveCount(0);
+  await page.getByTestId("evidence-toggle").click();
+  const rows = page.getByTestId("evidence-link");
+  await expect(rows).toHaveCount(report.evidence.inputs.length);
+
+  // Every link names its reading and where that reading came from. A chain that terminates in
+  // an adjective is the thing the grade exists to replace.
+  for (const link of report.evidence.inputs) {
+    const row = rows.filter({ hasText: link.name }).first();
+    await expect(row).toContainText(link.value);
+    await expect(row).toContainText(link.source);
+  }
+});
+
+test("deploy exports artifacts and never claims to carry traffic", async ({ page }) => {
+  await openOptimize(page);
+  await expect(page.getByTestId("deploy-button")).toBeEnabled();
+  await page.getByTestId("deploy-button").click();
+
+  const artifacts = page.getByTestId("deploy-artifacts");
+  await expect(artifacts).toBeVisible();
+  const exported = await (await page.request.get("/api/export")).json();
+  for (const artifact of exported.artifacts) {
+    await expect(artifacts).toContainText(artifact.filename);
+  }
+  // A result no recording backs says so on the artifacts themselves, not only in the prose.
+  if (report.evidence.grade !== "recording") {
+    await expect(page.getByTestId("deploy-caveat")).toBeVisible();
+  }
+});

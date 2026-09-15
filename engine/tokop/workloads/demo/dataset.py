@@ -15,27 +15,14 @@ from pathlib import Path
 from typing import Any
 
 from tokop.paths import data_dir, docs_dir
-from tokop.workloads.demo.generator import DemoItem, generate, split_items
+from tokop.workloads.bundle import Bundle
+from tokop.workloads.demo.generator import generate, split_items
 from tokop.workloads.demo.handbook import handbook_size_report, render_handbook
 from tokop.workloads.demo.policy import Policy, load_policy
+from tokop.workloads.item import Item
 
 DATASET_FILE = "dataset.jsonl"
 HANDBOOK_FILE = "handbook.md"
-
-
-@dataclass(frozen=True)
-class DatasetBundle:
-    """The generated dataset and everything derived from it."""
-
-    items: tuple[DemoItem, ...]
-    handbook: str
-    calibration: tuple[DemoItem, ...]
-    test: tuple[DemoItem, ...]
-    seed: int
-
-    @property
-    def by_id(self) -> dict[str, DemoItem]:
-        return {item.id: item for item in self.items}
 
 
 def build(
@@ -44,13 +31,13 @@ def build(
     size: int = 300,
     calibration_size: int = 100,
     seed: int = 20260911,
-) -> DatasetBundle:
+) -> Bundle:
     resolved = policy or load_policy()
     items = generate(resolved, size=size, seed=seed)
     split = split_items(items, calibration_size=calibration_size, seed=seed)
-    return DatasetBundle(
+    return Bundle(
         items=tuple(items),
-        handbook=render_handbook(resolved),
+        grounding=render_handbook(resolved),
         calibration=split.calibration,
         test=split.test,
         seed=seed,
@@ -65,7 +52,7 @@ def handbook_path() -> Path:
     return data_dir() / "demo" / HANDBOOK_FILE
 
 
-def write(bundle: DatasetBundle) -> tuple[Path, Path]:
+def write(bundle: Bundle) -> tuple[Path, Path]:
     """Write the dataset and the rendered handbook to data/demo/."""
     split_of = {i.id: "calibration" for i in bundle.calibration}
     split_of.update({i.id: "test" for i in bundle.test})
@@ -80,7 +67,7 @@ def write(bundle: DatasetBundle) -> tuple[Path, Path]:
     path.write_text("\n".join(lines) + "\n")
 
     hb = handbook_path()
-    hb.write_text(bundle.handbook)
+    hb.write_text(bundle.grounding)
     return path, hb
 
 
@@ -174,7 +161,7 @@ def verify(policy: Policy | None = None) -> CheckResult:
     checks.append(
         (
             "handbook matches the policy",
-            stored_handbook.exists() and stored_handbook.read_text() == bundle.handbook,
+            stored_handbook.exists() and stored_handbook.read_text() == bundle.grounding,
             "rendered handbook is byte-identical to the committed one",
         )
     )
@@ -188,7 +175,7 @@ def verify(policy: Policy | None = None) -> CheckResult:
         entry = registry.role(role)
         minimums[entry.model_id] = entry.min_cacheable_tokens or 0
         ratios[entry.model_id] = 1.3 if entry.tokenizer_generation == "newer" else 1.0
-    report = handbook_size_report(bundle.handbook, minimums, ratios)
+    report = handbook_size_report(bundle.grounding, minimums, ratios)
     checks.append(
         (
             "cached prefix clears every minimum by 20%",
@@ -224,19 +211,19 @@ def verify(policy: Policy | None = None) -> CheckResult:
 SAMPLES_PER_TYPE = 10
 
 
-def write_dataset_doc(bundle: DatasetBundle | None = None) -> Path:
+def write_dataset_doc(bundle: Bundle | None = None) -> Path:
     """docs/DATASET.md: ten sample items per question type, so the set can be audited
     before any money is spent (SPEC.md section 6)."""
     from tokop.core.tokenize import base_counter_name, get_base_counter
     from tokop.workloads.demo.handbook import section_text
 
     resolved = bundle or build()
-    by_type: dict[str, list[DemoItem]] = {}
+    by_type: dict[str, list[Item]] = {}
     for item in sorted(resolved.items, key=lambda i: i.id):
         by_type.setdefault(item.question_type, []).append(item)
 
     counter = get_base_counter()
-    base_tokens = counter.count(resolved.handbook)
+    base_tokens = counter.count(resolved.grounding)
 
     lines = [
         "# The demo dataset",
@@ -253,7 +240,7 @@ def write_dataset_doc(bundle: DatasetBundle | None = None) -> Path:
         "",
         f"- {len(resolved.items)} questions, {len(resolved.calibration)} calibration and "
         f"{len(resolved.test)} test, stratified by question type with seed {resolved.seed}.",
-        f"- Handbook: {len(resolved.handbook):,} characters, {base_tokens:,} tokens on "
+        f"- Handbook: {len(resolved.grounding):,} characters, {base_tokens:,} tokens on "
         f"`{base_counter_name()}`.",
         "- The router never sees the question type or the supporting section IDs. They are"
         " recorded for analysis after the fact only.",
@@ -274,7 +261,7 @@ def write_dataset_doc(bundle: DatasetBundle | None = None) -> Path:
             "| --- | --- | --- |",
         ]
         for item in by_type[question_type][:SAMPLES_PER_TYPE]:
-            body = section_text(resolved.handbook, item.sections[0])
+            body = section_text(resolved.grounding, item.sections[0])
             quote = " ".join(body.split())[:150]
             question = item.question.replace("|", "\\|").replace("\n", " ")
             lines.append(f"| {question} | `{item.gold}` | {quote}… |")

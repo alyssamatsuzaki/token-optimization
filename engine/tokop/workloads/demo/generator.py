@@ -29,8 +29,11 @@ from typing import Any, Literal
 
 from tokop.workloads.demo.policy import Policy
 
+# `AnswerType` moved to the grader in M15: the list of answer kinds is the list of checkers
+# `grading.py` implements, so it belongs beside them rather than in one workload's generator.
+from tokop.workloads.grading import AnswerType
+
 QuestionType = Literal["lookup", "two_hop", "computation", "exception"]
-AnswerType = Literal["number", "money", "yes_no", "enum", "string"]
 
 #: Target mix (SPEC.md section 6). 300 items -> 135 / 75 / 60 / 30.
 TYPE_MIX: dict[QuestionType, float] = {

@@ -29,6 +29,7 @@ from tokop.core.stats import (
     DEFAULT_SEED,
     Interval,
     McNemarResult,
+    PowerEstimate,
     StatsError,
     Verdict,
     cost_per_successful_task,
@@ -317,6 +318,17 @@ class Proof:
                 "discordant": self.mcnemar.discordant,
                 "p_value": self.mcnemar.p_value,
             },
+            # The whole split a conclusive verdict needs, not just the shortfall the verdict
+            # line quotes. An inconclusive result that does not say what would settle it leaves
+            # the reader to guess whether the answer is fifty more tasks or fifty thousand
+            # (UPGRADE_V4.md M13). The same number `tokop power` prints before a recording.
+            "power": PowerEstimate.from_counts(
+                baseline_only=self.mcnemar.baseline_only,
+                candidate_only=self.mcnemar.candidate_only,
+                n=self.candidate.n,
+                margin=self.margin,
+                source=f"{self.baseline.pipeline_id} against {self.candidate.pipeline_id}",
+            ).as_dict(),
             "proof_cost": self.proof_cost.as_dict(),
             "repayment_tasks": self.repayment_tasks(),
             "savings_per_task_usd": str(self.savings_per_task),

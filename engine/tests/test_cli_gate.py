@@ -12,6 +12,7 @@ fixtures, in replay mode.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 
 import pytest
@@ -19,6 +20,15 @@ import pytest
 from tokop.paths import repo_root
 
 TOKOP = repo_root() / "engine" / ".venv" / "bin" / "tokop"
+
+#: Rich writes colour into tracebacks, and where it breaks a highlighted path depends on the
+#: terminal width and the length of the absolute path. Strip the escapes before looking for a
+#: substring, or the test measures the runner's console rather than the CLI's behaviour.
+ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
+def plain(text: str) -> str:
+    return ANSI.sub("", text)
 
 
 def prove(*args: str) -> subprocess.CompletedProcess[str]:
@@ -59,12 +69,34 @@ class TestProveGate:
         assert "3-point margin" in strict.stdout
         assert "10-point margin" in loose.stdout
 
-    def test_an_unsupported_workload_is_refused_rather_than_answered(self) -> None:
-        """DECISIONS.md D24: reporting the demo's numbers under another workload's name would
-        be the worst possible violation of non-negotiable 1, so it exits 2 instead."""
+    def test_a_workload_that_does_not_exist_is_refused(self) -> None:
+        """Until M15 this refused *every* workload but the demo by name. What it must still
+        refuse is one that is not there — silently falling back to the demo's fixtures would be
+        the worst available violation of non-negotiable 1.
+
+        The output is stripped of ANSI escapes before the path is looked for. Rich colours a
+        traceback's path, and where it breaks the highlight depends on the terminal width and
+        on how long the absolute path is — so on a CI runner the escape codes land between the
+        directory and the filename and a plain substring search fails on formatting rather than
+        on behaviour.
+        """
         result = prove("--workload", "data/mine/workload.yaml")
-        assert result.returncode == 2, result.stdout + result.stderr
-        assert "not supported" in result.stderr
+        assert result.returncode != 0, result.stdout + result.stderr
+        assert "data/mine/workload.yaml" in plain(result.stdout + result.stderr)
+
+    def test_a_second_workload_is_answered_with_its_own_numbers(self) -> None:
+        """The same guarantee, now that a second workload runs (UPGRADE_V4.md M15).
+
+        The danger was never the refusal; it was reporting one workload's numbers under
+        another's name. So this asserts the two disagree: a different split size, a different
+        title, and a different verdict sentence from the demo's.
+        """
+        second = prove("--workload", "data/incident-triage/workload.yaml")
+        demo = prove()
+        assert "Incident triage from a runbook" in second.stdout
+        assert "n = 99" in second.stdout, second.stdout
+        assert "n = 200" in demo.stdout
+        assert "Returns-policy" not in second.stdout
 
     def test_simulated_data_is_announced_on_stderr(self) -> None:
         """Non-negotiable 2. A CI log that did not say this would let simulated numbers pass
@@ -218,3 +250,72 @@ class TestTheCanaryGate:
         assert result.returncode == 0, result.stdout + result.stderr
         assert "CERTIFIABLE: no" in result.stdout
         assert "no real recorded traffic" in result.stdout
+
+
+class TestRecordRefusesBeforeItSpends:
+    """The gates in front of a charge, exercised through the real CLI (UPGRADE_V4.md M13).
+
+    No network call is made and none could be: every assertion here is about a refusal that
+    happens before any adapter is built. The key in the environment is a string, not a
+    credential — it exists only to get past the consent gate so the gate behind it can be seen.
+    """
+
+    def record(self, *args: str, **env_overrides: str) -> subprocess.CompletedProcess[str]:
+        if not TOKOP.exists():
+            pytest.skip("the tokop CLI is not installed; run make setup")
+        env = {**os.environ, "TOKOP_MODE": "live", **env_overrides}
+        return subprocess.run(
+            [str(TOKOP), "record", *args],
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=repo_root(),
+            timeout=600,
+        )
+
+    def test_replay_mode_refuses(self) -> None:
+        result = self.record(TOKOP_MODE="replay")
+        assert result.returncode == 2
+        assert "only runs with TOKOP_MODE=live" in result.stderr
+
+    def test_no_key_refuses(self) -> None:
+        env = dict(os.environ)
+        env.pop("ANTHROPIC_API_KEY", None)
+        result = subprocess.run(
+            [str(TOKOP), "record"],
+            capture_output=True,
+            text=True,
+            env=dict(env, TOKOP_MODE="live", RECORD_BUDGET_USD="25"),
+            cwd=repo_root(),
+            timeout=600,
+        )
+        assert result.returncode == 2
+        assert "ANTHROPIC_API_KEY is not set" in result.stderr
+
+    def test_a_key_without_a_budget_refuses(self) -> None:
+        """Setting RECORD_BUDGET_USD *is* the consent to spend. Its absence is a refusal."""
+        env = dict(os.environ)
+        env.pop("RECORD_BUDGET_USD", None)
+        result = subprocess.run(
+            [str(TOKOP), "record"],
+            capture_output=True,
+            text=True,
+            env=dict(env, TOKOP_MODE="live", ANTHROPIC_API_KEY="not-a-real-key"),
+            cwd=repo_root(),
+            timeout=600,
+        )
+        assert result.returncode == 2
+        assert "RECORD_BUDGET_USD is not set" in result.stderr
+
+    def test_an_underpowered_split_refuses_before_any_adapter_is_built(self) -> None:
+        """The gate that matters most: it fires after consent and before anything is priced.
+
+        The demo's test split is 200 tasks and needs 204 at its observed discordance, so this
+        is the real refusal rather than a contrived one. Recording it would spend the whole
+        budget to reproduce the "inconclusive" the repository already has.
+        """
+        result = self.record(ANTHROPIC_API_KEY="not-a-real-key", RECORD_BUDGET_USD="25")
+        assert result.returncode == 2, result.stdout + result.stderr
+        assert "204" in result.stdout + result.stderr
+        assert "--underpowered" in result.stderr
+        assert "inconclusive" in result.stderr

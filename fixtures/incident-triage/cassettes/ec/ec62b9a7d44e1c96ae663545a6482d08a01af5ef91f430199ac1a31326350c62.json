@@ -1,0 +1,95 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "ec62b9a7d44e1c96ae663545a6482d08a01af5ef91f430199ac1a31326350c62",
+  "latency_ms": 1220.07,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "- A critical alert is severity 1: page immediately, no batching.\n\nFinal answer: yes",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_ec62b9a7d44e1c96",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 894,
+      "input_tokens": 74,
+      "output_tokens": 31
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 894,
+    "input_tokens": 74,
+    "output_tokens": 31
+  },
+  "recorded_at": "2026-09-15T09:23:04.249199+00:00",
+  "request": {
+    "max_tokens": 2000,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "ALERT oom_kills=5 host=web-21. Does this page outside working hours? Answer yes or no."
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "6a45fc9279b99334cb2caf4bb58552f8dcbca806bca854ccb6e06fd6eb60acf7"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Work through the alert, find the governing entry in the runbook, apply any overrides,\nand explain what you concluded and why."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "- A critical alert is severity 1: page immediately, no batching.\n\nFinal answer: yes",
+  "stop_reason": "end_turn",
+  "ttft_ms": 879.07,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 894,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 74,
+    "output_reasoning": 0,
+    "output_visible": 31,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 894,
+      "input_tokens": 74,
+      "output_tokens": 31
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

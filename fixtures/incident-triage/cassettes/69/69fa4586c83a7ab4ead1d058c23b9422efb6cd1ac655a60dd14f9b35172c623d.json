@@ -1,0 +1,95 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "69fa4586c83a7ab4ead1d058c23b9422efb6cd1ac655a60dd14f9b35172c623d",
+  "latency_ms": 1661.87,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"E27\", \"evidence\": \"- `replica_lag_s` (replica lag) has escalation code E27, is owned by the data team, does not page outside working hours, and must be acknowledged within 60 minutes.\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_69fa4586c83a7ab4",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 868,
+      "input_tokens": 164,
+      "output_tokens": 82
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 868,
+    "input_tokens": 164,
+    "output_tokens": 82
+  },
+  "recorded_at": "2026-09-15T09:23:02.692156+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "ALERT replica_lag_s=30 host=web-16. Which escalation code does the runbook give this signature?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "367406c3d5ba879997e1398eccc539ceac2f6b1bad2bdf8b3cbc2b268572af64"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Find the runbook entry that governs the alert. Apply any override that applies: an\nalert folded into an open incident does not page, and during a change freeze every\nplatform-owned signature pages.\n\nReply with JSON only: {\"answer\": \"<the answer>\", \"evidence\": \"<the runbook line>\"}.\nFor a yes/no question the answer is exactly \"yes\" or \"no\"."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"E27\", \"evidence\": \"- `replica_lag_s` (replica lag) has escalation code E27, is owned by the data team, does not page outside working hours, and must be acknowledged within 60 minutes.\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 759.87,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 868,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 164,
+    "output_reasoning": 0,
+    "output_visible": 82,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 868,
+      "input_tokens": 164,
+      "output_tokens": 82
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

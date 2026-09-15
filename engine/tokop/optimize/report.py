@@ -49,6 +49,7 @@ from tokop.optimize.entailment import (
     measure_correlation,
     parse_entailment,
 )
+from tokop.optimize.evidence import assess
 from tokop.optimize.findings import (
     CallRow,
     RunStats,
@@ -57,6 +58,7 @@ from tokop.optimize.findings import (
     rank,
     workload_findings,
 )
+from tokop.optimize.graph import compile_graph
 from tokop.optimize.lint import Finding, LintContext, clear_score, lint
 from tokop.optimize.proof import (
     ArmResult,
@@ -88,10 +90,9 @@ from tokop.optimize.scorers import (
 from tokop.optimize.ties import Candidate, find_ties
 from tokop.paths import fixtures_dir, repo_root
 from tokop.recording_state import describe as describe_recording
-from tokop.workloads.demo.dataset import DatasetBundle
-from tokop.workloads.demo.dataset import build as build_dataset
-from tokop.workloads.demo.generator import DemoItem
+from tokop.workloads.bundle import Bundle, load_bundle
 from tokop.workloads.grading import answers_equivalent, grade
+from tokop.workloads.item import Item
 from tokop.workloads.runner import Runner
 from tokop.workloads.spec import CascadeSpec, WorkloadSpec, demo_timestamp, load_workload
 
@@ -167,7 +168,24 @@ def _p50(values: Sequence[float]) -> float | None:
     return float(statistics.median(usable))
 
 
-def _fixture_root() -> Path:
+#: The workload every entry point reports on unless told otherwise. Named once rather than
+#: spelled out at six call sites, because six spellings is how five of them stay the demo's.
+DEFAULT_WORKLOAD = "data/demo/workload.yaml"
+
+
+def load_reported_workload(workload_path: str | None = None) -> WorkloadSpec:
+    return load_workload(repo_root() / (workload_path or DEFAULT_WORKLOAD))
+
+
+def _fixture_root(workload: WorkloadSpec | None = None) -> Path:
+    """Where this workload's recording lives.
+
+    A workload that names its own fixture directory gets it. The demo names none, and falls
+    through to the recording state, which chooses between `fixtures/demo/` — a real recording —
+    and `fixtures/test/`, the simulated set this build actually ships (UPGRADE_V4.md M15).
+    """
+    if workload is not None and workload.fixtures:
+        return fixtures_dir() / workload.fixtures
     state = describe_recording()
     return fixtures_dir() / state.fixture_source
 
@@ -188,7 +206,7 @@ def _load_manifest(root: Path) -> dict[str, Any]:
 def replay_run(
     workload: WorkloadSpec,
     registry: Registry,
-    bundle: DatasetBundle,
+    bundle: Bundle,
     snapshot: PriceSnapshot,
     store: CassetteStore,
     pipeline_id: str,
@@ -214,7 +232,7 @@ def replay_run(
         snapshot,
         ReplayAdapter(store, name="simulated"),
         provider="simulated",
-        handbook=bundle.handbook,
+        grounding=bundle.grounding,
         origin=origin,
     )
     result = asyncio.run(
@@ -338,7 +356,7 @@ class ReplayEntailment:
         workload: WorkloadSpec,
         registry: Registry,
         store: CassetteStore,
-        handbook: str,
+        grounding: str,
         provider: str = "simulated",
     ) -> None:
         spec = workload.entailment
@@ -350,7 +368,7 @@ class ReplayEntailment:
         self.spec = spec
         self.model_id = registry.roles[spec.model_role]
         self.store = store
-        self.handbook = handbook
+        self.grounding = grounding
         self.provider = provider
         self.calls = 0
         self._cache: dict[tuple[str, str, str], bool] = {}
@@ -366,7 +384,7 @@ class ReplayEntailment:
                 "question": question,
                 "answer_a": premise,
                 "answer_b": hypothesis,
-                "handbook": self.handbook,
+                "grounding": self.grounding,
                 "timestamp": demo_timestamp(),
             },
         )
@@ -404,8 +422,8 @@ def entailment_price(manifest: dict[str, Any]) -> Decimal:
 
 def _views(
     run: ReplayedRun,
-    items: Sequence[DemoItem],
-    handbook: str,
+    items: Sequence[Item],
+    grounding: str,
     samples: int = 1,
     keep: set[str] | None = None,
 ) -> list[TaskView]:
@@ -438,7 +456,7 @@ def _views(
                 task_id=task_id,
                 question=item.question,
                 output=outputs_by_task[task_id],
-                context=handbook,
+                context=grounding,
                 tier=run.tier,
                 output_tokens=tokens_by_task.get(task_id, 0),
                 samples=tuple(drawn[:samples]),
@@ -656,7 +674,7 @@ def _horvitz_thompson(values: Sequence[float], rates: Sequence[float], n: int) -
 
 
 def canary_observation(
-    payload: ReportPayload, *, fraction: float, seed: int
+    payload: ReportPayload, *, fraction: float, seed: int, workload_path: str | None = None
 ) -> tuple[int, float, float]:
     """Re-score a stratified subset of the current report: (size, delta, standard error).
 
@@ -669,12 +687,8 @@ def canary_observation(
     per_task = payload["proof"]["per_task"]
     task_ids = list(per_task["task_ids"])
     by_type = {b["question_type"]: b for b in payload["proof"]["by_type"]}
-    workload = load_workload(repo_root() / "data/demo/workload.yaml")
-    bundle = build_dataset(
-        size=workload.dataset.size,
-        calibration_size=workload.dataset.calibration_size,
-        seed=workload.dataset.seed,
-    )
+    workload = load_reported_workload(workload_path)
+    bundle = load_bundle(workload)
     types = {item.id: item.question_type for item in bundle.test}
     strata = [types.get(task_id, "unknown") for task_id in task_ids]
     if not by_type:  # pragma: no cover - defensive; the demo always has types
@@ -706,7 +720,23 @@ def current_identity(payload: ReportPayload) -> dict[str, Any]:
     }
 
 
-def dataset_provenance_block(workload: WorkloadSpec, bundle: DatasetBundle) -> dict[str, Any]:
+def _template_space(workload: WorkloadSpec) -> list[str]:
+    """Every template the workload's generator can produce, or none when nothing generated it.
+
+    Coverage is a statement about a generator's space, so only a generator can supply it. The
+    demo's is imported here and nowhere else — lazily, inside the branch that needs it, which is
+    what lets a workload that was not generated run without importing the demo at all
+    (UPGRADE_V4.md M15). A set that nothing templated gets an empty space, and
+    `workloads/provenance.py` reports coverage as not measurable rather than as zero.
+    """
+    if workload.dataset.generator == "demo":
+        from tokop.workloads.demo.generator import all_templates
+
+        return [template.id for template in all_templates()]
+    return []
+
+
+def dataset_provenance_block(workload: WorkloadSpec, bundle: Bundle) -> dict[str, Any]:
     """Where the task set came from, and whether it can back a certificate (UPGRADE_V3.md U8).
 
     The declared origins come from the workload; the shape — template coverage, how much of the
@@ -714,7 +744,6 @@ def dataset_provenance_block(workload: WorkloadSpec, bundle: DatasetBundle) -> d
     workload that declares nothing gets a block saying so and is refused, because "we did not
     say" and "it is fine" have to look different.
     """
-    from tokop.workloads.demo.generator import all_templates
     from tokop.workloads.provenance import DeclaredProvenance, build_provenance
 
     declared_spec = workload.dataset_provenance
@@ -739,7 +768,7 @@ def dataset_provenance_block(workload: WorkloadSpec, bundle: DatasetBundle) -> d
     )
     provenance = build_provenance(
         [item.template_id for item in bundle.items],
-        [template.id for template in all_templates()],
+        _template_space(workload),
         declared,
     )
     return {**provenance.as_dict(), "declared": declared_spec is not None}
@@ -1011,6 +1040,7 @@ def _judged_caveats(workload: WorkloadSpec, annotations: Any, origin: str) -> li
 
 def build_report(
     *,
+    workload_path: str | None = None,
     protect_scarce: bool = False,
     seed: int = DEFAULT_SEED,
     resamples: int = 5000,
@@ -1020,13 +1050,9 @@ def build_report(
 ) -> ReportPayload:
     """Recompute every headline metric from the committed fixtures."""
     registry = load_registry()
-    workload = load_workload(repo_root() / "data/demo/workload.yaml")
-    bundle = build_dataset(
-        size=workload.dataset.size,
-        calibration_size=workload.dataset.calibration_size,
-        seed=workload.dataset.seed,
-    )
-    root = _fixture_root()
+    workload = load_reported_workload(workload_path)
+    bundle = load_bundle(workload)
+    root = _fixture_root(workload)
     manifest = _load_manifest(root)
     store = CassetteStore(root / "cassettes")
     origin = str(manifest.get("origin", "simulated"))
@@ -1106,7 +1132,7 @@ def build_report(
     # The entailment judge, read back from the calls that made it. Built once: it caches, and
     # the same pair recurs across tiers and across configurations.
     entails = (
-        ReplayEntailment(workload, registry, store, bundle.handbook)
+        ReplayEntailment(workload, registry, store, bundle.grounding)
         if workload.entailment is not None
         else None
     )
@@ -1114,7 +1140,7 @@ def build_report(
 
     pseudo = None if calibration_mode == GOLD else build_labels(calibration_mode)
 
-    def kept_and_items(labels: PseudoLabels | None) -> tuple[set[str] | None, list[DemoItem]]:
+    def kept_and_items(labels: PseudoLabels | None) -> tuple[set[str] | None, list[Item]]:
         keep = None if labels is None else set(labels.kept)
         items = [item for item in bundle.calibration if keep is None or item.id in keep]
         if labels is not None and not items:
@@ -1164,7 +1190,7 @@ def build_report(
         aurocs: dict[str, float | None] = {}
         for tier in tiers:
             cal = need(base_pipeline, "calibration", tier)
-            views = _views(cal, items, bundle.handbook, config.k, keep=keep)
+            views = _views(cal, items, bundle.grounding, config.k, keep=keep)
             context = ScorerContext(
                 feature_names=tuple(workload.scorer_features),
                 equivalence=answers_equivalent,
@@ -1188,7 +1214,7 @@ def build_report(
             # the scorer predicts the consensus — which it was trained to do.
             scorer.auroc = evaluate_auroc(
                 scorer,
-                _views(test, list(bundle.test), bundle.handbook, config.k),
+                _views(test, list(bundle.test), bundle.grounding, config.k),
                 list(test.correct),
             )
             aurocs[tier] = scorer.auroc
@@ -1198,7 +1224,7 @@ def build_report(
 
     def tier_runs(
         split_name: str,
-        items: Sequence[DemoItem],
+        items: Sequence[Item],
         scorer_bundle: ScorerBundle,
         config: CascadeConfig,
         labels: PseudoLabels | None = None,
@@ -1217,7 +1243,7 @@ def build_report(
         keep = (None if source is None else set(source.kept)) if calibrating else None
         for tier in tiers:
             run = need(base_pipeline, split_name, tier)
-            views = _views(run, items, bundle.handbook, config.k, keep=keep)
+            views = _views(run, items, bundle.grounding, config.k, keep=keep)
             scores = scorer_bundle.score(tier, views)
             scorer = scorer_bundle.scorers[tier]
             index_of = {task_id: i for i, task_id in enumerate(run.task_ids)}
@@ -1608,7 +1634,7 @@ def build_report(
             for tier in tiers:
                 run = need(base_pipeline, "test", tier)
                 sizes = candidate.scorers.scorers[tier].cluster_sizes(
-                    _views(run, list(bundle.test), bundle.handbook, candidate.config.k)
+                    _views(run, list(bundle.test), bundle.grounding, candidate.config.k)
                 )
                 if sizes is None:
                     continue
@@ -1685,7 +1711,7 @@ def build_report(
         tool_use_system_prompt_tokens=frontier_model.tool_use_system_prompt_tokens or 0,
     )
     variables = {
-        "handbook": bundle.handbook,
+        "grounding": bundle.grounding,
         "question": bundle.test[0].question,
         "timestamp": demo_timestamp(),
     }
@@ -1792,8 +1818,14 @@ def build_report(
                 manifest.get("base_token_counter", report_counter.name) == report_counter.name
             ),
             "git_sha": manifest.get("runs", [{}])[0].get("git_sha", "unknown"),
+            # Whether this recording was made over the power refusal. False on a fixture set
+            # nobody overrode anything to build, which is every set this repository has shipped.
+            "recorded_underpowered": bool(manifest.get("underpowered", False)),
         },
         "proof": proof.as_dict(),
+        # Added last, because it reads the blocks above. See `optimize/evidence.py`.
+        "evidence": {},
+        "summary": {},
         "judged": judged,
         "calibration": calibration_block,
         "contract": contract_block,
@@ -1812,6 +1844,10 @@ def build_report(
         ],
         "cascade": {
             **search.as_dict(),
+            # Which prompt this cascade routes between tiers of. The cascade id names no prompt,
+            # so without this the report describes an operating point nobody can reproduce, and
+            # `tokop export` would have to guess (UPGRADE_V4.md M14.4).
+            "base_pipeline": base_pipeline,
             "tiers": [
                 {
                     "tier": tier,
@@ -1898,6 +1934,10 @@ def build_report(
                 "output_contract": spec.output_contract,
                 "notes": spec.notes,
                 "known_antipatterns": spec.known_antipatterns,
+                # What this pipeline runs as. One `generate` step for a single-call pipeline,
+                # which is every pipeline shipped today — stated rather than implied, so the
+                # screens and the findings read the same shape whether or not it is a graph.
+                "graph": compile_graph(spec).as_dict(),
             }
             for pipeline_id, spec in workload.pipelines.items()
         },
@@ -1934,12 +1974,65 @@ def build_report(
             for key, run in sorted(runs.items())
         ],
     }
-    return ReportPayload(data)
+    payload = ReportPayload(data)
+    data["evidence"] = assess(payload).as_dict()
+    data["summary"] = _summary(payload)
+    return payload
 
 
-@lru_cache(maxsize=2)
+def _summary(payload: ReportPayload) -> dict[str, Any]:
+    """The six numbers a visitor needs in the first thirty seconds (UPGRADE_V4.md M14.3).
+
+    Computed here rather than in the component. Non-negotiable 1 bans metric literals in the UI,
+    and a component that divides one number by another to get a saving has written a metric — it
+    just wrote it in TypeScript. Every field below is a string the screen prints as it stands.
+    """
+    proof = payload["proof"]
+    baseline = proof["baseline"]
+    candidate = proof["candidate"]
+    delta = proof["delta_accuracy"]
+    mark = "~" if payload["provenance"]["is_test_data"] else ""
+    return {
+        "workload": payload["workload"]["name"],
+        "current": {
+            "pipeline": baseline["pipeline"],
+            "label": payload["pipelines"][baseline["pipeline"]]["name"],
+            "cost_per_successful_task_usd": str(baseline["cost_per_successful_task"]["point"]),
+        },
+        "recommended": {
+            "pipeline": candidate["pipeline"],
+            "label": payload["pipelines"]
+            .get(candidate["pipeline"], {})
+            .get("name", candidate["pipeline"]),
+            "cost_per_successful_task_usd": str(candidate["cost_per_successful_task"]["point"]),
+        },
+        "saving": {
+            "fraction": proof["cost_reduction"],
+            "interval": proof["cost_ratio"],
+            "per_task_usd": proof["savings_per_task_usd"],
+            "repayment_tasks": proof["repayment_tasks"],
+            "proof_cost_usd": proof["proof_cost"]["total_usd"],
+        },
+        "quality": {
+            "delta_points": delta["point"] * 100,
+            "low_points": delta["low"] * 100,
+            "high_points": delta["high"] * 100,
+            "allowed_points": proof["verdict"]["margin"] * 100,
+            "n": candidate["n"],
+        },
+        "verdict": {
+            "label": proof["verdict"]["label"],
+            "display": proof["verdict"]["display"],
+            "sentence": proof["verdict"]["sentence"],
+        },
+        "provenance_mark": mark,
+        "is_test_data": payload["provenance"]["is_test_data"],
+    }
+
+
+@lru_cache(maxsize=4)
 def fitted_cascade(
-    protect_scarce: bool = False,
+    protect_scarce: bool = False, workload_path: str | None = None
 ) -> tuple[ScorerBundle, tuple[float, ...], tuple[str, ...]]:
     """The fitted scorers, the chosen thresholds and the tier order.
 
@@ -1950,15 +2043,11 @@ def fitted_cascade(
     """
     payload = cached_report(protect_scarce)
     registry = load_registry()
-    workload = load_workload(repo_root() / "data/demo/workload.yaml")
-    bundle = build_dataset(
-        size=workload.dataset.size,
-        calibration_size=workload.dataset.calibration_size,
-        seed=workload.dataset.seed,
-    )
+    workload = load_reported_workload(workload_path)
+    bundle = load_bundle(workload)
     cascade_spec = workload.cascade(CANDIDATE_CASCADE)
     tiers = tuple(cascade_spec.tiers)
-    root = _fixture_root()
+    root = _fixture_root(workload)
     manifest = _load_manifest(root)
     store = CassetteStore(root / "cassettes")
     snapshot = registry.snapshot(list(registry.roles.values()), date(2026, 9, 11))
@@ -1977,7 +2066,7 @@ def fitted_cascade(
             tier,
             origin,
         )
-        views = _views(cal, list(bundle.calibration), bundle.handbook)
+        views = _views(cal, list(bundle.calibration), bundle.grounding)
         scorer, _ = fit_scorer(
             cascade_spec.scorer,
             tier,
@@ -1994,7 +2083,9 @@ def fitted_cascade(
     return ScorerBundle(scorers=scorers), thresholds, tiers
 
 
-def arms_for_annotation(protect_scarce: bool = False) -> dict[str, Any]:
+def arms_for_annotation(
+    protect_scarce: bool = False, workload_path: str | None = None
+) -> dict[str, Any]:
     """The two arms' answers on the test split, ready for a judge (UPGRADE_V3.md U1).
 
     The baseline arm is one pipeline, so its answer is whatever it said. The candidate arm is a
@@ -2018,15 +2109,11 @@ def arms_for_annotation(protect_scarce: bool = False) -> dict[str, Any]:
         )
 
     registry = load_registry()
-    workload = load_workload(repo_root() / "data/demo/workload.yaml")
-    bundle = build_dataset(
-        size=workload.dataset.size,
-        calibration_size=workload.dataset.calibration_size,
-        seed=workload.dataset.seed,
-    )
+    workload = load_reported_workload(workload_path)
+    bundle = load_bundle(workload)
     cascade_spec = workload.cascade(CANDIDATE_CASCADE)
     tiers = list(cascade_spec.tiers)
-    root = _fixture_root()
+    root = _fixture_root(workload)
     manifest = _load_manifest(root)
     store = CassetteStore(root / "cassettes")
     snapshot = registry.snapshot(list(registry.roles.values()), date(2026, 9, 11))
@@ -2069,7 +2156,11 @@ def arms_for_annotation(protect_scarce: bool = False) -> dict[str, Any]:
     }
 
 
-def arms_for_contract(baseline_id: str = "B2", candidate_id: str | None = None) -> dict[str, Any]:
+def arms_for_contract(
+    baseline_id: str = "B2",
+    candidate_id: str | None = None,
+    workload_path: str | None = None,
+) -> dict[str, Any]:
     """Two single-call pipelines on the test split, ready for a judge (UPGRADE_V3.md U4).
 
     The pair the checkable-contract lever is about: the same prompt with and without a contract
@@ -2082,12 +2173,8 @@ def arms_for_contract(baseline_id: str = "B2", candidate_id: str | None = None) 
     when there is more than one.
     """
     registry = load_registry()
-    workload = load_workload(repo_root() / "data/demo/workload.yaml")
-    bundle = build_dataset(
-        size=workload.dataset.size,
-        calibration_size=workload.dataset.calibration_size,
-        seed=workload.dataset.seed,
-    )
+    workload = load_reported_workload(workload_path)
+    bundle = load_bundle(workload)
     if candidate_id is None:
         checkable = sorted(p for p, spec in workload.pipelines.items() if spec.checkable)
         if len(checkable) != 1:
@@ -2098,7 +2185,7 @@ def arms_for_contract(baseline_id: str = "B2", candidate_id: str | None = None) 
         candidate_id = checkable[0]
 
     tier = workload.cascade(CANDIDATE_CASCADE).tiers[-1]
-    root = _fixture_root()
+    root = _fixture_root(workload)
     manifest = _load_manifest(root)
     store = CassetteStore(root / "cassettes")
     snapshot = registry.snapshot(list(registry.roles.values()), date(2026, 9, 11))
@@ -2137,32 +2224,28 @@ def arms_for_contract(baseline_id: str = "B2", candidate_id: str | None = None) 
     }
 
 
-def trace_for(task_id: str) -> dict[str, Any]:
+def trace_for(task_id: str, workload_path: str | None = None) -> dict[str, Any]:
     """Every call every pipeline made for one task, for the trace drawer (SPEC.md 5.1).
 
     Replayed from cassettes on demand rather than held in the report: a full trace for 200
     tasks across 8 runs is far more data than any screen needs at once.
     """
     registry = load_registry()
-    workload = load_workload(repo_root() / "data/demo/workload.yaml")
-    bundle = build_dataset(
-        size=workload.dataset.size,
-        calibration_size=workload.dataset.calibration_size,
-        seed=workload.dataset.seed,
-    )
+    workload = load_reported_workload(workload_path)
+    bundle = load_bundle(workload)
     item = next((i for i in bundle.items if i.id == task_id), None)
     if item is None:
         raise ReportError(f"no task {task_id!r} in this workload")
 
-    root = _fixture_root()
+    root = _fixture_root(workload)
     manifest = _load_manifest(root)
     store = CassetteStore(root / "cassettes")
     snapshot = registry.snapshot(list(registry.roles.values()), date(2026, 9, 11))
     in_calibration = any(i.id == task_id for i in bundle.calibration)
     split_name = "calibration" if in_calibration else "test"
-    handbook = bundle.handbook
+    grounding = bundle.grounding
 
-    scorer_bundle, thresholds, tier_order = fitted_cascade(False)
+    scorer_bundle, thresholds, tier_order = fitted_cascade(False, workload_path)
     threshold_by_tier = dict(zip(tier_order, thresholds, strict=True))
 
     calls: list[dict[str, Any]] = []
@@ -2175,7 +2258,7 @@ def trace_for(task_id: str) -> dict[str, Any]:
         request = workload.pipeline(pipeline_id).render(
             "simulated",
             model_id,
-            {"handbook": handbook, "question": item.question, "timestamp": demo_timestamp()},
+            {"grounding": grounding, "question": item.question, "timestamp": demo_timestamp()},
         )
         cassette = store.get(request.cassette_key())
         if cassette is None:
@@ -2186,7 +2269,7 @@ def trace_for(task_id: str) -> dict[str, Any]:
             task_id=task_id,
             question=item.question,
             output=cassette.response_text,
-            context=handbook,
+            context=grounding,
             tier=tier,
             output_tokens=cassette.usage.total_output,
         )
@@ -2491,11 +2574,17 @@ def _judged_metrics_lines(payload: ReportPayload) -> list[str]:
     return lines
 
 
-def metrics_block(payload: ReportPayload) -> str:
-    """The README's metrics block, generated from the report.
+def readme_block(payload: ReportPayload) -> str:
+    """The README's metrics block: one headline result, and what it rests on in one line.
 
     SPEC.md non-negotiable 1: no metric literals in docs. Everything between the markers is
     written by this function and checked by ``tokop report --check``.
+
+    Everything a reader needs *before* deciding whether to care lives here. Everything they need
+    to check the claim afterwards lives in :func:`method_block`, which writes `docs/METHOD.md`.
+    That is the whole of UPGRADE_V4.md M14: the qualifications are not softened or deleted, they
+    move one click away, and both files are generated by the same code path so neither can drift
+    from the other or from the report.
     """
     proof = payload["proof"]
     provenance = payload["provenance"]
@@ -2559,10 +2648,10 @@ def metrics_block(payload: ReportPayload) -> str:
             else f"unverified for {', '.join(provenance['unverified_models'])}."
         ),
         "",
-        *_scorer_metrics_lines(payload),
-        *_provenance_metrics_lines(payload),
-        *_contract_metrics_lines(payload),
-        *_judged_metrics_lines(payload),
+        f"**Evidence: {payload['evidence']['grade']}.** {payload['evidence']['headline']} "
+        "The whole chain, and every method behind these numbers, is in "
+        "[docs/METHOD.md](docs/METHOD.md).",
+        "",
         f"<sub>{mark} "
         + (
             "simulated: these numbers are real engine output computed over simulated traces, "
@@ -2576,11 +2665,67 @@ def metrics_block(payload: ReportPayload) -> str:
     return "\n".join(lines)
 
 
-def write_readme_metrics(payload: ReportPayload, readme: Path | None = None) -> Path:
-    path = readme or repo_root() / "README.md"
-    block = metrics_block(payload)
+def _evidence_lines(payload: ReportPayload) -> list[str]:
+    """The chain behind the grade, as a table (UPGRADE_V4.md M14.2)."""
+    evidence = payload["evidence"]
+    lines = [
+        f"## Evidence: {evidence['grade']}",
+        "",
+        evidence["headline"],
+        "",
+        "The grade is the lowest rung any link forces — never an average, and never the best "
+        "available reading. Each row below is computed by `optimize/evidence.py` from the same "
+        "report the screens display.",
+        "",
+        "| Link | Where it stands | Reading | What would change it |",
+        "| --- | --- | --- | --- |",
+    ]
+    for link in evidence["inputs"]:
+        lines.append(
+            f"| {link['name']} | {link['standing']} | {link['value']} | "
+            f"{link['what_would_change_it'] or '—'} |"
+        )
+    lines += [
+        "",
+        "Sources, in the same order: "
+        + "; ".join(f"**{link['name']}** — {link['source']}" for link in evidence["inputs"])
+        + ".",
+        "",
+    ]
+    return lines
+
+
+def method_block(payload: ReportPayload) -> str:
+    """`docs/METHOD.md`: how every number on the first screen was arrived at.
+
+    The README used to carry all of this above the fold, which meant a reader met the estimator
+    caveats before the promise. Moving it here changes the order and nothing else — the same
+    tables, generated by the same functions, checked by the same command.
+    """
+    lines = [
+        METRICS_START,
+        "<!-- generated by `tokop report --write-readme`; do not edit by hand -->",
+        "",
+        "# Method",
+        "",
+        "Everything on this page is computed by engine code over the traces in `fixtures/`, and "
+        "regenerated by `tokop report --write-readme`. `tokop report --check` fails the build if "
+        "any figure here stops matching the report. Nothing on this page is typed by hand.",
+        "",
+        *_evidence_lines(payload),
+        *_scorer_metrics_lines(payload),
+        *_provenance_metrics_lines(payload),
+        *_contract_metrics_lines(payload),
+        *_judged_metrics_lines(payload),
+        METRICS_END,
+    ]
+    return "\n".join(lines)
+
+
+def _replace_block(path: Path, block: str, title: str) -> Path:
     if not path.exists():
-        path.write_text(f"# Tokop\n\n{block}\n")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"{title}{block}\n")
         return path
     text = path.read_text()
     if METRICS_START in text and METRICS_END in text:
@@ -2593,17 +2738,36 @@ def write_readme_metrics(payload: ReportPayload, readme: Path | None = None) -> 
     return path
 
 
-def readme_metrics_current(payload: ReportPayload, readme: Path | None = None) -> tuple[bool, str]:
-    path = readme or repo_root() / "README.md"
+def _block_current(path: Path, expected: str, what: str) -> tuple[bool, str]:
     if not path.exists():
         return False, f"{path} does not exist"
     text = path.read_text()
     if METRICS_START not in text or METRICS_END not in text:
-        return False, "the README has no metrics block; run `tokop report --write-readme`"
+        return False, f"{what} has no generated block; run `tokop report --write-readme`"
     start = text.index(METRICS_START)
     end = text.index(METRICS_END) + len(METRICS_END)
-    current = text[start:end]
-    expected = metrics_block(payload)
-    if current.strip() == expected.strip():
-        return True, "the README metrics block is current"
-    return False, "the README metrics block is stale; run `tokop report --write-readme`"
+    if text[start:end].strip() == expected.strip():
+        return True, f"{what} is current"
+    return False, f"{what} is stale; run `tokop report --write-readme`"
+
+
+def method_doc_path() -> Path:
+    return repo_root() / "docs" / "METHOD.md"
+
+
+def write_method_doc(payload: ReportPayload, path: Path | None = None) -> Path:
+    return _replace_block(path or method_doc_path(), method_block(payload), "")
+
+
+def method_doc_current(payload: ReportPayload, path: Path | None = None) -> tuple[bool, str]:
+    return _block_current(path or method_doc_path(), method_block(payload), "docs/METHOD.md")
+
+
+def write_readme_metrics(payload: ReportPayload, readme: Path | None = None) -> Path:
+    path = readme or repo_root() / "README.md"
+    return _replace_block(path, readme_block(payload), "# Tokop\n\n")
+
+
+def readme_metrics_current(payload: ReportPayload, readme: Path | None = None) -> tuple[bool, str]:
+    path = readme or repo_root() / "README.md"
+    return _block_current(path, readme_block(payload), "the README metrics block")

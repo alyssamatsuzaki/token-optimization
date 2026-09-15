@@ -1,0 +1,94 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "43290a1cba62b41eead0d71adb1293eba9eca2e621b5b3c1af6e53d24b8d87b0",
+  "latency_ms": 385.9,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"yes\", \"evidence\": \"not page again, whatever its signature says.\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_43290a1cba62b41e",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 794,
+      "output_tokens": 28
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 794,
+    "output_tokens": 28
+  },
+  "recorded_at": "2026-09-15T09:23:03.125925+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "ALERT oom_kills=5 host=web-21. Does this page outside working hours? Answer yes or no."
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "367406c3d5ba879997e1398eccc539ceac2f6b1bad2bdf8b3cbc2b268572af64"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Find the runbook entry that governs the alert. Apply any override that applies: an\nalert folded into an open incident does not page, and during a change freeze every\nplatform-owned signature pages.\n\nReply with JSON only: {\"answer\": \"<the answer>\", \"evidence\": \"<the runbook line>\"}.\nFor a yes/no question the answer is exactly \"yes\" or \"no\"."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"yes\", \"evidence\": \"not page again, whatever its signature says.\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 287.9,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 794,
+    "output_reasoning": 0,
+    "output_visible": 28,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 794,
+      "output_tokens": 28
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

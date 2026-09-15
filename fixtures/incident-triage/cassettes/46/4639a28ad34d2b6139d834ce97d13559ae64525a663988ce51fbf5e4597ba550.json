@@ -1,0 +1,94 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "4639a28ad34d2b6139d834ce97d13559ae64525a663988ce51fbf5e4597ba550",
+  "latency_ms": 502.51,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"answer\": \"E14\", \"evidence\": \"- `oom_kills` (memory exhaustion) has escalation code E14, is owned by the platform team, pages outside working hours, and must be acknowledged within 15 minutes.\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_4639a28ad34d2b61",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 793,
+      "output_tokens": 61
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 793,
+    "output_tokens": 61
+  },
+  "recorded_at": "2026-09-15T09:23:02.898899+00:00",
+  "request": {
+    "max_tokens": 200,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "ALERT oom_kills=93 host=web-16. Which escalation code does the runbook give this signature?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "367406c3d5ba879997e1398eccc539ceac2f6b1bad2bdf8b3cbc2b268572af64"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Find the runbook entry that governs the alert. Apply any override that applies: an\nalert folded into an open incident does not page, and during a change freeze every\nplatform-owned signature pages.\n\nReply with JSON only: {\"answer\": \"<the answer>\", \"evidence\": \"<the runbook line>\"}.\nFor a yes/no question the answer is exactly \"yes\" or \"no\"."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"answer\": \"E14\", \"evidence\": \"- `oom_kills` (memory exhaustion) has escalation code E14, is owned by the platform team, pages outside working hours, and must be acknowledged within 15 minutes.\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 289.01,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 793,
+    "output_reasoning": 0,
+    "output_visible": 61,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 793,
+      "output_tokens": 61
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

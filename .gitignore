@@ -20,3 +20,9 @@ web/test-results/
 # Secrets
 .env
 fixtures/*/ledger.db
+
+# `tokop export` writes here by default; artifacts are generated, never committed.
+exports/
+
+# TypeScript incremental build caches. Generated, and they churn on every build.
+web/*.tsbuildinfo

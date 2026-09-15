@@ -1,0 +1,106 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "70b3e08add177d73011dacafe01b039e5ef1cfc56f208305b14547d7fee44c73",
+  "latency_ms": 766.02,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_70b3e08add177d73",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "max_tokens",
+    "type": "message",
+    "usage": {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 894
+      },
+      "cache_creation_input_tokens": 894,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 68,
+      "output_tokens": 0
+    }
+  },
+  "raw_usage": {
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 894
+    },
+    "cache_creation_input_tokens": 894,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 68,
+    "output_tokens": 0
+  },
+  "recorded_at": "2026-09-15T09:23:04.030468+00:00",
+  "request": {
+    "max_tokens": 0,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "ALERT webhook_retries=53 host=web-23. Which team owns this signature?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": true,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "6a45fc9279b99334cb2caf4bb58552f8dcbca806bca854ccb6e06fd6eb60acf7"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Work through the alert, find the governing entry in the runbook, apply any overrides,\nand explain what you concluded and why."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "",
+  "stop_reason": "max_tokens",
+  "ttft_ms": 766.02,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 894,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 68,
+    "output_reasoning": 0,
+    "output_visible": 0,
+    "raw": {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 894
+      },
+      "cache_creation_input_tokens": 894,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 68,
+      "output_tokens": 0
+    },
+    "sources": {
+      "cache_write_5m": "provider",
+      "input_uncached": "provider"
+    }
+  }
+}

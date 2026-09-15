@@ -85,7 +85,11 @@ long-run mean — neither can be checked by inspecting one call.
 `o200k_base` cannot be loaded, the fallback says so in the string that reaches the UI rather than
 producing a plausible number silently.
 
-`budget.py` refuses a call that would breach a cap, and never raises one.
+`budget.py` refuses a call that would breach a cap, and never raises one. Since M13 something
+actually calls it: `recorder.GuardSink` prices every call that is about to reach a provider,
+asks the guard, and charges it what the call cost. The hook fires on a cassette *miss* only, so
+a replayed call is neither refused near the cap nor billed to it — which is what lets a
+recording stopped at its cap replay everything it already paid for (DECISIONS.md D42).
 
 ### `adapters/` — the wire, written by hand
 
@@ -109,6 +113,29 @@ referenced by hash. The demo handbook is 18 kB and appears in all ~1,300 request
 the fixture set 34 MB of the same paragraph, and 6.2 MB deduplicated.
 
 ### `workloads/` — running and grading
+
+`graph.py` is a pipeline's shape. A pipeline with no declared steps compiles to a graph of one
+`generate` step carrying the pipeline itself, which is the single-call path expressed as a graph
+of one; a pipeline that declares steps compiles to their topological order, with ties broken by
+declaration order so the same YAML always produces the same order. The compiler is where the
+milestone's safety argument lives: `tests/test_graph.py` renders every shipped pipeline both ways
+and compares cassette keys, so a graph that changed a request by one byte would fail before it
+could change a number.
+
+`ingest.py` reads a JSONL export, a CSV, or OpenTelemetry GenAI spans into that shape. The
+formats differ in one way that matters more than their syntax: an export usually carries an
+answer key, and spans never do. A span records what was asked and what the model *said*, so
+`gold` is left empty and the ingest says what that costs, rather than promoting a completion to
+a label — which would produce a workload where every pipeline scores 100% against itself.
+
+`item.py` and `bundle.py` are what make the engine the engine rather than the demo's engine.
+`Item` is a *protocol*, so the demo's generated task and a task read out of a file both satisfy
+it without inheriting anything, and its fields separate what every workload has (grading), what
+every workload needs something for (a task type), and what only a generated workload has (a
+template id, source sections). `load_bundle` reads a workload's tasks from the dataset file
+committed beside its YAML — the demo included — so a neutral module never reaches for a
+workload-specific one. `tests/test_no_demo_imports.py` is the check, and it runs at import time
+*and* at run time, because half the demo imports are lazy and a source scan would miss them.
 
 `runner.py` renders each task's request, sends it, normalizes the usage, costs it against the
 run's own snapshot, grades it, and writes a row. It is deliberately boring: everything
@@ -238,6 +265,24 @@ whose cost-per-successful-task intervals overlap the cheapest are tied; the repo
 survive is not one — and the exploration weights over a tie are uniform, because greedy selection
 amplifies whichever option won the last sample.
 
+### Two documents, one code path
+
+`report.py` generates the block between `<!-- metrics:start -->` and `<!-- metrics:end -->` in
+**both** `README.md` and `docs/METHOD.md`: `readme_block` is the headline result and the evidence
+grade, `method_block` is every table behind it. `tokop report --check` fails if either has moved.
+The split is UPGRADE_V4.md M14 — the qualifications are one click away rather than in front of
+the promise — and checking both is what stops "one click away" becoming "gone".
+
+`evidence.py` grades that result. Eight links — verdict, split size, discordance, real traffic,
+provider answers, grader agreement, prices, token counter — each with a reading, its source, and
+what would change it. The grade is the **lowest** rung any link forces, so a single blocking link
+makes the whole result `insufficient` no matter how good the rest look.
+
+`export.py` is what Deploy means. SPEC.md section 3 excludes any gateway for other applications'
+traffic, so Tokop hands over artifacts instead of carrying requests: the prompt as a unified diff,
+the operating point as JSON, and the routing rule as Python. All three are generated from the
+report, and each carries the verdict and evidence grade it rests on.
+
 ## Modes
 
 | | replay | live |
@@ -250,6 +295,25 @@ amplifies whichever option won the last sample.
 
 `make demo` and the whole test suite run in replay. Live mode needs both a key and an explicit
 `RECORD_BUDGET_USD` — setting that variable *is* the consent to spend, and Tokop never sets it.
+
+### The four gates in front of a charge
+
+`recorder.py` holds the recording plan as data — `Recorder.plan()` — so one list drives both
+what is projected and what is run, and a projection cannot describe a recording the recorder
+would not make. `tokop record` walks four gates before the first generation request:
+
+1. **Consent.** A key and a budget. `require_live_consent` refuses without both.
+2. **Power.** `core/stats.PowerEstimate` sizes the test split a conclusive McNemar verdict needs
+   from the discordance a previous run observed. Recording a split that cannot conclude spends
+   the whole budget and returns "inconclusive"; `--underpowered` overrides and is recorded.
+3. **The projection.** `Recorder.project()` renders one request per planned step and counts it —
+   through the provider's own counting endpoint where there is one — then prices the plan as a
+   band: the floor charges no output, the ceiling charges `max_tokens` on every call. The cache
+   is modelled as the recorder runs it, the pre-warm writing the static prefix and every later
+   call reading it.
+4. **The pilot.** `Recorder.pilot()` runs a few tasks of every step and `project_from_pilot`
+   re-projects from their measured answer lengths (SPEC.md section 6 step 1). Its calls are
+   cassettes the full run replays, so the pilot is not a separate purchase.
 
 ## The ledger
 
@@ -271,9 +335,9 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
 
 ## Testing
 
-- **709 engine tests**, 91% line coverage on `core/` and `optimize/`
+- **805 engine tests**, 91% line coverage on `core/` and `optimize/`
   (`pytest --cov=tokop/core --cov=tokop/optimize`).
-- **45 Playwright tests** against the production build in replay mode.
+- **49 Playwright tests** against the production build in replay mode.
 - **Exit-code tests for `tokop prove`** run through a subprocess, because an exit code asserted
   in-process is not the thing CI observes. They pin the case that matters: an *inconclusive*
   verdict fails the build.
@@ -297,8 +361,26 @@ interval, and `Button`'s type requires a reason whenever it is disabled.
 - A **meaning-clustering test** over paraphrase pairs each verified to be a case exact match
   actually misses, a **refusal test** for `sep-v1`, and a **tie test** that fails if the report
   ever ranks configurations whose cost intervals overlap.
-- `make verify` runs all twenty-one checks in SPEC.md section 10 plus the UPGRADE_V3.md
-  acceptance checks, in order, and prints `VERIFY PASSED (21 checks)`.
+- A **spend-cap test** that stops a recording partway through a step, bills a replayed call
+  nothing, and shows a run stopped at its cap resuming to pay for exactly the remainder — with
+  the two runs together paying for the step once.
+- A **projection test** that brackets the committed recording: every step's real cost has to
+  land between the floor and the ceiling the projection would have shown before it ran.
+- An **evidence test** that fails if the grade can be talked upwards — the demo's inconclusive
+  verdict has to read `insufficient` rather than the more comfortable `simulated` — and a
+  **routing-rule test** that executes the exported Python and checks it escalates the way the
+  cascade proved.
+- A **no-demo-imports test** that imports every neutral module in a subprocess and fails if
+  `tokop.workloads.demo` appears in `sys.modules`, then loads a workload nobody generated and
+  checks the same thing again.
+- An **ingest test** that fails if an OpenTelemetry completion is ever promoted to a gold
+  answer — the one substitution that would make every number downstream meaningless while
+  looking entirely normal.
+- A **graph guarantee test** that renders every pipeline of both workloads and compares
+  cassette keys, so "single-call workloads keep working unchanged" means the same call rather
+  than a similar one.
+- `make verify` runs all twenty-eight checks in SPEC.md section 10 plus the UPGRADE_V3.md and
+  UPGRADE_V4.md acceptance checks, in order, and prints `VERIFY PASSED (28 checks)`.
 
 ## What is simulated in this build
 

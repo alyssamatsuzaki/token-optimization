@@ -1,0 +1,95 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "44c403a13c78dc9078c3b2d0d51361e340d12338ef75593a134d25f896d8deef",
+  "latency_ms": 1066.86,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "code, the team that owns it, and whether it pages outside working hours.\n\nFinal answer: no",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_44c403a13c78dc90",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 894,
+      "input_tokens": 85,
+      "output_tokens": 31
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 894,
+    "input_tokens": 85,
+    "output_tokens": 31
+  },
+  "recorded_at": "2026-09-15T09:23:04.216512+00:00",
+  "request": {
+    "max_tokens": 2000,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "ALERT disk_usage_pct=96 host=web-20. A change freeze is in effect. Does this page outside working hours? Answer yes or no."
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "6a45fc9279b99334cb2caf4bb58552f8dcbca806bca854ccb6e06fd6eb60acf7"
+        }
+      },
+      {
+        "cache": null,
+        "text": "Work through the alert, find the governing entry in the runbook, apply any overrides,\nand explain what you concluded and why."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "code, the team that owns it, and whether it pages outside working hours.\n\nFinal answer: no",
+  "stop_reason": "end_turn",
+  "ttft_ms": 725.86,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 894,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 85,
+    "output_reasoning": 0,
+    "output_visible": 31,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 894,
+      "input_tokens": 85,
+      "output_tokens": 31
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

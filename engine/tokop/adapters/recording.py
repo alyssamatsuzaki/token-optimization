@@ -29,7 +29,16 @@ class _Inner(Protocol):
 
 
 class SpendSink(Protocol):
-    """Anything that wants to be told about a call that was actually paid for."""
+    """Anything that wants to be told about a call that is actually going to be paid for.
+
+    Both hooks fire only on the path that reaches a provider. A cassette hit costs nothing, so
+    it is neither checked against a cap nor charged to one — which is what lets an interrupted
+    recording replay everything it already paid for even when the budget is spent.
+    """
+
+    def before(self, request: LLMRequest) -> None:
+        """Called before the call is made. Raise to refuse it; nothing has been spent yet."""
+        ...
 
     def note(self, request: LLMRequest, response: LLMResponse) -> Decimal | None: ...
 
@@ -63,6 +72,8 @@ class RecordingAdapter:
                 self.reused_count += 1
                 return cassette.to_response(reused=True)
 
+        if self.on_spend is not None:
+            self.on_spend.before(request)
         response = await self.inner.complete(request)
         self.store.record(request, response, origin=self.origin)
         self.recorded_count += 1

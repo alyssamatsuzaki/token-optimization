@@ -399,7 +399,7 @@ class TestClearScore:
         workload = load_workload(repo_root() / "data/demo/workload.yaml")
         opus = registry.model("claude-opus-5")
         variables = {
-            "handbook": render_handbook(load_policy()),
+            "grounding": render_handbook(load_policy()),
             "question": "How many days?",
             "timestamp": demo_timestamp(),
         }
@@ -430,7 +430,7 @@ class TestClearScore:
             "anthropic",
             opus.model_id,
             {
-                "handbook": render_handbook(load_policy()),
+                "grounding": render_handbook(load_policy()),
                 "question": "How many days?",
                 "timestamp": demo_timestamp(),
             },

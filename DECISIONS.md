@@ -149,13 +149,16 @@ in detail:
 adapter for any provider that is not `simulated`, wraps it in `RecordingAdapter` so an
 interrupted run resumes from its cassettes, and `tests/test_recorder_wiring.py` pins that down
 without making a call. What has never happened is a request. This build had no API credentials
-and no `RECORD_BUDGET_USD`, and Tokop never sets a budget for you. So `tokop record` stops with
-exit 3 and points at `tokop build-test-fixtures` instead: the conservative option is to refuse a
+and no `RECORD_BUDGET_USD`, and Tokop never sets a budget for you. So `tokop record` stopped with
+exit 3 and pointed at `tokop build-test-fixtures` instead: the conservative option is to refuse a
 path that has never once been exercised, rather than to spend someone's money finding out.
 Consequences: `fixtures/demo/` cannot be produced in this build, `recording-state` reports
-`unrecorded` and every screen labels its numbers simulated, and `make record` is a stub that
-explains itself. Removing this decision means setting a key and a budget and running the
-recorder against a small split first.
+`unrecorded` and every screen labels its numbers simulated.
+
+**Superseded in part by D41.** `tokop record` is no longer a stub: it runs its four gates and
+records. What has still never happened is a generation request, because this environment has no
+key — the reason is now the absence of consent rather than a refusal in the code. Everything
+else in this entry stands.
 
 *User workloads.* `optimize/report.py` computes over the demo workload alone: the dataset,
 graders and pipeline definitions are the demo's. `tokop prove --workload` and the
@@ -831,3 +834,282 @@ report refusing to rank configurations the data cannot separate.
 every other rate in `workloads/demo/`. The clustering, the charging, the effective-k measurement
 and the tie logic are real code over recorded calls; what a real entailment model would merge on
 a real workload is not something these fixtures can say.
+
+## D41 — M13a: what the upgrade's critiques got right, and what the code already had
+
+UPGRADE_V4.md section 1 asks for every critique claim to be checked against the repository
+before any of it is acted on, and section 3.6 says the code wins when they disagree. Three
+corrections, logged here so the next reader does not re-derive them:
+
+1. **The Anthropic token-counting endpoint was already written.** `AnthropicAdapter.count_tokens`
+   posts to `/v1/messages/count_tokens` and `tests/test_adapters.py` exercises it. What was
+   missing is a caller: `grep` over the engine found the test and nothing else. M13 wires it into
+   the projection, which is the one place exactness is worth a round trip.
+2. **The workload coupling is worse than "no dataset ingestion" suggests.** `DatasetSpec` names a
+   *generator*, and `runner.py`, `report.py`, `recorder.py` and `annotate.py` import
+   `workloads.demo.*` directly — several of them lazily, from inside functions, where a source
+   scan will not see them. M15 is a refactor with a command on top, and its isolation test has to
+   run at import time rather than read the source.
+3. **The file, MCP and tool-definition caps described in one critique exist nowhere here.** They
+   belong to a different tool. Nothing was added and nothing was defended against.
+
+**Milestone numbering.** The UPGRADE_V3.md plan mapped its last milestone to repo M13 (U9, a
+serving-cost basis for a self-hosted tier). It was never started: nothing in this build has a
+self-hosted tier. UPGRADE_V4.md does not list U9 at all, so M13 is the recording and U9 is
+deferred rather than renumbered. Same reasoning as D28 — the numbering follows what was built.
+
+**Acceptance checks for milestones SPEC.md does not list.** CLAUDE.md closes a milestone when its
+acceptance check in SPEC.md section 11 passes, and section 11 stops at M7. Since M9 the de-facto
+rule has been that each upgrade milestone adds a named check to `scripts/verify.sh`. Written down
+here so it stops being implicit: M13 adds "the cap stops a recording (M13)" and "the projection
+brackets the bill (M13)".
+
+**What `tokop record` does now, superseding D24.** It no longer stops with exit 3. It runs four
+gates and then records: consent (a key and an explicit budget, neither of which Tokop ever sets),
+the power of the test split, a counted projection printed against the cap, and a ten-task pilot
+whose measured output length refines that projection (SPEC.md section 6 step 1). Then it asks.
+The live path still has never made a generation request — this environment has no key — but the
+reason is now the absence of consent rather than a refusal in the code.
+
+**The projection is a band, not a number.** Input is counted, not guessed: the requests are
+rendered and counted, exactly where the provider offers a counting endpoint, with the cache
+modelled as the recorder runs it — the pre-warm writes the static prefix once and every later
+call reads it. Output cannot be counted before the call, so the ceiling prices every call at
+`max_tokens` and the floor prices it at zero. On the committed fixture set every recorded step
+lands inside its own band and the total lands inside the total, which is the acceptance test.
+A single number here would have been a guess wearing a decimal point.
+
+**The prefix share is a ratio on purpose.** An exact count from a Claude 4.7-era model and the
+base counter's count of the same text differ by about 30% (D3, D26). Subtracting one from the
+other books that gap as text that changes every call and prices thousands of cached tokens at the
+full input rate — it put the first projection at $42.72 against a recorded $28.43. The base
+counter now supplies the *share* of the request that is cacheable, which survives the change of
+units, and the exact count supplies the magnitude. The projected prefix then reproduces the
+recording's own cache-write figures to within one token on every step.
+
+**The counting calls are disclosed.** Building the projection makes one call per planned step to
+the provider's counting endpoint — nine on the demo. They return no completion and bill nothing,
+but they are live requests made before the operator confirms, so the projection says how many it
+made rather than letting "before the first call" quietly mean "before the first billed call".
+
+## D42 — `RECORD_BUDGET_USD` was not a cap
+
+Found while wiring M13, and worth its own entry because it is a defect rather than a choice.
+
+`SpendGuard` is written for per-call use: its docstring says "Every adapter call passes through
+here twice", `preflight` says "Called before every adapter call", and the projection is
+deliberately pessimistic so the guard errs towards refusing. **Nothing called it.** A `grep` for
+`preflight(` over the whole engine returned its definition, one call in `Recorder._step` passing
+a projection of `Decimal(0)`, and nothing else. The comment on that line read "caps are checked
+per call by the live adapter"; no adapter has ever done so.
+
+The effect, measured against the demo plan before the fix: a run cap of $0.01 on a 24-task step
+spent $0.0309 across 25 calls and reported the overspend afterwards. At full size B0 on the test
+split would have been a single uninterruptible $9.88 purchase. `RECORD_BUDGET_USD` could be
+observed to have been passed; it could not stop anything.
+
+Two things were wrong and both are fixed:
+
+1. **No per-call check.** `RecordingAdapter` already had an unused `SpendSink` seam that fires
+   only on a cassette miss — the path that reaches a provider. It gains a `before` hook, and
+   `GuardSink` prices each call pessimistically, asks the guard, and charges the guard what the
+   call actually cost. Because the hooks fire on a miss and nowhere else, a replayed call is
+   neither refused near the cap nor billed to it, which is what lets an interrupted recording
+   replay everything it already paid for when the budget is spent.
+2. **A refusal was absorbed as a task failure.** All three of the runner's `asyncio.gather` calls
+   use `return_exceptions=True`, which is right for a provider failure — it counts as an
+   unsuccessful task and stays visible (non-negotiable 8). Applied to a budget refusal it would
+   have spent the whole cap and then recorded every remaining task as unsuccessful, handing the
+   report an accuracy figure that describes a budget. `_stop_on_budget` re-raises that one
+   exception type and leaves every other path exactly as it was.
+
+`tests/test_spend_cap.py` is the reason to believe the cap now holds: it stops a step partway,
+charges per call rather than per step, bills a replayed call nothing, and — the one that matters
+for M13b — shows a recording stopped at its cap resuming and paying for exactly the remainder,
+with the two runs together paying for the step once.
+
+## D43 — M14: the promise first, the qualifications one click in
+
+UPGRADE_V4.md section 2 sets the rule this milestone follows: *everything Tokop currently refuses
+to claim stays refused; what changes is where the refusal lives.* Nothing below softens a result.
+
+1. **The README was reordered, not edited.** Ten sections — the proof method, the gold-free
+   estimate, label-free calibration, the checkability price, certificates, dataset provenance,
+   semantic entropy, ties, the CI gate and the citations — moved verbatim into `docs/METHOD.md`.
+   The README keeps the promise, the flow, one headline result, the screens, a short Limitations
+   list that links down, and the roadmap. A reader used to meet the estimator caveats before
+   learning what the tool does.
+2. **Both documents are generated by one code path.** `metrics_block` split into `readme_block`
+   (the headline table, the verdict, the five bullets, the evidence line) and `method_block`
+   (the scorer comparison, the tie, the provenance detail, the contract table, the judged
+   estimate, and the evidence chain in full). `tokop report --write-readme` writes both;
+   `tokop report --check` fails if either has moved. A qualification that moved out of sight and
+   out of the build would be a deleted one, so the method document is checked exactly as the
+   README is.
+3. **The evidence grade is the lowest rung any link forces.** Not an average, not the best
+   available reading. `optimize/evidence.py` grades eight links — verdict, split size,
+   discordance, real traffic, provider answers, grader agreement, prices, token counter — and
+   the grade is `insufficient` if any blocks, `simulated` if any is invented, `recording` only
+   when every one terminates in a recorded response.
+4. **Which makes the demo read `insufficient`, and that is the point.** `simulated` was available
+   and would have been true as far as it goes. It would also have implied the result holds about
+   the traces, and it does not: the verdict is inconclusive by four tasks. The grade a reader
+   would rather see is not the one the data supports, and the first screen now says so in one
+   word with the chain a click away.
+5. **Every weak link says what would change it.** A test fails if one does not. A chain that
+   terminates in an adjective is what the grade exists to replace; "0 of 300 tasks from real
+   traffic" with no remedy beside it tells a reader they are stuck when they are not.
+6. **The summary block is computed in the engine.** Non-negotiable 1 bans metric literals in
+   components, and a component that divides one figure by another to get a saving has written a
+   metric — in TypeScript. `report["summary"]` carries all six figures pre-computed, and the
+   Playwright test compares what the screen displays against `/api/report` rather than against
+   itself.
+7. **Deploy exports; it does not proxy.** SPEC.md section 3 excludes any gateway carrying other
+   applications' traffic and that exclusion stands. `tokop export` and `GET /api/export` produce
+   three artifacts from the report: the prompt as a unified diff, the operating point as JSON,
+   and the routing rule as Python that parses and runs — a test executes it and checks it routes
+   the way the cascade does. Each carries the result it rests on, including an `evidence` field
+   reading `insufficient`, because a config file that looks authoritative while describing an
+   unproven result is worse than none.
+8. **`cascade.base_pipeline` was missing from the report.** A cascade routes between tiers of one
+   prompt and the report named the cascade without naming the prompt, so the export had to guess
+   which pipeline to diff. Added rather than guessed.
+
+## D44 — M15a: the engine stops being the demo's engine
+
+D41.2 recorded the shape of this and it was worse than "ships one workload" suggests. The
+coupling was not a missing ingestion command: `DemoItem` — a type from one workload's
+*generator* — sat in the signature of the runner, the recorder, the annotator and the report,
+with `DatasetBundle` beside it, and `build_dataset()` was called directly in eight places
+wherever tasks were needed. Nothing else could be run because nothing else could be represented.
+
+1. **`Item` is a protocol, not a base class.** `DemoItem` satisfies it without changing and
+   without inheriting anything, and so does `IngestedItem`. Every member is read-only, declared
+   as properties: a plain attribute in a protocol is a *settable* one, which no frozen
+   implementation can satisfy — and every implementation is frozen, because a task that can be
+   edited after a result was measured against it can invalidate the result in place.
+2. **The fields split three ways, and the split is the point.** Grading fields every workload
+   has; a description field (`question_type`) every workload needs something for; and provenance
+   fields (`template_id`, `sections`) only a *generated* workload has. Real traffic has neither
+   of the last two, so both default to empty rather than being invented. A dataset that
+   fabricates a template id is a dataset whose concentration measure is fiction.
+3. **Loading replaces generating.** Every workload — the demo included — is now read from the
+   dataset file committed beside it. `tokop fixtures-check` already asserted the generator and
+   the file agree, so reading the file changes no number, and it removes the last reason for a
+   neutral module to import a workload-specific one. `tokop report --check` passing unchanged is
+   the evidence.
+4. **Splits are read, never recomputed.** A task that moved from the calibration side to the
+   test side between two runs would invalidate every result measured before the move, silently.
+5. **`handbook` became `grounding`.** The engine passes around a grounding document; the demo
+   calls its own one a handbook, and its prose still does. Only the five `{{handbook}}`
+   placeholders changed, and a placeholder rename does not change rendered text — which
+   `fixtures-check` confirms by still matching all 6,856 cassettes.
+6. **`AnswerType` moved to the grader.** The list of answer kinds is the list of checkers
+   `grading.py` implements, so it belongs beside them rather than in one workload's generator.
+7. **A set that nothing templated is not a set with zero coverage.** Tail coverage measures how
+   much of a *generator's* space a set reaches. Ingested traffic has no generator, so coverage
+   does not exist: `unmeasurable_shape` reports `None` rather than `0.0`, which would have
+   refused the set for a thinned tail, or `1.0`, which would have told a reader the tail was
+   checked when nothing checked it. The template space is now supplied by the workload, and the
+   demo's is imported lazily inside the one branch that needs it.
+8. **`TierProfile` moved to the runner.** A tier is a model id and a role; nothing about it is
+   the demo's, and leaving it beside the demo's responder forced the recorder and the annotator
+   to import that responder at module scope.
+9. **The check runs at import time *and* at run time.** `test_scorer_isolation.py` scans source
+   for imports, which is right for what it checks; it would see none of these, because half the
+   demo imports are lazy and sit inside functions. So the new test imports each neutral module
+   in a subprocess and reads `sys.modules`, then loads a workload nobody generated and reads
+   `sys.modules` again.
+
+**What M15a does not establish.** `optimize/report.py` still hardcodes the demo's workload path
+in six places and `build_report()` takes no workload, so `tokop prove --workload` still refuses
+anything else by name. The engine can now *represent* another workload and load one; it cannot
+yet report on one. That, the second workload itself, `tokop ingest` and `tokop label` are M15b.
+
+## D45 — M15b: a second workload, and the one thing ingestion must never do
+
+M15a made another workload representable; this makes one run. `tokop prove --workload
+data/incident-triage/workload.yaml` produces a verdict, and `tests/test_no_demo_imports.py`
+fails if the demo is imported doing it.
+
+1. **The report takes a workload.** It hardcoded `data/demo/workload.yaml` in six places, which
+   is five more spellings than a default needs. One constant, one loader, and every entry point
+   — `build_report`, `fitted_cascade`, `arms_for_annotation`, `arms_for_contract`, `trace_for`,
+   `canary_observation` — takes the workload it is reporting on.
+2. **Fixtures follow the workload.** A workload names its own directory under `fixtures/`. The
+   demo names none and keeps falling through to the recording state, which picks `demo/` when a
+   real recording exists and `test/` otherwise — so nothing moved and no committed path changed.
+3. **The second workload's invented numbers live in its own file.** `simulation:` in the YAML
+   declares what each tier gets right, by task type. They are parameters, not measurements, and
+   a reader auditing any result from that workload finds them beside the provenance block rather
+   than by reading the engine. `GroundedResponder` reads them; the demo declares no `simulation:`
+   block and keeps its own elaborate responder, so the dispatch needs no name check.
+4. **Deliberately not a better simulator.** UPGRADE_V4.md section 5 rules that out, and a more
+   convincing simulator would only produce more convincing numbers about nothing. The neutral
+   responder does two things: decide correctness at the declared rate, and when wrong, answer
+   with *another task's gold of the same answer type* — confusable by construction, inventing no
+   vocabulary of mistakes.
+5. **The generator is a script, not an engine module.** `scripts/make_incident_triage.py` is
+   committed, so the dataset is auditable and regenerable, and the engine cannot import it —
+   which is the surest way to keep the import test honest.
+6. **A span is traffic, not an answer key.** This is the refusal `tokop ingest` exists to make.
+   An OpenTelemetry GenAI span records what was asked and what the model *said*; it does not
+   record what the right answer was. Writing `gen_ai.completion` into `gold` would produce a
+   workload on which every pipeline scores 100% against itself, and nothing about the result
+   would look wrong. Tokop reads the tasks, leaves `gold` empty, warns, and exits 3.
+7. **The convention version is part of the result.** The GenAI semantic conventions are still
+   moving, so the attribute names are pinned and the version is printed rather than guessed.
+8. **A split with nothing in its calibration side is not a split.** Per-stratum rounding leaves
+   it empty on a small set; ingestion tops it up in a fixed order so the result is reproducible.
+
+**What the second workload showed that the demo could not.** D34 recorded that the demo's
+fixtures "cannot say whether U3 works": every pseudo-label on its calibration split agrees with
+the answer key under both kinds, because the simulated provider draws wrong answers
+independently and each is a different perturbation. Here the two kinds come apart —
+**majority-vote agrees with gold on 86%** of the calibration split, while **`penalized-v1`
+excludes the 21 tasks it cannot settle and agrees perfectly on what remains.** The override
+questions are why: a cheap tier that answers from the signature and stops reading makes the
+*same* mistake every time, which is what a plurality vote reads as correctness. The label-free
+calibration machinery now has a workload that exercises it, not only a constructed test.
+
+**What M15 still does not have.** `tokop label` is not built, so the grader-agreement link in
+the evidence chain stays "not measured" for any workload without a judged arm — which is the
+honest state and the reason it renders as unmeasured rather than as a number. The 50 hand labels
+UPGRADE_V4.md M15.3 asks for are a human's to write; I will not author them and call the result
+an agreement measurement.
+
+## D46 — M16a: a graph of one, and the guarantee that protects everything already built
+
+UPGRADE_V4.md M16 asks whether the graph is a new spec version alongside `PipelineSpec` or a
+superset the existing spec compiles into, and PLAN.md chose the superset *conditional on the
+byte-identical guarantee surviving it*. It survives, and this entry records what "byte-identical"
+was made to mean.
+
+1. **The superset holds.** `PipelineSpec` gains an optional `steps:` list. Empty — which is every
+   pipeline in both shipped workloads — compiles to a graph of one `generate` step whose spec is
+   the pipeline itself. There is no second rendering path to drift from the first, because the
+   compiled step carries no blocks of its own.
+2. **The guarantee is asserted by cassette key, not by snapshot.** PLAN.md proposed diffing the
+   report JSON against a committed snapshot. That is the wrong instrument: M13, M14 and M15 each
+   legitimately changed the payload, so a frozen snapshot would need rewriting every milestone
+   and would stop meaning anything the moment it did. A cassette key is a hash of provider, model
+   and the canonicalized request; two requests with the same key are the same call as far as
+   every fixture, every replay and every number is concerned. So the test renders every pipeline
+   of both workloads and compares keys, and it stays true however the report evolves.
+3. **Run order is deterministic by construction.** Kahn's algorithm with ties broken by
+   declaration order. A run order that depended on dict iteration would hash differently on a
+   different day, which would break the guarantee in the least visible way available.
+4. **`CallRow` gained a `step`.** The graph findings of M16b — the same context sent to two
+   steps, a tool called twice with identical arguments, a verifier that never changed an outcome
+   — are all questions about *which step* made a call. A call row that cannot say is a row none
+   of them can be computed from. It defaults to the single step a one-call pipeline compiles to,
+   so nothing about an existing workload changes.
+5. **The compiled graph is in the report.** One step for every pipeline shipped today, stated
+   rather than implied, so the screens and the findings read the same shape whether or not a
+   workload is a graph.
+
+**What M16a does not do.** Nothing executes a graph yet: the runner still makes one call per
+task, and a workload that declared steps would compile, validate and then be run as though it
+had not. Executing a graph, the five findings over it, and proof at the graph-level outcome are
+M16b and M16c. The spec landing first is deliberate — it is the part every later commit depends
+on, and the part that could have forced the fallback to a parallel `GraphSpec`.

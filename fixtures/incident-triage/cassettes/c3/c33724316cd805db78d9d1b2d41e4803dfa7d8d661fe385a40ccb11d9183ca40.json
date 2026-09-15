@@ -1,0 +1,94 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "c33724316cd805db78d9d1b2d41e4803dfa7d8d661fe385a40ccb11d9183ca40",
+  "latency_ms": 1556.44,
+  "model": "claude-opus-5",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "- `replica_lag_s` (replica lag) has escalation code E27, is owned by the data team, does not page outside working hours, and must be acknowledged within 60 minutes.\n\nFinal answer: data",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_c33724316cd805db",
+    "model": "claude-opus-5",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 990,
+      "output_tokens": 65
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_tokens": 990,
+    "output_tokens": 65
+  },
+  "recorded_at": "2026-09-15T09:23:03.823343+00:00",
+  "request": {
+    "max_tokens": 2000,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "ALERT replica_lag_s=48 host=web-15. Which team owns this signature?"
+          },
+          {
+            "cache": null,
+            "text": {
+              "$blob": "1bab7699865506a2422e3a35ea0fe613cab203363454a14f4c1f4194b485573d"
+            }
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-opus-5",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": "You are an experienced site reliability engineer helping the on-call rota. Please be\nthorough and explain your reasoning carefully. Thank you for your help with this.\n\nWork through the alert, find the governing entry in the runbook, apply any overrides,\nand explain what you concluded and why."
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "- `replica_lag_s` (replica lag) has escalation code E27, is owned by the data team, does not page outside working hours, and must be acknowledged within 60 minutes.\n\nFinal answer: data",
+  "stop_reason": "end_turn",
+  "ttft_ms": 841.44,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 0,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 990,
+    "output_reasoning": 0,
+    "output_visible": 65,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 990,
+      "output_tokens": 65
+    },
+    "sources": {
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}
