@@ -105,7 +105,7 @@ class TestHandComputedB0:
 
         by_hand = Decimal(0)
         for task in result.tasks:
-            for _, response, _, _ in task.calls:
+            for response in (c.response for c in task.calls):
                 usage = response.usage
                 by_hand += (
                     Decimal(usage.input_uncached) * RATE_INPUT
@@ -121,7 +121,7 @@ class TestHandComputedB0:
         result, _ = run_pipeline(workload, registry, bundle, "B0", items, tmp_path)
         assert result.prewarm_calls == 0
         for task in result.tasks:
-            for request, response, _, _ in task.calls:
+            for request, response in ((c.request, c.response) for c in task.calls):
                 assert request.static_prefix_text == ""
                 assert response.usage.cache_read == 0
                 assert response.usage.cache_write_5m == 0
@@ -131,7 +131,7 @@ class TestHandComputedB0:
         items = list(bundle.test)[:20]
         b0, _ = run_pipeline(workload, registry, bundle, "B0", items, tmp_path / "a")
         b1, _ = run_pipeline(workload, registry, bundle, "B1", items, tmp_path / "b")
-        b1_reads = sum(r.usage.cache_read for t in b1.tasks for _, r, _, _ in t.calls)
+        b1_reads = sum(r.usage.cache_read for t in b1.tasks for r in (c.response for c in t.calls))
         assert b1_reads > 0
         assert b1.prewarm_calls == 1
         # Same words, same model, same cap: only the order changed, and it is much cheaper.
@@ -143,8 +143,8 @@ class TestHandComputedB0:
         items = list(bundle.test)[:20]
         b1, _ = run_pipeline(workload, registry, bundle, "B1", items, tmp_path / "a")
         b2, _ = run_pipeline(workload, registry, bundle, "B2", items, tmp_path / "b")
-        b1_out = sum(r.usage.total_output for t in b1.tasks for _, r, _, _ in t.calls)
-        b2_out = sum(r.usage.total_output for t in b2.tasks for _, r, _, _ in t.calls)
+        b1_out = sum(r.usage.total_output for t in b1.tasks for r in (c.response for c in t.calls))
+        b2_out = sum(r.usage.total_output for t in b2.tasks for r in (c.response for c in t.calls))
         assert b2_out < b1_out / 2
 
 

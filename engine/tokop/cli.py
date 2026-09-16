@@ -1053,10 +1053,20 @@ def certificate(
     from datetime import UTC, datetime
 
     from tokop.optimize.certificate import issue
-    from tokop.optimize.report import build_report
+    from tokop.optimize.fingerprint import fingerprint
+    from tokop.optimize.report import build_report, load_reported_workload
+    from tokop.workloads.bundle import load_bundle
 
     payload = build_report(margin=margin)
-    cert = issue(payload, today=datetime.now(UTC).date())
+    # What the split it was measured on looked like, so a later look can ask whether the traffic
+    # still looks like it (UPGRADE_V4.md M18). Taken over the test split, because that is the
+    # split the claim rests on.
+    bundle = load_bundle(load_reported_workload())
+    cert = issue(
+        payload,
+        today=datetime.now(UTC).date(),
+        workload_fingerprint=fingerprint(bundle.test),
+    )
     typer.echo(f"workload:    {cert.workload}")
     typer.echo(
         f"claim:       {cert.candidate_pipeline} against {cert.baseline_pipeline} — {cert.verdict}"
@@ -1076,6 +1086,19 @@ def certificate(
         f"{cert.spending} ({', '.join(f'{level:.4f}' for level in cert.levels())})"
     )
     typer.echo(f"fingerprint: {cert.fingerprint()}")
+    shape = cert.workload_fingerprint
+    if shape is not None:
+        mix = ", ".join(
+            f"{name} {share:.0%}" for name, share in sorted(shape.task_type_mix.items())
+        )
+        typer.echo(f"task mix:    {mix} (n = {shape.n})")
+        typer.echo(
+            "lengths:     "
+            + ", ".join(
+                f"{name} {value:,.0f}" for name, value in sorted(shape.length_quantiles.items())
+            )
+            + f" tokens, counted with {shape.counter}"
+        )
     typer.echo("")
     typer.echo(f"CERTIFIABLE: {'yes' if cert.certifiable else 'no'}")
     for refusal in cert.dataset_provenance.get("refusals", []):
@@ -1091,11 +1114,24 @@ def canary(
     certificate_path: str = typer.Option(..., "--certificate", help="Path to the certificate."),
     log: str = typer.Option("", "--log", help="Where the canary log lives. Defaults beside it."),
     today: str = typer.Option("", "--today", help="ISO date to check as of. Defaults to now."),
+    drift: str = typer.Option(
+        "",
+        "--drift",
+        help=(
+            "A JSONL file of recent tasks to check the certified distribution against. Without "
+            "it the look reports that no distribution check ran."
+        ),
+    ),
 ) -> None:
-    """Take one look at a standing certificate (UPGRADE_V3.md U5).
+    """Take one look at a standing certificate (UPGRADE_V3.md U5, UPGRADE_V4.md M18).
 
     Exits 0 when the certificate still stands and 1 when the look raised, so a scheduled canary
     gates a deploy the way `tokop prove` gates a merge.
+
+    Two different questions, reported separately and never merged. **Outcome drift** asks whether
+    the accuracy difference moved on a re-scored subset. **Distribution drift**, with `--drift`,
+    asks whether the traffic still looks like the split the claim was measured on — a certificate
+    can pass every outcome look and be quoted about tasks it never saw.
     """
     from datetime import UTC, datetime
     from datetime import date as _date
@@ -1139,9 +1175,26 @@ def canary(
         )
         observed = (delta, standard_error)
 
+    recent = None
+    if drift:
+        from tokop.optimize.fingerprint import fingerprint
+        from tokop.workloads.bundle import read_items
+
+        drift_path = repo_root() / drift
+        if not drift_path.exists():
+            typer.echo(f"no recent tasks at {drift_path}", err=True)
+            raise typer.Exit(2)
+        recent = fingerprint(read_items(drift_path))
+
     try:
         result = take_look(
-            cert, canary_log, today=as_of, identity=identity, observed=observed, subset_size=subset
+            cert,
+            canary_log,
+            today=as_of,
+            identity=identity,
+            observed=observed,
+            subset_size=subset,
+            recent=recent,
         )
     except CertificateError as exc:
         typer.echo(str(exc), err=True)
@@ -1160,6 +1213,16 @@ def canary(
         )
     else:
         typer.echo(f"drift:       not tested — {result.drift_note}")
+    if result.distribution_tested and result.divergence is not None:
+        gap = result.divergence
+        typer.echo(
+            f"coverage:    total variation {gap.total_variation:.2f} over "
+            f"{gap.recent_n} recent tasks against {gap.certified_n} certified"
+        )
+        for name, was, now in gap.uncovered:
+            typer.echo(f"  uncovered: {name} {was:.0%} certified -> {now:.0%} recent")
+    else:
+        typer.echo(f"coverage:    not tested — {result.distribution_note}")
     typer.echo("")
     if result.raised:
         typer.echo("CANARY RAISED")
@@ -1198,6 +1261,138 @@ def lint(
             f"${float(finding['projected_usd_per_1k']):>8.2f}/1k  {finding['title']}"
         )
         typer.echo(f"        {finding['evidence'][:100]}")
+
+
+@app.command("graph")
+def graph_cmd(
+    workload: str = typer.Option(
+        "data/incident-agent/workload.yaml",
+        "--workload",
+        help="A workload with at least one pipeline that declares `steps:`.",
+    ),
+    json_out: bool = typer.Option(False, "--json", help="Print the whole payload as JSON."),
+) -> None:
+    """Run a graph workload, rank what its shape costs, and prove the deletion.
+
+    Spends nothing and opens no socket: a graph workload has no committed recording and is run
+    against the deterministic in-process provider, `origin: simulated` on every row. `tokop
+    report` is what reports on single-call pipelines; this is the other shape.
+    """
+    import json as _json
+
+    from tokop.optimize.graph_report import build_graph_report
+
+    report = build_graph_report(workload)
+    if json_out:
+        typer.echo(_json.dumps(report.as_dict(), indent=2, sort_keys=True, default=str))
+        return
+
+    typer.echo(f"{report.workload.name} ({report.workload.id}) — simulated, spends nothing\n")
+    for pipeline_id, run in sorted(report.runs.items()):
+        calls = sum(len(t.calls) for t in run.result.tasks)
+        typer.echo(
+            f"  {pipeline_id:4} {len(run.graph.steps)} steps, {calls:5,} calls, "
+            f"acc {run.accuracy:6.1%}, ${run.result.total_cost:.5f} over {len(run.task_ids)} tasks"
+        )
+        for step in run.stats.steps:
+            where = step.model if step.calls else "no call (local step)"
+            typer.echo(
+                f"       {step.id:10} {step.kind:9} {where:30} "
+                f"{step.calls:4} calls  ${step.cost_usd:.5f}"
+            )
+
+    typer.echo(f"\nFindings on {report.baseline_id}, the shape as shipped:")
+    if not report.findings:
+        typer.echo("  none")
+    for finding in report.findings:
+        typer.echo(
+            f"  {finding.id} [{finding.group:5}] {finding.confidence:9} "
+            f"${finding.projected_usd_per_1k:>8.2f}/1k  {finding.title}"
+        )
+        typer.echo(f"        {finding.evidence[:110]}")
+
+    typer.echo(f"\n{report.structural_note}")
+    if report.proof is not None:
+        typer.echo(f"\n{report.proof.sentence()}")
+        repayment = report.proof.repayment_tasks()
+        typer.echo(
+            f"The comparison cost ${report.proof.proof_cost.total:.5f}"
+            + (f" and repays after {repayment:,} tasks." if repayment else ".")
+        )
+
+
+@app.command("session")
+def session_cmd(
+    workload: str = typer.Option(
+        "data/incident-agent/workload.yaml",
+        "--workload",
+        help="A workload with a `session:` block.",
+    ),
+    json_out: bool = typer.Option(False, "--json", help="Print the whole payload as JSON."),
+) -> None:
+    """Price a conversation, not a request: holding the prefix against compacting it.
+
+    Spends nothing and opens no socket. The answers come from the deterministic in-process
+    provider; the bill is counted by `tokop/core/session.py`, because that provider has no clock
+    and a session is largely about what expires between turns.
+    """
+    import json as _json
+
+    from tokop.optimize.session_report import build_session_report
+
+    report = build_session_report(workload)
+    if json_out:
+        typer.echo(_json.dumps(report.as_dict(), indent=2, sort_keys=True, default=str))
+        return
+
+    spec = report.spec
+    typer.echo(
+        f"{report.workload.name} ({report.workload.id}) — {report.model_id}, simulated, "
+        f"spends nothing\n"
+    )
+    typer.echo(
+        f"  {len(report.arms['immutable'].runs)} sessions of up to {spec.turns} turns, "
+        f"{spec.gap_seconds}s apart, {spec.ttl} cache lifetime, compacting every "
+        f"{spec.compact_every} turns"
+    )
+    typer.echo(
+        f"  bill counted with {report.counter} x {report.token_ratio} (not provider-reported)\n"
+    )
+
+    header = (
+        f"  {'policy':10} {'turns':>6} {'ok':>4} {'writes':>9} {'reads':>9} {'uncached':>9} "
+        f"{'expired':>8} {'$ total':>10}"
+    )
+    typer.echo(header)
+    for name, arm in sorted(report.arms.items()):
+        row = arm.as_dict()
+        typer.echo(
+            f"  {name:10} {arm.turns:6,} {arm.successes:4} {row['cache_writes_tokens']:9,} "
+            f"{row['cache_reads_tokens']:9,} {row['uncached_input_tokens']:9,} "
+            f"{arm.expired_entries:8} {float(arm.total_cost):10.5f}"
+        )
+
+    for name, arm in sorted(report.arms.items()):
+        if not arm.findings:
+            continue
+        typer.echo(f"\n  {name}:")
+        for finding in arm.findings:
+            typer.echo(
+                f"    {finding.id} {finding.confidence:9} "
+                f"${finding.projected_usd_per_1k:>8.2f}/1k  {finding.title}"
+            )
+
+    typer.echo("\n  pace     measured            at summary budget   winner")
+    for result in report.sensitivity:
+        typer.echo(
+            f"  {result.gap_seconds:4}s    "
+            f"[{result.cost_ratio.low:.2f}, {result.cost_ratio.high:.2f}]"
+            f"{'':8}[{result.cost_ratio_at_budget.low:.2f}, "
+            f"{result.cost_ratio_at_budget.high:.2f}]{'':8}{result.winner}"
+        )
+
+    typer.echo(f"\n{report.sentence()}")
+    typer.echo(f"\nQuality: {report.quality_note}")
 
 
 @app.command("dataset")

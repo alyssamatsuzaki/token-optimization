@@ -1,4 +1,8 @@
-"""Prompt lint: PL01 to PL14, mapped to CLEAR plus a Cache group (SPEC.md 7.4).
+"""Prompt lint: PL01 to PL17, mapped to CLEAR plus a Cache group (SPEC.md 7.4).
+
+PL01 to PL14 read one request. PL15 to PL17, at the foot of this module, read a **sequence** of
+them, because a prefix that moves, a stable block stranded after the breakpoint and a compaction
+that throws the entry away are all things one request cannot show (UPGRADE_V4.md M17).
 
 Deterministic and local. **No model calls.** Every finding carries its evidence, the spans to
 highlight, a projected dollar saving with the formula that produced it, a confidence label, and
@@ -22,10 +26,12 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
+from itertools import pairwise
 from typing import Literal
 
 from tokop.adapters.base import LLMRequest
 from tokop.core.pricing import ModelPrice
+from tokop.core.session import Turn
 from tokop.core.tokenize import BaseCounter, get_base_counter
 
 Confidence = Literal["measured", "projected", "heuristic"]
@@ -41,6 +47,10 @@ CONFIDENCE_WEIGHT: dict[Confidence, Decimal] = {
 }
 
 MILLION = Decimal(1_000_000)
+
+#: Below this many tokens a stranded block is not worth a finding: the saving is cents per
+#: thousand sessions and it would outrank nothing.
+MIN_STRANDED_TOKENS = 100
 
 CLEAR_LETTERS = ("C", "L", "E", "A", "R")
 
@@ -872,3 +882,181 @@ def total_projected_usd(findings: Sequence[Finding]) -> Decimal:
     """Sum of projected savings. Not additive in reality — fixing PL02 subsumes PL01 — so the
     caller must label it as an upper bound, which the UI does."""
     return sum((f.projected_usd_per_1k for f in findings), Decimal(0))
+
+
+# --------------------------------------------------------------------------- sessions (M17)
+#
+# PL01 to PL14 read one request. These three read a *sequence* of them, because what they are
+# about only exists across turns: a prefix that moves, a stable block stranded after the
+# breakpoint, a compaction that throws the entry away. A single request cannot show any of them,
+# which is why they are a separate entry point rather than three more rules in `lint()`.
+
+
+def _after_breakpoint(turn: Turn) -> str:
+    """The part of a turn that no cache entry can hold."""
+    prefix = turn.static_prefix_text
+    text = turn.text
+    return text[len(prefix) :] if prefix and text.startswith(prefix) else text
+
+
+def session_lint(turns: Sequence[Turn], context: LintContext) -> list[Finding]:
+    """PL15 to PL17, over the turns of one conversation.
+
+    Every saving here is priced per **session**, not per 1,000 calls, because a session is the
+    unit the waste happens in: a prefix rewritten on turn four costs what it costs once, however
+    many sessions there are. ``calls_per_1k`` still scales it to the reporting unit so these rank
+    beside every other finding.
+    """
+    findings: list[Finding] = []
+    if len(turns) < 2:
+        return findings
+    work = [turn for turn in turns if turn.label != "compaction"]
+    if len(work) < 2:
+        return findings
+
+    prefixes = [turn.static_prefix_text for turn in work]
+    per_turn_saving = context.price.cache_write_5m - context.price.cache_read
+
+    # ---------------------------------------------------------------- PL15
+    # A prefix that is not the same on the next turn is a prefix that is written again. Where
+    # the change is a block that was always going to move — a timestamp, a running summary — the
+    # breakpoint is in front of something volatile and the entry never survives a turn.
+    rewrites = sum(1 for a, b in pairwise(prefixes) if a != b)
+    if prefixes[0] and rewrites >= len(work) - 1:
+        tokens = context.tokens(prefixes[0])
+        amount = (
+            Decimal(tokens)
+            * per_turn_saving
+            * Decimal(rewrites)
+            * context.calls_per_1k
+            / (MILLION * Decimal(len(work)))
+        )
+        findings.append(
+            Finding(
+                id="PL15",
+                group="Cache",
+                title="The cached prefix changes on every turn of the conversation",
+                detail=(
+                    "Something above the breakpoint moves between turns, so every turn writes a "
+                    "new entry and reads none of them — and a write costs 1.25x base input where "
+                    "a read costs a tenth of it. Whatever changes belongs after the breakpoint, "
+                    "however natural it feels to put it at the top."
+                ),
+                evidence=(
+                    f"{rewrites} of {len(work) - 1} turn transitions changed the prefix; "
+                    f"~{tokens:,} tokens are rewritten each time"
+                ),
+                projected_usd_per_1k=amount,
+                formula=(
+                    f"{tokens:,} tok x (${context.price.cache_write_5m} - "
+                    f"${context.price.cache_read})/Mtok x {rewrites} rewrites / {len(work)} "
+                    f"turns x {context.calls_per_1k:,} / 1e6 = ${amount:.2f}"
+                ),
+                confidence="measured",
+                transform="move_breakpoint_to_static_end",
+            )
+        )
+
+    # ---------------------------------------------------------------- PL16
+    # Text that is identical on every turn but sits *after* the breakpoint. It is paid for at
+    # full input price on every turn and it never had to be: a conversation that appends rather
+    # than re-renders keeps its stable instructions in front of the breakpoint where the entry
+    # can hold them.
+    tails = [_after_breakpoint(turn) for turn in work]
+    stable = _longest_common_prefix_text(tails)
+    stable_tokens = context.tokens(stable) if len(stable) >= 40 else 0
+    if stable_tokens >= MIN_STRANDED_TOKENS:
+        saving = context.price.input - context.price.cache_read
+        amount = (
+            Decimal(stable_tokens)
+            * saving
+            * Decimal(len(work))
+            * context.calls_per_1k
+            / (MILLION * Decimal(len(work)))
+        )
+        findings.append(
+            Finding(
+                id="PL16",
+                group="Cache",
+                title="Instructions that never change sit after the breakpoint",
+                detail=(
+                    "Every turn re-sends this text and pays full input price for it, although it "
+                    "is identical on all of them. A conversation that appends its new turn keeps "
+                    "the unchanging part in front of the breakpoint, where it is read at a tenth "
+                    "of the price; one that re-renders itself each turn tends to rebuild this "
+                    "block into the wrong half of the request."
+                ),
+                evidence=(
+                    f"~{stable_tokens:,} tokens identical across all {len(work)} turns, after "
+                    f"the breakpoint: {stable.strip()[:80]!r}"
+                ),
+                projected_usd_per_1k=amount,
+                formula=(
+                    f"{stable_tokens:,} tok x (${context.price.input} - "
+                    f"${context.price.cache_read})/Mtok x {context.calls_per_1k:,} / 1e6 "
+                    f"= ${amount:.2f}"
+                ),
+                confidence="measured",
+                transform="reorder_static_first",
+            )
+        )
+
+    # ---------------------------------------------------------------- PL17
+    # A compaction that rewrites the stable prefix. Recognised by what it does rather than by
+    # what it is called: the turn after it carries a different prefix *and* a shorter tail,
+    # which is a history that was summarised into the top of the request.
+    compactions = 0
+    reestablished = 0
+    for before, after in pairwise(work):
+        if before.static_prefix_text == after.static_prefix_text:
+            continue
+        if len(_after_breakpoint(after)) >= len(_after_breakpoint(before)):
+            continue
+        compactions += 1
+        reestablished += context.tokens(after.static_prefix_text)
+    if compactions:
+        amount = (
+            Decimal(reestablished)
+            * per_turn_saving
+            * context.calls_per_1k
+            / (MILLION * Decimal(len(work)))
+        )
+        findings.append(
+            Finding(
+                id="PL17",
+                group="Cache",
+                title="A compaction rewrites the stable prefix",
+                detail=(
+                    "The history was summarised and the summary was put in front of the "
+                    "breakpoint, so the cache entry the conversation had been reading was thrown "
+                    "away and bought again at the write premium. Compaction can be worth it — it "
+                    "stops the history growing — but it is worth it against this, and the "
+                    "summary belongs after the breakpoint unless the arithmetic says otherwise."
+                ),
+                evidence=(
+                    f"{compactions} compaction(s) in {len(work)} turns, each rewriting "
+                    f"~{reestablished // compactions:,} prefix tokens"
+                ),
+                projected_usd_per_1k=amount,
+                formula=(
+                    f"{reestablished:,} rewritten tok x (${context.price.cache_write_5m} - "
+                    f"${context.price.cache_read})/Mtok / {len(work)} turns x "
+                    f"{context.calls_per_1k:,} / 1e6 = ${amount:.2f}"
+                ),
+                confidence="measured",
+                transform=None,
+            )
+        )
+
+    findings.sort(key=lambda f: (-f.weighted_usd, f.id))
+    return findings
+
+
+def _longest_common_prefix_text(texts: Sequence[str]) -> str:
+    if not texts:
+        return ""
+    shortest = min(texts, key=len)
+    for index, char in enumerate(shortest):
+        if any(text[index] != char for text in texts):
+            return shortest[:index]
+    return shortest

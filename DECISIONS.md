@@ -1113,3 +1113,156 @@ task, and a workload that declared steps would compile, validate and then be run
 had not. Executing a graph, the five findings over it, and proof at the graph-level outcome are
 M16b and M16c. The spec landing first is deliberate — it is the part every later commit depends
 on, and the part that could have forced the fallback to a parallel `GraphSpec`.
+
+## D47 — M16b/M16c: a graph that runs, and what a step had to be made of to price one
+
+The spec landed at M16a and could not be executed. Making it executable forced five decisions the
+spec had left open, and each of them is a place a graph could have become a convincing fiction.
+
+1. **Two kinds of step, and Tokop executes only one of them.** `generate`, `verify` and `retry`
+   are model calls. `tool` and `retrieve` are *local*: this build has no tool runtime and does not
+   pretend to one, so such a step's `user:` blocks are the arguments it was called with and its
+   new `emits:` blocks are the result the **workload declares** it returns. A local step with no
+   `emits:` is refused at compile time, and a generation step that declares one is refused too —
+   its output is the model's reply, and a second declared output would be a number nobody could
+   trace to a call. That makes a graph a model of an agent's *shape*, not an agent, and every
+   surface that reports on one says so.
+2. **`loop` compiles and will not run.** It is in the kind list because a workload should be able
+   to say what a step is. Nothing bounds the iterations, so nothing can price one; executing it
+   is refused with the reason and the suggestion to unroll it.
+3. **A graph has no pre-warm pass, and the reason is structural.** A step's request cannot be
+   rendered before the steps it consumes have run, so there is nothing to send a `max_tokens: 0`
+   copy of in advance. The first task is run to completion on its own and every task after it
+   reads the entries that task wrote — one task's worth of misses rather than a synthetic call
+   per step. `prewarm_calls` reports 0 rather than a number nobody made.
+4. **A step that pins `model_role` keeps it under a tier sweep.** "The verifier runs at the
+   frontier" is the whole point of saying so, and a sweep that silently demoted it would be
+   measuring a different pipeline. `model_id` overrides the steps that pinned nothing.
+5. **The four-tuple became `TaskCall`.** It grew a name when it grew a fifth field. `request,
+   response, _, _, _` is how a field nobody unpacks stops being written.
+
+**How the five findings are priced, and where they refuse to claim anything.**
+
+- **G01** (one block reaching several steps) prices the redundant copies at each step's *blended*
+  input rate — its input dollars over its input tokens, measured from its own call rows. A block
+  read from cache in one step and sent fresh in another costs different amounts in each, and
+  pricing both at base input would inflate every finding that touches it.
+- **G02** (a tool called twice with identical arguments) reports **$0 and says that is what it
+  means**. Tokop prices provider tokens and has no price for a tool, so it cannot say what the
+  duplicate costs. It can say the call is made twice, and it does. A finding invented a price to
+  make itself rank would be the most quietly corrosive thing in this module.
+- **G03** (a verifier that never changed an outcome) answers *structurally* where it can — no path
+  from the verifier to the step the pipeline answers with means no number of further tasks would
+  make it change one — and *measured* where the verdict is read but the output never differed.
+  The evidence says which of the two it was.
+- **G04** (a retry that returns what it retried) reports the share it measured and names what that
+  share depends on: a deterministic provider makes it the whole split, a sampling one would not.
+- **G05** (a frontier step carrying an earlier step's output) is labelled a **ceiling**, because it
+  prices compressing that text to nothing and nothing compresses to nothing.
+
+**The graph workload has no committed recording, deliberately.** `tokop/recorder.py` implements
+SPEC.md section 6's single-call spend plan — the B2 matrix at three tiers, then the remaining
+single-call pipelines — and it is left exactly as it is, because changing it is how committed
+numbers move by accident. `data/incident-agent/` runs against the deterministic in-process
+provider through `tokop graph`: no socket, no key, no money, `origin: simulated` on every row,
+and nothing it produces reaches the README or the Optimize screen.
+
+**Both arms see the same simulator, and that is a correction rather than a convenience.** The
+in-process responder seeds its answers on a pipeline id. Two pipelines that differ only by a
+deleted step would therefore be handed *different* answers, and the deletion's measured effect
+would be the simulator's noise. The graph report seeds on the **workload** id, which says the
+thing that is actually true: the same prompt to the same model returns the same answer. With that,
+the 99 answers are byte-identical across the two arms and the accuracy delta is zero *by
+construction* — which the report states in those words, so nobody reads a bootstrap where an
+argument belongs.
+
+**Result.** `G0` is the agent as shipped: fetch the runbook, look the signature up twice, answer,
+verify. Its top finding is G03 — the verifier's verdict reaches nothing — and `G1`, which is `G0`
+without it, cuts cost per successful task by 51.8% with the accuracy difference at zero. That is
+the milestone's point: an optimizer that can propose deleting a step, not only swapping a model.
+
+## D48 — M17: a session is priced by counting, and the quality half is refused
+
+Every price in this build was a price per request. M17 adds the other unit, and the two hard parts
+were not the arithmetic.
+
+1. **The bill is counted, not provider-reported, and the payload says so.** The in-process
+   provider has no clock, so it cannot expire a cache entry — and expiry is half of what a session
+   is. `core/session.py` prices the rendered turns with the base counter instead. That is an
+   estimate and it names its counter (non-negotiable 2); the provider supplies the answers, which
+   is what decides correctness, and not the bill.
+2. **The counter is scaled into the model's units, because otherwise the answer is wrong rather
+   than imprecise.** Models from Claude 4.7 on count about 30% higher than the tokenizer this
+   build can run locally, and that gap decides whether a prefix clears the model's *minimum
+   cacheable* size at all. The incident runbook is 658 tokens by the local counter and about 855
+   in the model's: cacheable on Opus 5's 512-token minimum, not on Sonnet 5's 1,024. Priced
+   unscaled, a cacheable session reads as entirely uncached. `session_cost` takes the model's
+   declared ratio and `SessionCost` records both it and the counter.
+3. **Whether a read refreshes the entry is not claimed.** SPEC.md Appendix B does not say, and
+   nothing here has watched a real cache expire. The default is that it does not, which produces
+   more writes and a higher bill — the conservative direction for a number somebody budgets
+   against. `refresh_on_read=True` is offered for an operator who has checked, and the result
+   records which was used.
+4. **The interval resamples sessions, not turns.** Turns inside a session share a cache entry:
+   the first pays for the write and the rest read it. Bootstrapping turns would treat correlated
+   observations as independent and report an interval several times too narrow.
+5. **The quality half is refused, not estimated — a spec conflict, logged.** PLAN.md section 8
+   asks for "the change in task success — with an interval". This build's provider answers from
+   the task and the model alone; its replies do not depend on the conversation carried with them.
+   So a compacted arm *cannot* lose accuracy here, and reporting "no accuracy difference" would
+   report a property of the simulator as a property of compaction. Reality wins and the
+   conservative option is taken: displayed as not measured, with that reason, everywhere the
+   comparison appears. Declaring a compaction accuracy penalty in the workload was considered and
+   rejected — the measurement would read back the declaration.
+
+**The one remaining bias is priced rather than mentioned.** The summary the compacting arm carries
+is whatever the simulated provider replied, which is far shorter than the budget the workload set
+aside for a compaction, and a shorter summary is a cheaper prefix to write and to read. Every turn
+carrying a summary is therefore *also* priced with that summary at its declared budget, at the
+rate that turn's prefix actually paid, and the comparison is reported twice. It matters: at the
+first geometry tried the measured ratio favoured compacting at [0.95, 0.97] and the bias-closed
+one favoured holding at [1.04, 1.06], so the result was "not established" and correctly so.
+
+**The pace between turns decides the answer, so the answer is reported at more than one pace.**
+Six turns seventy seconds apart is 350 seconds: the five-minute entry expires before the last turn
+of every session. Rewriting the prefix — the thing compaction is charged for — also refreshes the
+entry, so compacting can win purely by destroying something just before it would have died. That
+is a real mechanism and it is visible in the expiry counts in both arms. `gap_sweep_seconds` runs
+the same comparison at 40, 70 and 90 seconds; holding the prefix immutable wins at all three,
+under both pricings. A comparison reported at one pace would be presenting a parameter as a
+finding.
+
+**B1's per-request claim is restated rather than softened.** The README's metrics block now says
+in generated text that every figure in it is per request, and that a conversation is a different
+accounting with a different answer. It is a refusal moving one click away, as UPGRADE_V4.md M17
+asks — not a number being softened.
+
+## D49 — M18: two things called drift, and why they never share a word
+
+A certificate bound to models, prices, grading mode and dataset provenance. Nothing in it noticed
+when the traffic it was quoted about stopped resembling the split it was measured on.
+
+1. **Distribution drift and outcome drift are separate fields, separate names, both reported.**
+   `CanaryResult.drift_tested` means a re-scored subset whose accuracy difference could have
+   moved. `distribution_tested` means recent traffic compared, as a distribution, to the certified
+   split. A certificate can pass every outcome look while being quoted about tasks it never saw,
+   which is the failure that looks most like success — so collapsing the two would let the passing
+   check imply the other. PLAN.md asked for this by name and it is enforced by a test class.
+2. **The divergence measure reads as a share of traffic.** Total variation distance over the
+   task-type mix: half the sum of the absolute differences in share, so 0.2 means a fifth of the
+   queue is in a different type from the one the certificate would predict.
+3. **The uncovered region is named individually.** "The distribution moved" is not something
+   anybody can act on. "`two_hop` is 43% of recent traffic and was 1% of the certified split, 2 of
+   200 tasks" is. A type raises when it carries at least 10% of recent traffic and had under 2%
+   of the certified split; both halves are needed, or a type that grew from 1% to 3% raises and a
+   type that was always 40% does too.
+4. **The difficulty measure is a proxy and says so.** Nothing in a dataset here carries a
+   difficulty label. What is computable from the items alone is the concentration of the type mix
+   and the share sitting in its smallest type, which is the region a claim covers least. Inventing
+   a difficulty score would make the drift check a check on an invention.
+5. **A fingerprint taken with a different counter is refused, not compared.** Length quantiles
+   move with the tokenizer, so the comparison would report a counter change as traffic drift.
+6. **The certificate's existing `fingerprint()` is untouched.** It is the hash over what the
+   certificate rests on. The distribution lives in `workload_fingerprint`, and a test asserts the
+   two are not the same thing. A certificate issued before M18 still reads, and a look against one
+   reports that it *cannot* check coverage rather than passing the check.

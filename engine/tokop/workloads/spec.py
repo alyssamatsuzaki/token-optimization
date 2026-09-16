@@ -71,6 +71,14 @@ class StepSpec(BaseModel):
     Declaring steps is how a workload says it is an agent rather than a prompt — fourteen calls
     and two retries, where the useful proposal is usually to delete one of them rather than to
     run a cheaper model.
+
+    **Two kinds of step, and the difference is who produces the output.** A `generate`, `verify`
+    or `retry` step is a model call: its `system` and `user` blocks are the prompt and its output
+    is the reply. A `tool` or `retrieve` step is *local*: Tokop has no tool runtime and does not
+    pretend to one, so such a step's `user` blocks are the arguments it was called with and its
+    `emits` blocks are the result the **workload declares** it returns. That makes a graph a
+    model of an agent's shape rather than an agent, which is the honest description and the one
+    the workload's own notes have to carry.
     """
 
     id: str
@@ -84,12 +92,62 @@ class StepSpec(BaseModel):
     max_tokens: int | None = None
     system: list[BlockSpec] = Field(default_factory=list)
     user: list[BlockSpec] = Field(default_factory=list)
+    #: What a *local* step puts back into the graph. Declared rather than executed: nothing here
+    #: calls a tool, so a step that claims to retrieve a document returns the text the workload
+    #: says it returns. A generation step must not declare it — its output is the model's reply.
+    emits: list[BlockSpec] = Field(default_factory=list)
     #: For a `tool` step, the tool it calls. Recorded so two calls to the same tool with the
     #: same arguments are recognisable as the same call.
     tool: str = ""
     notes: list[str] = Field(default_factory=list)
 
     model_config = {"frozen": True}
+
+    def references(self) -> set[str]:
+        """Every ``{{variable}}`` this step's prompt and arguments mention."""
+        return {
+            match.group(1)
+            for block in [*self.system, *self.user]
+            for match in VARIABLE.finditer(block.text)
+        }
+
+    def prefix_references(self) -> set[str]:
+        """Variables inside the cacheable part of this step's system prompt.
+
+        A step whose *prefix* mentions no upstream step is a step whose cache entry is the same
+        on every task, which is what decides whether it can be warmed before the fan-out.
+        """
+        cut = -1
+        for index, block in enumerate(self.system):
+            if block.cache is not None:
+                cut = index
+        if cut < 0:
+            return set()
+        return {
+            match.group(1)
+            for block in self.system[: cut + 1]
+            for match in VARIABLE.finditer(block.text)
+        }
+
+    def render(
+        self, provider: str, model: str, variables: dict[str, str], max_tokens: int
+    ) -> LLMRequest:
+        """This step's model call. ``max_tokens`` is the pipeline's unless the step overrides."""
+        return LLMRequest(
+            provider=provider,
+            model=model,
+            system=[b.render(variables) for b in self.system],
+            messages=[Message(role="user", blocks=[b.render(variables) for b in self.user])],
+            max_tokens=self.max_tokens or max_tokens,
+        )
+
+    def arguments(self, variables: dict[str, str]) -> str:
+        """What a local step was called with. Two calls with the same text are the same call."""
+        return "\n\n".join(b.render(variables).text for b in self.user)
+
+    def emitted(self, variables: dict[str, str]) -> str:
+        """What a local step returns into the graph, as the workload declared it."""
+        return "\n\n".join(b.render(variables).text for b in self.emits)
 
 
 class PipelineSpec(BaseModel):
@@ -120,6 +178,11 @@ class PipelineSpec(BaseModel):
     #: The steps this pipeline runs, if it is a graph. Empty means one model call, which is
     #: what every workload was before M16 and what the demo still is.
     steps: list[StepSpec] = Field(default_factory=list)
+    #: Which step's output is the pipeline's answer. Empty means the last step in run order,
+    #: which is right for a graph that ends in the thing it is answering with and wrong for one
+    #: that ends in a verifier — so a graph that ends in a verifier has to say so, rather than
+    #: having the answer quietly become a verdict.
+    output_step: str = ""
 
     model_config = {"frozen": True}
 
@@ -137,6 +200,41 @@ class PipelineSpec(BaseModel):
             messages=[Message(role="user", blocks=user_blocks)],
             max_tokens=self.max_tokens,
         )
+
+
+class SessionSpec(BaseModel):
+    """How a workload's tasks are run as conversations rather than as one call each (M17).
+
+    Every price in this build is a price per request, which is the right unit for the demo and
+    the wrong one for what most people run. A session declares the shape of the conversation:
+    how many tasks are answered in a row against one cache entry, how long the pause between
+    them is — which is what decides whether that entry is still alive — and what, if anything,
+    compacts the history when it grows.
+    """
+
+    #: Which pipeline's blocks each turn renders. A single-call pipeline: a session is a
+    #: sequence of ordinary requests, not a new kind of request.
+    pipeline: str
+    #: Tasks answered in one conversation.
+    turns: int = 6
+    #: Seconds between one turn's response and the next turn's request. A parameter and not a
+    #: constant: a person reading each answer before replying produces a different bill from an
+    #: agent driving a loop, and the difference is only visible if the workload says which.
+    gap_seconds: int = 70
+    #: Other paces to price the same sessions at. The gap decides whether an entry is still
+    #: alive when the next turn arrives, so it decides the answer; a comparison that reported
+    #: one pace would be reporting a parameter as a result.
+    gap_sweep_seconds: list[int] = Field(default_factory=list)
+    ttl: Literal["5m", "1h"] = "5m"
+    #: Turns between compactions in the `compact` arm. 0 never compacts.
+    compact_every: int = 3
+    compaction_model_role: str = "cheap"
+    compaction_max_tokens: int = 200
+    #: The prompt a compaction call sends. ``{{history}}`` is the conversation so far.
+    compaction: list[BlockSpec] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+    model_config = {"frozen": True}
 
 
 class JudgeSpec(BaseModel):
@@ -373,6 +471,8 @@ class WorkloadSpec(BaseModel):
     judge: JudgeSpec | None = None
     annotation: AnnotationSpec | None = None
     entailment: EntailmentSpec | None = None
+    #: How this workload's tasks are run as conversations, when it declares one (M17).
+    session: SessionSpec | None = None
     dataset_provenance: DatasetProvenanceSpec | None = None
     #: How this workload's simulated provider behaves, when it has one. Absent for a workload
     #: whose fixtures are a real recording, which needs no simulator at all.
@@ -501,6 +601,29 @@ def load_workload(path: Path) -> WorkloadSpec:
         )
     simulation_raw = raw.get("simulation") or workload.get("simulation")
     simulation = SimulationSpec(**simulation_raw) if isinstance(simulation_raw, dict) else None
+    session_raw = raw.get("session") or workload.get("session")
+    session = SessionSpec(**session_raw) if isinstance(session_raw, dict) else None
+    if session is not None:
+        if session.pipeline not in pipelines:
+            raise WorkloadError(
+                f"{path}: the session runs pipeline {session.pipeline!r}, which is not defined"
+            )
+        if pipelines[session.pipeline].is_graph:
+            raise WorkloadError(
+                f"{path}: the session runs pipeline {session.pipeline!r}, which declares steps. "
+                "A session is a sequence of ordinary requests; a graph inside one is a shape "
+                "this build does not price."
+            )
+        if session.turns < 2:
+            raise WorkloadError(
+                f"{path}: a session of {session.turns} turn(s) is a single call, which is what "
+                "every other part of this build already prices."
+            )
+        if session.compact_every and not session.compaction:
+            raise WorkloadError(
+                f"{path}: the session compacts every {session.compact_every} turns but declares "
+                "no `compaction:` prompt. There is nothing to send."
+            )
     _validate_judging(path, grading, judge, annotation, dataset_provenance)
     _validate_entailment(path, entailment)
 
@@ -520,6 +643,7 @@ def load_workload(path: Path) -> WorkloadSpec:
         judge=judge,
         annotation=annotation,
         entailment=entailment,
+        session=session,
         dataset_provenance=dataset_provenance,
         margin=float(workload.get("margin", 0.03)),
         latency_sensitive=bool(workload.get("latency_sensitive", False)),

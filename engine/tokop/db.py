@@ -33,6 +33,7 @@ from sqlalchemy import (
     Text,
     create_engine,
     delete,
+    inspect,
     select,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
@@ -116,6 +117,10 @@ class Call(Base):
     #: Which cascade tier made this call; "single" for a non-cascade pipeline.
     tier: Mapped[str] = mapped_column(String(32), default="single")
     tier_index: Mapped[int] = mapped_column(Integer, default=0)
+    #: Which step of the pipeline's graph made this call. A single-call pipeline compiles to a
+    #: graph of one step, so every row a pre-M16 workload writes carries that step's id and
+    #: nothing about it changes (UPGRADE_V4.md M16).
+    step: Mapped[str] = mapped_column(String(64), default="generate")
     attempt: Mapped[int] = mapped_column(Integer, default=1)
     provider: Mapped[str] = mapped_column(String(64))
     model: Mapped[str] = mapped_column(String(128))
@@ -263,10 +268,41 @@ def db_path() -> Path:
     return state_dir() / DB_FILENAME
 
 
+class LedgerSchemaError(RuntimeError):
+    """A ledger on disk predates a column the models declare, and cannot be read."""
+
+
+def _check_schema(engine: Any) -> None:
+    """Refuse a ledger whose tables are older than the models, and say how to fix it.
+
+    ``create_all`` creates tables that are missing and leaves existing ones exactly as they are:
+    it will not add a column. So a ledger generated before a column was added keeps working until
+    something selects that column, and then fails with a bare SQL error naming neither the cause
+    nor the remedy. The ledger is generated rather than committed — `tokop build-test-fixtures
+    --ledger-only` rebuilds it from the cassettes in seconds — so the right behaviour is to say
+    that, at the point the mismatch is first visible (M16b added ``calls.step``).
+    """
+    inspector = inspect(engine)
+    existing = set(inspector.get_table_names())
+    for table in Base.metadata.sorted_tables:
+        if table.name not in existing:
+            continue
+        on_disk = {column["name"] for column in inspector.get_columns(table.name)}
+        missing = sorted(c.name for c in table.columns if c.name not in on_disk)
+        if missing:
+            raise LedgerSchemaError(
+                f"the ledger's {table.name!r} table is missing {missing}, so it was generated "
+                "before those columns existed. A ledger is generated, not committed: rebuild it "
+                "with `tokop build-test-fixtures --ledger-only`, which replays the committed "
+                "cassettes and spends nothing."
+            )
+
+
 def make_engine(path: Path | None = None, echo: bool = False) -> Any:
     target = path or db_path()
     engine = create_engine(f"sqlite:///{target}", echo=echo, future=True)
     Base.metadata.create_all(engine)
+    _check_schema(engine)
     return engine
 
 

@@ -109,6 +109,23 @@ if have engine/.venv/bin/pytest && [ -n "$(find engine/tests -name 'test_*.py' 2
   # graph work. Pinned by cassette key, which is what every fixture and every number rests on.
   run "a single call is still a single call (M16)" bash -c "cd '$ROOT/engine' && \
       .venv/bin/pytest -q tests/test_graph.py::TestTheByteIdenticalGuarantee"
+  # M16c. The point of the whole milestone: an optimizer that can propose *deleting a step*
+  # rather than only swapping a model, and prove it on the outcome of the whole graph.
+  run "the winning plan deletes a step (M16)" bash -c "cd '$ROOT/engine' && \
+      .venv/bin/pytest -q tests/test_graph_execution.py::TestTheAcceptanceCheck \
+      tests/test_graph_execution.py::TestTheFiveFindings"
+  # M17. Every price in this build was a price per request. These pin the two things that stop
+  # a session price from being a per-request price with more turns: an entry that expires
+  # between them, and a quality claim nothing here can support.
+  run "a session is priced over its turns (M17)" bash -c "cd '$ROOT/engine' && \
+      .venv/bin/pytest -q tests/test_session.py::TestTheAcceptanceCheck \
+      tests/test_session.py::TestWhatItRefuses"
+  # M18. A certificate that passes every outcome look while being quoted about tasks it never
+  # saw is the failure mode that looks most like success, so the coverage check and the
+  # separation of the two drifts are release blockers rather than unit tests.
+  run "a certificate expires on coverage (M18)" bash -c "cd '$ROOT/engine' && \
+      .venv/bin/pytest -q tests/test_fingerprint.py::TestTheAcceptanceCheck \
+      tests/test_fingerprint.py::TestTheTwoDriftsStaySeparate"
 else
   skip "pytest + coverage" "no tests yet"
   skip "adversarial judge (U1)" "no tests yet"
@@ -127,6 +144,9 @@ else
   skip "the engine runs without the demo (M15)" "no tests yet"
   skip "ingest never invents an answer key (M15)" "no tests yet"
   skip "a single call is still a single call (M16)" "no tests yet"
+  skip "the winning plan deletes a step (M16)" "no tests yet"
+  skip "a session is priced over its turns (M17)" "no tests yet"
+  skip "a certificate expires on coverage (M18)" "no tests yet"
 fi
 
 # ---------------------------------------------------------------- 3. web build

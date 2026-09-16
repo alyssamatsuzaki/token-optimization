@@ -162,3 +162,41 @@ class TestCounterNamed:
 
     def test_a_named_counter_and_the_ambient_one_agree_when_they_are_the_same(self) -> None:
         assert counter_named(base_counter_name()).name == base_counter_name()
+
+
+class TestFittingRatiosHappensOnce:
+    """Concurrent callers wait for one fit rather than each doing it (M17).
+
+    ``lru_cache`` memoizes a result; it does not stop two threads both missing and both doing the
+    work. Fitting walks every cassette in the recording — nearly seven thousand files — and the
+    API serves sync endpoints from a threadpool, so several tabs opening Inspect together used to
+    pay for it several times over, each slower than the last as they contended.
+    """
+
+    def test_threads_that_miss_together_fit_once(self, tmp_path) -> None:
+        import threading
+
+        from tokop.core import ratios
+
+        ratios.clear_cache()
+        empty = tmp_path / "cassettes"
+        empty.mkdir()
+        results = []
+        barrier = threading.Barrier(4)
+
+        def call() -> None:
+            barrier.wait()
+            results.append(ratios.fitted_estimator(empty))
+
+        threads = [threading.Thread(target=call) for _ in range(4)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert len(results) == 4
+        # One object, not four: every caller after the first read the cached fit.
+        assert all(result is results[0] for result in results)
+        info = ratios._fit_estimator.cache_info()
+        assert info.misses == 1, info
+        ratios.clear_cache()

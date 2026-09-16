@@ -41,6 +41,8 @@ from typing import Any
 
 from scipy import stats as scipy_stats
 
+from tokop.optimize.fingerprint import Divergence, Fingerprint, divergence
+
 CERTIFICATE_SCHEMA = "tokop.certificate.v1"
 
 #: How long a certificate stands before it has to be re-earned. A month is short enough that a
@@ -163,6 +165,11 @@ class Certificate:
     alpha: float
     spending: str
     schema: str = CERTIFICATE_SCHEMA
+    #: What the split this was measured on *looked like*: the mix of task types, the input
+    #: length quantiles and a difficulty proxy (UPGRADE_V4.md M18). A certificate binds to it as
+    #: well as to the dataset, so that traffic drifting into a region the split barely covered
+    #: expires it — on coverage, not only on time.
+    workload_fingerprint: Fingerprint | None = None
     notes: tuple[str, ...] = field(default_factory=tuple)
 
     @property
@@ -224,6 +231,11 @@ class Certificate:
             "spending": self.spending,
             "per_look_alpha": self.levels(),
             "fingerprint": self.fingerprint(),
+            "workload_fingerprint": (
+                self.workload_fingerprint.as_dict()
+                if self.workload_fingerprint is not None
+                else None
+            ),
             "certifiable": self.certifiable,
             "notes": list(self.notes),
         }
@@ -265,6 +277,11 @@ class Certificate:
             looks_planned=int(raw["looks_planned"]),
             alpha=float(raw["alpha"]),
             spending=str(raw["spending"]),
+            workload_fingerprint=(
+                Fingerprint.from_dict(raw["workload_fingerprint"])
+                if raw.get("workload_fingerprint")
+                else None
+            ),
             notes=tuple(str(n) for n in raw.get("notes") or ()),
         )
 
@@ -285,8 +302,14 @@ def issue(
     interval_days: int = CANARY_INTERVAL_DAYS,
     alpha: float = DEFAULT_ALPHA,
     spending: str = POCOCK,
+    workload_fingerprint: Fingerprint | None = None,
 ) -> Certificate:
-    """Turn a report into a certificate with an expiry and a look schedule."""
+    """Turn a report into a certificate with an expiry and a look schedule.
+
+    ``workload_fingerprint`` is what the split looked like. It is optional only so that a
+    certificate written before M18 still reads; one issued without it cannot be checked for
+    distribution drift, and :func:`take_look` says so rather than passing the check.
+    """
     proof = payload["proof"]
     provenance = payload["provenance"]
     if interval_days < 1:
@@ -327,9 +350,16 @@ def issue(
         looks_planned=looks,
         alpha=alpha,
         spending=spending,
+        workload_fingerprint=workload_fingerprint,
         notes=(
             "A certificate is a claim about the models and prices it names. It expires because "
             "a provider's model is edited continuously and you are not told.",
+            "It is also a claim about the tasks it was measured on. It carries their "
+            "distribution, and a canary expires it on coverage as well as on time: traffic that "
+            "has moved into a region the split barely covered is traffic the proof never saw."
+            if workload_fingerprint is not None
+            else "No workload fingerprint was supplied, so this certificate cannot be checked "
+            "for distribution drift. A look will report that rather than pass it.",
         ),
     )
 
@@ -386,12 +416,22 @@ class CanaryResult:
     alpha_this_look: float
     raised: bool
     reasons: tuple[str, ...]
+    #: Whether an **outcome** drift test ran: a re-scored subset whose accuracy difference could
+    #: have moved. Deliberately not the same field, or the same word, as the distribution check
+    #: below: a look can pass every outcome test while being quoted about tasks the certificate
+    #: never saw, and collapsing the two would let the passing one imply the other
+    #: (UPGRADE_V4.md M18, PLAN.md section 9).
     drift_tested: bool
     drift_note: str = ""
     observed_delta: float | None = None
     observed_standard_error: float | None = None
     z: float | None = None
     subset_size: int = 0
+    #: Whether a **distribution** drift test ran: recent traffic compared, as a distribution, to
+    #: the split the certificate was measured on.
+    distribution_tested: bool = False
+    distribution_note: str = ""
+    divergence: Divergence | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -406,6 +446,9 @@ class CanaryResult:
             "observed_standard_error": self.observed_standard_error,
             "z": self.z,
             "subset_size": self.subset_size,
+            "distribution_tested": self.distribution_tested,
+            "distribution_note": self.distribution_note,
+            "divergence": self.divergence.as_dict() if self.divergence is not None else None,
         }
 
 
@@ -466,6 +509,7 @@ def take_look(
     observed: tuple[float, float] | None = None,
     subset_size: int = 0,
     drift_note: str = "",
+    recent: Fingerprint | None = None,
 ) -> CanaryResult:
     """One look at a standing certificate.
 
@@ -474,6 +518,12 @@ def take_look(
     error) from a re-scored subset, or ``None`` when there is nothing new to score — replaying
     the cassettes the certificate was issued from cannot produce a different answer, and
     reporting that as a pass would be reporting a tautology as evidence.
+
+    ``recent`` is the fingerprint of the traffic the certificate is being quoted about. It is
+    checked against the one the certificate carries and raises on **coverage**: a mix that has
+    moved, or a region of it that the certified split barely held. That is a different question
+    from ``observed``, which asks whether the outcome moved on tasks the split did cover, and the
+    two are reported in separate fields for exactly that reason (UPGRADE_V4.md M18).
     """
     look = log.taken + 1
     levels = certificate.levels()
@@ -528,6 +578,32 @@ def take_look(
                 f"critical value of {critical:.2f} at this look's alpha of {level:.4f}."
             )
 
+    # Distribution drift. Separate from everything above: it asks whether the split still
+    # covers the traffic, not whether the outcome moved on the traffic it covers. It spends no
+    # alpha, because it is not a test of a random quantity — a mix either moved or it did not.
+    gap: Divergence | None = None
+    distribution_tested = False
+    if recent is None:
+        distribution_note = (
+            "No distribution check: this look was not given the recent traffic to fingerprint. "
+            "The outcome checks above say nothing about whether the certified split still covers "
+            "what is arriving."
+        )
+    elif certificate.workload_fingerprint is None:
+        distribution_note = (
+            "No distribution check: this certificate was issued without a workload fingerprint, "
+            "so there is nothing to compare recent traffic against. Re-issue it to gain one."
+        )
+    else:
+        distribution_tested = True
+        gap = divergence(certificate.workload_fingerprint, recent)
+        reasons.extend(gap.reasons)
+        distribution_note = (
+            f"compared {recent.n} recent tasks against the {certificate.workload_fingerprint.n} "
+            f"the certificate was measured on; total variation {gap.total_variation:.2f}"
+            + ("" if gap.drifted else ", within the covered region")
+        )
+
     result = CanaryResult(
         look=look,
         of_looks=certificate.looks_planned,
@@ -547,6 +623,9 @@ def take_look(
         observed_standard_error=standard_error,
         z=z,
         subset_size=subset_size,
+        distribution_tested=distribution_tested,
+        distribution_note=distribution_note,
+        divergence=gap,
     )
     log.looks.append({"taken_on": today.isoformat(), **result.as_dict()})
     return result

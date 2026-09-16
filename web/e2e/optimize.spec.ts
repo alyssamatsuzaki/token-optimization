@@ -433,3 +433,25 @@ test("deploy exports artifacts and never claims to carry traffic", async ({ page
     await expect(page.getByTestId("deploy-caveat")).toBeVisible();
   }
 });
+
+
+/**
+ * M18. "Proven on 200 tasks" says nothing about which 200, and the reader deciding whether this
+ * claim applies to their queue is the one person who needs to know. The panel shows the mix the
+ * certificate binds to; this asserts it is the engine's mix and not a shape written into a
+ * component.
+ */
+test("the screen says what the claim was measured on", async ({ page }) => {
+  await openOptimize(page);
+  await page.getByTestId("build-candidate").click();
+  await page.getByTestId("run-proof").click();
+
+  const shape = report.workload_fingerprint;
+  const mix = page.getByTestId("fingerprint-mix");
+  await expect(mix).toBeVisible();
+  for (const name of Object.keys(shape.task_type_mix)) {
+    await expect(mix).toContainText(name);
+  }
+  // The counter is named beside the lengths, because a length quantile means nothing without it.
+  await expect(page.getByTestId("fingerprint-lengths")).toContainText(shape.counter);
+});

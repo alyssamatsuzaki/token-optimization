@@ -15,6 +15,13 @@ Two behaviours worth stating:
 * **Failures stay visible.** A call that raises is recorded as a failed call with its error, and
   the task is graded as unsuccessful (non-negotiable 8). It is never dropped from the
   denominator, because a pipeline that crashes on 5% of tasks is 5% worse, not 5% smaller.
+
+Since M16b it also executes **graphs**. A pipeline that declares ``steps:`` runs them in
+topological order per task, each step seeing the output of the steps it declared as inputs under
+``{{step_id}}``; a pipeline that declares none takes the single-call path above, unchanged and
+byte for byte. The two are the same function and the branch is explicit, because a graph
+workload silently falling through a branch written for one call is exactly the failure the
+milestone's guarantee is about.
 """
 
 from __future__ import annotations
@@ -34,12 +41,14 @@ from tokop.core.pricing import PriceSnapshot, cost_disagreement
 from tokop.core.registry import Registry
 from tokop.core.usage import TokenUsage
 from tokop.db import Call, GradeRow, Run, Workload, session_scope, store_price_snapshot
+from tokop.optimize.graph import SINGLE_STEP, Graph, GraphError, compile_graph
 from tokop.workloads.grading import grade
 from tokop.workloads.item import Item
 from tokop.workloads.spec import (
     EntailmentSpec,
     JudgeSpec,
     PipelineSpec,
+    StepSpec,
     WorkloadSpec,
     demo_timestamp,
 )
@@ -55,19 +64,70 @@ class AnyAdapter(Protocol):
     async def count_tokens(self, request: LLMRequest) -> int | None: ...
 
 
+@dataclass(frozen=True)
+class TaskCall:
+    """One provider call a task made, and where in the pipeline it came from.
+
+    Was a 4-tuple until M16b. It grew a name when it grew a fifth field: a graph's call rows are
+    only useful if they say which step made them, and ``request, response, _, _, _`` is how a
+    field that nobody unpacks stops being written.
+    """
+
+    request: LLMRequest
+    response: LLMResponse
+    tier: str
+    tier_index: int
+    #: Which step of the compiled graph made this call. A single-call pipeline compiles to one
+    #: step and every row carries its id, so nothing about an existing workload changes.
+    step: str = SINGLE_STEP
+
+
+@dataclass(frozen=True)
+class StepTrace:
+    """What one step of a graph did, whether or not it called a model.
+
+    A local step — ``tool`` or ``retrieve`` — makes no call and so appears in no call row, but
+    what it put into the graph is exactly what the downstream steps pay input price for. A
+    finding about a tool called twice with identical arguments is computed from these.
+    """
+
+    id: str
+    kind: str
+    #: What a local step was called with. Empty for a generation step, whose arguments are its
+    #: prompt and are already in the call row.
+    arguments: str
+    #: What the step put into the graph: a model's reply, or a local step's declared result.
+    output: str
+    #: Whether this step made a provider call.
+    called: bool
+    #: Input tokens the step's own request carried, as the provider reported them. Zero for a
+    #: local step, which sends nothing.
+    input_tokens: int = 0
+    cost_usd: Decimal = Decimal(0)
+    error: str | None = None
+
+
 @dataclass
 class TaskResult:
     """One task's outcome, before it is written to the ledger."""
 
     task_id: str
-    calls: list[tuple[LLMRequest, LLMResponse, str, int]] = field(default_factory=list)
+    calls: list[TaskCall] = field(default_factory=list)
     output: str = ""
     resolved_tier: str = "single"
     error: str | None = None
+    #: Every step the graph ran, in run order. One entry for a single-call pipeline.
+    steps: tuple[StepTrace, ...] = ()
 
     @property
     def failed(self) -> bool:
         return self.error is not None
+
+    def step_output(self, step_id: str) -> str:
+        for trace in self.steps:
+            if trace.id == step_id:
+                return trace.output
+        raise KeyError(f"task {self.task_id} ran no step {step_id!r}")
 
 
 @dataclass
@@ -227,6 +287,11 @@ class Runner:
         if samples < 1:
             raise AdapterError(f"samples must be at least 1, got {samples}")
         pipeline = self.workload.pipeline(pipeline_id)
+        graph = compile_graph(pipeline)
+        if not graph.is_single_call:
+            return await self._run_graph(
+                pipeline, graph, items, model_id=model_id, split=split, samples=samples
+            )
         model = model_id or self.registry.role(pipeline.model_role).model_id
         requests = [
             self.render(pipeline, item, model).model_copy(update={"sample_index": index})
@@ -265,14 +330,37 @@ class Runner:
                     # a sampling scorer returns instead is its own decision, made downstream
                     # from all k outputs, so the runner does not presume one here.
                     result.output = outcome.text
-                result.calls.append((request, outcome, "single", 0))
+                result.calls.append(TaskCall(request, outcome, "single", 0, SINGLE_STEP))
+            result.steps = (
+                StepTrace(
+                    id=SINGLE_STEP,
+                    kind="generate",
+                    arguments="",
+                    output=result.output,
+                    called=True,
+                    input_tokens=sum(
+                        call.response.usage.total_input
+                        for call in result.calls
+                        if call.request.sample_index == 0
+                    ),
+                    cost_usd=sum(
+                        (
+                            self.snapshot.cost(model, call.response.usage).total
+                            for call in result.calls
+                            if call.request.sample_index == 0
+                        ),
+                        Decimal(0),
+                    ),
+                    error=result.error,
+                ),
+            )
             tasks.append(result)
 
         run_id = f"{self.workload.id}-{pipeline_id}-{split}-{model}"
         total = Decimal(0)
         for task in tasks:
-            for _, response, _, _ in task.calls:
-                total += self.snapshot.cost(model, response.usage).total
+            for call in task.calls:
+                total += self.snapshot.cost(model, call.response.usage).total
         for warm in prewarm_responses:
             total += self.snapshot.cost(model, warm.usage).total
 
@@ -291,6 +379,184 @@ class Runner:
             prewarm_calls=len(prewarm_responses),
             manifest=manifest,
             prewarm=list(zip(prewarm_pairs, prewarm_responses, strict=True)),
+        )
+
+    # ------------------------------------------------------------------ graphs (M16b)
+
+    def step_model(self, pipeline: PipelineSpec, spec: StepSpec, override: str | None) -> str:
+        """Which model a step runs on.
+
+        A step that names its own ``model_role`` keeps it, because "the verifier runs at the
+        frontier" is the whole point of saying so and a tier sweep that silently demoted it
+        would be measuring a different pipeline. A step that names none follows the pipeline's
+        role, which is what ``model_id`` overrides — so running a graph at each tier moves the
+        steps that did not pin themselves and leaves the ones that did.
+        """
+        if spec.model_role is not None:
+            return self.registry.role(spec.model_role).model_id
+        return override or self.registry.role(pipeline.model_role).model_id
+
+    async def _run_step(
+        self,
+        pipeline: PipelineSpec,
+        spec: StepSpec,
+        kind: str,
+        variables: dict[str, str],
+        model: str,
+    ) -> tuple[StepTrace, TaskCall | None]:
+        """One step of one task. Local steps return declared text and make no call."""
+        if kind in ("tool", "retrieve"):
+            arguments = spec.arguments(variables)
+            return (
+                StepTrace(
+                    id=spec.id,
+                    kind=kind,
+                    arguments=arguments,
+                    output=spec.emitted(variables),
+                    called=False,
+                ),
+                None,
+            )
+        request = spec.render(self.provider, model, variables, pipeline.max_tokens)
+        try:
+            response = await self._call(request)
+        except BudgetExceeded:
+            # The operator's own cap, not a model failure: it ends the run rather than becoming
+            # a graph of failed tasks. Same rule as the single-call path.
+            raise
+        except Exception as exc:
+            error = f"{type(exc).__name__}: {exc}"
+            response = LLMResponse(
+                text="",
+                usage=TokenUsage(),
+                model=model,
+                provider=self.provider,
+                latency_ms=0.0,
+                error=error,
+            )
+            return (
+                StepTrace(spec.id, kind, "", "", called=True, error=error),
+                TaskCall(request, response, "single", 0, spec.id),
+            )
+        return (
+            StepTrace(
+                id=spec.id,
+                kind=kind,
+                arguments="",
+                output=response.text,
+                called=True,
+                input_tokens=response.usage.total_input,
+                cost_usd=self.snapshot.cost(model, response.usage).total,
+            ),
+            TaskCall(request, response, "single", 0, spec.id),
+        )
+
+    async def _run_graph_task(
+        self,
+        pipeline: PipelineSpec,
+        graph: Graph,
+        item: Item,
+        override: str | None,
+    ) -> TaskResult:
+        """Run every step of one task, in order, stopping at the first failure.
+
+        Stopping is the honest behaviour: a step whose input never arrived did not run, so it
+        does not appear in the trace and it is not billed. The task counts as unsuccessful
+        either way (non-negotiable 8).
+        """
+        variables = self.variables(item)
+        result = TaskResult(task_id=item.id)
+        traces: list[StepTrace] = []
+        async with self._semaphore:
+            for step in graph.steps:
+                assert step.spec is not None  # a multi-step graph carries a spec per step
+                model = self.step_model(pipeline, step.spec, override)
+                trace, call = await self._run_step(pipeline, step.spec, step.kind, variables, model)
+                traces.append(trace)
+                if call is not None:
+                    result.calls.append(call)
+                if trace.error is not None:
+                    result.error = trace.error
+                    break
+                variables[step.id] = trace.output
+        result.steps = tuple(traces)
+        result.output = variables.get(graph.output_step, "")
+        return result
+
+    async def _run_graph(
+        self,
+        pipeline: PipelineSpec,
+        graph: Graph,
+        items: Sequence[Item],
+        *,
+        model_id: str | None,
+        split: str,
+        samples: int,
+    ) -> RunResult:
+        """Run a multi-step pipeline over a split.
+
+        **No separate pre-warm pass, and the reason is structural.** A step's request cannot be
+        rendered before the steps it consumes have run, so there is nothing to send a
+        ``max_tokens: 0`` copy of in advance. The first task is run to completion on its own
+        instead and every task after it reads the entries that task wrote — one task's worth of
+        misses rather than a synthetic call per step. A step whose cacheable prefix mentions an
+        upstream step's output has a prefix that changes per task and cannot be warmed by
+        anything; that is a property of the pipeline, it shows up as PL02 in the lint, and the
+        runner does not hide it.
+        """
+        if samples > 1:
+            raise GraphError(
+                f"{pipeline.id} is a graph and was asked for {samples} samples per task. "
+                "Repeated generations are a property of one call, and what a second pass "
+                "through a graph would repeat is undefined here. Sample a single-call pipeline."
+            )
+        ordered = list(items)
+        if not ordered:
+            raise AdapterError(f"{pipeline.id} was given no tasks to run")
+
+        first = await self._run_graph_task(pipeline, graph, ordered[0], model_id)
+        rest = await asyncio.gather(
+            *(self._run_graph_task(pipeline, graph, item, model_id) for item in ordered[1:]),
+            return_exceptions=True,
+        )
+        _stop_on_budget(rest)
+        tasks: list[TaskResult] = [first]
+        for outcome in rest:
+            if isinstance(outcome, BaseException):
+                raise outcome
+            tasks.append(outcome)
+
+        models: list[str] = []
+        for step in graph.steps:
+            assert step.spec is not None
+            model = self.step_model(pipeline, step.spec, model_id)
+            if model not in models:
+                models.append(model)
+
+        total = sum(
+            (
+                self.snapshot.cost(call.response.model, call.response.usage).total
+                for task in tasks
+                for call in task.calls
+            ),
+            Decimal(0),
+        )
+        run_id = f"{self.workload.id}-{pipeline.id}-{split}-{'+'.join(models)}"
+        manifest = self.manifest(pipeline.id, split, models, ordered, 0, samples)
+        manifest["graph"] = graph.as_dict()
+        return RunResult(
+            run_id=run_id,
+            pipeline_id=pipeline.id,
+            split=split,
+            tasks=tasks,
+            total_cost=total,
+            model_ids=models,
+            price_snapshot_id=self.snapshot.snapshot_id,
+            origin=self.origin,
+            # A graph warms its caches by running its first task, so there is no pre-warm call
+            # to count. Reporting one would put a call in the trace that nobody made.
+            prewarm_calls=0,
+            manifest=manifest,
         )
 
     async def run_judge(
@@ -558,7 +824,9 @@ def persist(
         for task in result.tasks:
             item = by_id[task.task_id]
             task_cost = Decimal(0)
-            for request, response, tier, tier_index in task.calls:
+            for call_row in task.calls:
+                request, response = call_row.request, call_row.response
+                tier, tier_index = call_row.tier, call_row.tier_index
                 breakdown = snapshot.cost(response.model, response.usage)
                 task_cost += breakdown.total
                 disagreement = (
@@ -571,6 +839,7 @@ def persist(
                     task_id=task.task_id,
                     tier=tier,
                     tier_index=tier_index,
+                    step=call_row.step,
                     attempt=response.attempt,
                     provider=response.provider,
                     model=response.model,

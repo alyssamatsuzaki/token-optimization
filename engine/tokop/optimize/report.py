@@ -58,6 +58,7 @@ from tokop.optimize.findings import (
     rank,
     workload_findings,
 )
+from tokop.optimize.fingerprint import fingerprint
 from tokop.optimize.graph import compile_graph
 from tokop.optimize.lint import Finding, LintContext, clear_score, lint
 from tokop.optimize.proof import (
@@ -258,7 +259,8 @@ def replay_run(
         per_sample_cost: list[Decimal] = []
         per_sample_output: list[str] = []
         per_sample_correct: list[int] = []
-        for request, response, _, _ in task.calls:
+        for task_call in task.calls:
+            request, response = task_call.request, task_call.response
             breakdown = snapshot.cost(response.model, response.usage)
             per_sample_cost.append(breakdown.total)
             per_sample_output.append(response.text)
@@ -289,6 +291,7 @@ def replay_run(
                     system_text=request.system_text,
                     user_text=request.messages[0].text if request.messages else "",
                     static_prefix=request.static_prefix_text,
+                    step=task_call.step,
                 )
             )
         costs.append(task_cost)
@@ -1830,6 +1833,11 @@ def build_report(
         "calibration": calibration_block,
         "contract": contract_block,
         "dataset_provenance": provenance_block,
+        # What the split the claim rests on actually looked like (UPGRADE_V4.md M18). A
+        # certificate binds to it, a canary checks recent traffic against it, and the screen
+        # shows it — because "proven on 200 tasks" says nothing about *which* 200, and a reader
+        # comparing this claim to their own queue needs the mix to do it.
+        "workload_fingerprint": fingerprint(list(bundle.test)).as_dict(),
         "waterfall": [
             {
                 **step.as_dict(),
@@ -2647,6 +2655,15 @@ def readme_block(payload: ReportPayload) -> str:
             if provenance["prices_verified"]
             else f"unverified for {', '.join(provenance['unverified_models'])}."
         ),
+        # M17. Every figure above is per request, and until M17 nothing said so because nothing
+        # in this build could price anything else. A session is a different accounting with a
+        # different answer — the same prompt order that wins here can lose over turns once an
+        # entry expires between them — so the claim states its unit rather than leaving a reader
+        # to assume the larger one (UPGRADE_V4.md M17).
+        "- Every figure here is **per request**: one task, one call, a cache entry that is warm "
+        "because the run warmed it. Over a conversation the answer can differ, because an entry "
+        "expires between turns and a history grows after the breakpoint. `tokop session` prices "
+        "that separately and reports it separately.",
         "",
         f"**Evidence: {payload['evidence']['grade']}.** {payload['evidence']['headline']} "
         "The whole chain, and every method behind these numbers, is in "

@@ -14,6 +14,45 @@ async function inspectWithB0(page: Page) {
   await expect(page.getByTestId("inspect-findings")).toBeVisible();
 }
 
+test.describe("Inspect: over a conversation, not a request", () => {
+  /**
+   * M17. Everything else on this screen prices one request. This asserts the session panel shows
+   * the two things a per-request price cannot — an entry that expired between turns, and a
+   * quality claim this build refuses to make — and that its numbers are the API's.
+   *
+   * One test and one page load on purpose. Opening Inspect fires an inspection of its own, and
+   * three navigations for three assertions would leave three of those in flight against an
+   * endpoint whose first call fits token ratios over every cassette in the recording.
+   */
+  test("the session panel shows the arms the engine computed, and refuses the quality claim", async ({
+    page,
+    request,
+  }) => {
+    const report = await (await request.get("/api/session")).json();
+    await page.goto("/inspect");
+    // A button rather than something the screen does on arrival: it runs six hundred simulated
+    // turns, and Inspect is a screen people open to lint a prompt.
+    await page.getByTestId("session-run").click();
+
+    const table = page.getByTestId("session-arms");
+    await expect(table).toBeVisible();
+    for (const [name, arm] of Object.entries<Record<string, number>>(report.arms)) {
+      await expect(table).toContainText(name);
+      await expect(table).toContainText(String(arm.expired_entries));
+    }
+    await expect(page.getByTestId("session-sentence")).toHaveText(report.sentence);
+
+    // The immutable arm holds one prefix all session and still loses the entry, because the
+    // pause between turns outlives the lifetime. Nothing that prices one request can show this.
+    expect(report.arms.immutable.expired_entries).toBeGreaterThan(0);
+
+    // And the half this build cannot measure is shown as refused, with the reason.
+    expect(report.quality.measured).toBe(false);
+    await expect(page.getByText("Quality: not measured.")).toBeVisible();
+    await expect(page.getByText(report.quality.note.slice(0, 60))).toBeVisible();
+  });
+});
+
 test.describe("Inspect", () => {
   test("the findings list is exactly what the engine returned", async ({ page, request }) => {
     // SPEC.md non-negotiable 1: the screen's job is to show the engine's findings, so that is

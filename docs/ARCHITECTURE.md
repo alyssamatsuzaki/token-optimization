@@ -85,6 +85,15 @@ long-run mean — neither can be checked by inspecting one call.
 `o200k_base` cannot be loaded, the fallback says so in the string that reaches the UI rather than
 producing a plausible number silently.
 
+`session.py` prices a **sequence** of turns rather than one request (M17). It is where cache
+expiry lives: a prefix written at turn one is read at turn two and gone by turn six if the person
+took seventy seconds to read each answer, and no per-request price can show that. Three things it
+refuses to claim, each recorded in the result: that a read refreshes the entry's lifetime (Appendix
+B does not say, so the default is that it does not, which costs more), that a provider matches only
+an exact prefix (it can match a shorter one, so this again over-prices), and that the local counter
+counts what the model counts — it does not, by about 30%, and that gap decides whether a prefix
+clears the model's *minimum cacheable* size at all.
+
 `budget.py` refuses a call that would breach a cap, and never raises one. Since M13 something
 actually calls it: `recorder.GuardSink` prices every call that is about to reach a provider,
 asks the guard, and charges it what the call cost. The hook fires on a cassette *miss* only, so
@@ -264,6 +273,28 @@ whose cost-per-successful-task intervals overlap the cheapest are tied; the repo
 *adoptable* alternatives to what is running — a fallback sharing the constraint it exists to
 survive is not one — and the exploration weights over a tie are uniform, because greedy selection
 amplifies whichever option won the last sample.
+
+`graph.py` and `graph_findings.py` are the shape half of the analysis (M16). A pipeline with no
+`steps:` compiles to a graph of one and renders a request with the **same cassette key**, which is
+the guarantee that lets everything built before M16 keep working by construction rather than by
+inspection. The findings over a graph ask what one call at a time cannot: which step's output
+nothing consumes, which call returns what the call before it returned, which block is paid for by
+three steps. Two of them refuse to put a number on themselves — G02 has no price for a tool and
+says so rather than inventing one, G05 is labelled a ceiling — because a finding that invented a
+price to make itself rank would be the most quietly corrosive thing in the module.
+
+`graph_report.py` and `session_report.py` are the two entry points for the shapes a single call
+cannot express. Neither replays a committed recording: a graph workload and a session both run
+against the deterministic in-process provider, spend nothing, open no socket, and are reported
+apart from the demo. `recorder.py` implements SPEC.md section 6's single-call spend plan and is
+left exactly as it is, because changing it is how committed numbers move by accident.
+
+`fingerprint.py` is what a certificate is *about* (M18): the task-type mix, the input-length
+quantiles and a difficulty proxy that says it is one. A canary compares recent traffic against it
+and expires the certificate on **coverage** — traffic that has moved into a region the certified
+split barely held — which is a different question from the outcome drift the canary already tested,
+and is kept in a different field with a different name so that a passing outcome look can never
+read as a covered distribution.
 
 ### Two documents, one code path
 

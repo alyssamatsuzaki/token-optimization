@@ -30,6 +30,7 @@ import type {
   JudgedView,
   Provenance,
   Report,
+  WorkloadFingerprintView,
 } from "../lib/types";
 import { FrontierChart } from "../components/FrontierChart";
 import { PipelineGraph, type StepNode } from "../components/PipelineGraph";
@@ -429,6 +430,8 @@ export default function Optimize() {
           <TiesPanel ties={cascade.ties} />
 
           <ProvenancePanel provenance={report.dataset_provenance} />
+
+          <FingerprintPanel fingerprint={report.workload_fingerprint} />
 
           <CalibrationPanel calibration={report.calibration} />
 
@@ -876,6 +879,52 @@ function ProvenancePanel({ provenance }: { provenance: DatasetProvenanceView }) 
           ))}
         </ul>
       )}
+    </Section>
+  );
+}
+
+/**
+ * What the claim was measured on, as a distribution (UPGRADE_V4.md M18).
+ *
+ * "Proven on 200 tasks" says nothing about which 200, and the reader deciding whether this
+ * result applies to their own queue is the one person who needs to know. The same numbers are
+ * what a certificate binds to, so a canary can expire it on coverage — traffic that has moved
+ * into a region this split barely held — and not only on time.
+ */
+function FingerprintPanel({ fingerprint }: { fingerprint: WorkloadFingerprintView }) {
+  if (!fingerprint) return null;
+  const mix = Object.entries(fingerprint.task_type_mix).sort((a, b) => b[1] - a[1]);
+  const quantiles = Object.entries(fingerprint.length_quantiles).sort((a, b) =>
+    a[0].localeCompare(b[0], undefined, { numeric: true }),
+  );
+  return (
+    <Section
+      title="What this was measured on"
+      subtitle="A certificate binds to this distribution, and a canary expires it when recent traffic stops matching."
+      right={<Pill tone="neutral">{count(fingerprint.n)} tasks</Pill>}
+      id="fingerprint"
+    >
+      <dl className="text-small grid grid-cols-[12rem_1fr] gap-x-4 gap-y-1">
+        <dt className="text-graphite">Task mix</dt>
+        <dd className="tabular-nums" data-testid="fingerprint-mix">
+          {mix.map(([name, share]) => `${name} ${pct(share, 0)}`).join(", ")}
+        </dd>
+        <dt className="text-graphite">Question length</dt>
+        <dd className="tabular-nums" data-testid="fingerprint-lengths">
+          {quantiles.map(([name, value]) => `${name} ${count(Math.round(value))}`).join(", ")}{" "}
+          tokens, counted with {fingerprint.counter}
+        </dd>
+        <dt className="text-graphite">Concentration</dt>
+        <dd className="tabular-nums">
+          {fingerprint.difficulty.type_concentration.toFixed(2)} across {mix.length} types, the
+          rarest {pct(fingerprint.difficulty.rarest_type_share, 1)} of the split
+        </dd>
+      </dl>
+      <p className="mt-3 text-small text-graphite max-w-prose">
+        A difficulty proxy, and it says so: nothing here carries a difficulty label, and inventing
+        one would make the drift check a check on an invention. What it measures is how much of
+        the split sits in its smallest region — which is the region a claim covers least.
+      </p>
     </Section>
   );
 }

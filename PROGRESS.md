@@ -22,6 +22,10 @@
 | M15a The engine without the demo | **done** | `Item` protocol, datasets loaded not generated, no neutral module imports the demo |
 | M15b A second workload | **done** | `incident-triage` proves clean, `tokop ingest` for JSONL/CSV/OTel; `tokop label` not built |
 | M16a Pipelines as graphs | **done** | `steps:` compiles to a graph; a single call is still byte-identical, pinned by cassette key |
+| M16b Graphs execute | **done** | the runner runs a graph per task; `TaskCall` carries the step; a graph warms its own cache |
+| M16c Graph findings and proof | **done** | G01–G05 over traces; deleting the idle verifier cuts 51.8% with delta zero by construction |
+| M17 Session and cache accounting | **done** | `core/session.py` with expiry; PL15–PL17; holding the prefix beats compacting at three paces |
+| M18 Workload identity and drift | **done** | `optimize/fingerprint.py`; a certificate binds to the mix and expires on coverage, named apart from the canary's outcome drift |
 
 ## Next
 
@@ -47,10 +51,13 @@ recording moves two of its eight links and the verdict moves a third.
 evidence chain reads "not measured" for any workload with no judged arm, which is the honest
 state. The 50 hand labels UPGRADE_V4.md M15.3 asks for are a human's to write.
 
-**M16b** executes a graph. Nothing does yet: the runner still makes one call per task, and a
-workload that declared steps would compile, validate and then be run as though it had not. After
-that, M16c is the five graph findings and proof at the graph-level outcome — the point of the
-milestone, where the optimizer can propose *deleting a step* rather than only swapping a model.
+**M16, M17 and M18 are done and are described below.** What each of them still cannot do is
+written beside it rather than at the end, because every one of the three has a half that waits on
+a recording: the graph workload has no committed cassettes by choice, the session comparison
+refuses its quality claim, and a fingerprint over a program-generated split is not a fingerprint
+of anybody's traffic.
+
+**`tokop label` is still the one piece of M15 not built**, for the same reason as before.
 
 **U9, the serving-cost basis**, is deferred rather than renumbered (D41). It prices a hosted tier
 in GPU-hours over achieved throughput so a cascade can mix an API tier with a hosted one. Nothing
@@ -484,6 +491,145 @@ then be run as though it had not. That is M16b, and the spec landing first is de
 what every later commit depends on, and the part that could have forced the fallback to a
 parallel `GraphSpec`.
 
+## A graph that runs, and a step that buys nothing (M16b and M16c, UPGRADE_V4.md M16)
+
+M16a made a pipeline compilable into a graph and could not execute one. This is the other half.
+
+**What a step had to become.** Tokop executes no tools, so a graph has two kinds of step.
+`generate`, `verify` and `retry` are model calls. `tool` and `retrieve` are *local*: their `user:`
+blocks are the arguments they were called with and a new `emits:` block is the result the
+**workload declares** they return. A local step with nothing to emit is refused at compile time,
+and a generation step that declares one is refused too — its output is the model's reply, and a
+second declared output would be a number nobody could trace back to a call. That makes a graph a
+model of an agent's *shape* rather than an agent, which is what every surface reporting on one
+says. `loop` compiles and refuses to run: nothing bounds the iterations, so nothing can price it.
+
+**A graph warms its own cache, because it cannot warm it any other way.** A step's request cannot
+be rendered before the steps it consumes have run, so there is no `max_tokens: 0` copy to send in
+advance. The first task runs to completion on its own and every task after it reads what that task
+wrote — one task's worth of misses rather than a synthetic call per step, and `prewarm_calls`
+reports 0 rather than a number nobody made.
+
+**`data/incident-agent/` is the same 150 tasks as `incident-triage`, in a shape a single call
+cannot express.** Holding the tasks fixed is the point: a graph workload whose tasks also differed
+would be comparing two things at once. `G0` is the agent as shipped — fetch the runbook, look the
+signature up twice, answer, then have a frontier model verify — and `G1` is `G0` without the
+verifier. It has no committed recording and is not meant to: `tokop graph` runs it against the
+deterministic in-process provider, spends nothing, opens no socket, and nothing it produces
+reaches the README or a screen. The recording plan in `tokop/recorder.py` is left exactly as it
+is, because changing it is how committed numbers move by accident.
+
+**The five findings, and where two of them refuse to claim anything.**
+
+| | | |
+| --- | --- | --- |
+| G03 | $3.16/1k | the verifier `check` has never changed an outcome |
+| G01 | $1.73/1k | the output of `fetch` is sent to 2 steps |
+| G05 | $1.19/1k | `check` runs at the dearest model on text an earlier step produced |
+| G02 | $0.00/1k | `signature_lookup` is called twice with identical arguments |
+
+G01 prices the redundant copies at each step's **blended** input rate — its own input dollars over
+its own input tokens — because a block read from cache in one step and sent fresh in another costs
+different amounts in each. G02 reports **$0 and says that is what it means**: Tokop prices provider
+tokens and has no price for a tool, so it cannot say what the duplicate costs; it can say the call
+is made twice. G03 answers *structurally* here — the graph has no path from `check` to the step
+the pipeline answers with, so no number of further tasks would make it change one. G05 is labelled
+a **ceiling**, because it prices compressing that text to nothing. G04 fires on `G2`, a third
+pipeline with an unconditional retry, and names what its share depends on: this provider is
+deterministic, so the retry returns byte-identical text on every task, which is the most
+favourable case the finding can be measured in.
+
+**The acceptance check.** `G1` cuts cost per successful task by **51.8%** (interval 50.9 to 53.0%)
+with the accuracy difference at **+0.0 points, 95% CI [+0.0, +0.0]**, n = 99, non-inferior. The
+zero is *by construction* and the report says so in those words: nothing read the deleted step's
+verdict, so all 99 answers are byte-identical between the arms. Reporting a bootstrap where an
+argument belongs would be the wrong kind of rigour. Both arms see the simulator seeded on the
+**workload** rather than the pipeline, which is a correction — seeded per pipeline, two pipelines
+sharing an answering step would get different answers and the deletion's measured effect would be
+the simulator's noise (D47).
+
+That is the point of the milestone: an optimizer that can propose *deleting a step*, not only
+swapping a model.
+
+## A conversation is not a request repeated (M17, UPGRADE_V4.md M17)
+
+Every price in this build was a price per request. `core/session.py` adds the other unit: writes
+at the write premium, reads at the read rate, and **an entry that expires between turns**, which is
+the thing a per-request price cannot show at all.
+
+**The bill is counted, not provider-reported, and the payload says so.** The in-process provider
+has no clock and so cannot expire an entry. The turns are priced from the rendered requests with
+the base counter — an estimate that names its counter — and the provider supplies only the
+answers. It also has to be **scaled into the model's units**: the incident runbook is 658 tokens
+locally and about 855 as these models count, which is cacheable on Opus 5's 512-token minimum and
+not on Sonnet 5's 1,024. Priced unscaled, a perfectly cacheable session reads as entirely uncached
+(D48.2).
+
+**The result, at three paces.**
+
+| Pace between turns | Compacting costs, measured | At the summary budget | Winner | Entries expired (immutable / compact) |
+| --- | --- | --- | --- | --- |
+| 40s | 1.27–1.33x | 1.41–1.48x | immutable | 0 / 0 |
+| 70s | 1.09–1.15x | 1.21–1.28x | immutable | 16 / 0 |
+| 90s | 1.11–1.16x | 1.23–1.29x | immutable | 16 / 1 |
+
+Two columns, not one, because the one bias left in the comparison is **priced rather than
+mentioned**: the summary the compacting arm carries is the simulated provider's short reply rather
+than the budget the workload set aside, and a shorter summary is a cheaper prefix to write and to
+read. Every turn carrying a summary is therefore also priced at that budget. It matters — at the
+first geometry tried, the measured ratio favoured compacting at [0.95, 0.97] and the bias-closed
+one favoured holding at [1.04, 1.06], and the honest report was "not established".
+
+Three paces, not one, because the gap decides the answer. Six turns seventy seconds apart is 350
+seconds, so the five-minute entry expires before the last turn of every session — and rewriting
+the prefix, which is what compaction is charged for, *also refreshes the entry*, so compacting can
+win by destroying something just before it would have died anyway. The expiry counts are in the
+table so that mechanism is visible rather than inferred from a cost that moved. The interval
+resamples **sessions**, not turns: turns inside one session share a cache entry, so bootstrapping
+turns would report an interval several times too narrow.
+
+**PL15 to PL17** read a sequence of requests rather than one. PL15 fires when the prefix moves on
+every turn; PL16 when text identical on every turn sits *after* the breakpoint, which is what a
+conversation that re-renders itself rather than appending tends to produce; PL17 recognises a
+compaction by what it does — a prefix that changed and a tail that got shorter. Both shipped arms
+raise PL16 on `S0`'s contract block, and only the compacting one raises PL17.
+
+**The quality side is refused, and that is a logged conflict with the plan.** PLAN.md asks for the
+change in task success with an interval. This build's provider answers from the task and the model
+alone: its replies do not depend on the conversation carried with them, so a compacted arm cannot
+lose accuracy here, and "no accuracy difference" would report a property of the simulator as a
+property of compaction. It is displayed as not measured, with that reason, everywhere the
+comparison appears (D48.5).
+
+**And B1's claim is restated rather than softened.** The README's generated metrics block now says
+that every figure in it is per request, and that a conversation is a different accounting with a
+different answer. A refusal moving one click away, which is what UPGRADE_V4.md M17 asks for.
+
+## A certificate that knows what it was measured on (M18, UPGRADE_V4.md M18)
+
+A certificate bound to models, prices, grading mode and dataset provenance, and nothing in it
+noticed when the traffic it was quoted about stopped resembling the split it was measured on.
+
+`optimize/fingerprint.py` is that shape: the task-type mix, input-length quantiles at p10/p50/p90/
+p99, and a difficulty **proxy** that says it is one — nothing here carries a difficulty label, so
+what is computed is the concentration of the mix and the share sitting in its smallest type, which
+is the region a claim covers least. The demo's is `computation 20%, exception 10%, lookup 45%,
+two_hop 25%` over 200 tasks, and the Optimize screen shows it under "What this was measured on".
+
+**Distribution drift is not the canary's drift, and they never share a word.**
+`CanaryResult.drift_tested` means a re-scored subset whose accuracy difference could have moved;
+`distribution_tested` means recent traffic compared, as a distribution, to the certified split. A
+certificate can pass every outcome look while being quoted about tasks it never saw — the failure
+that looks most like success — so a test class enforces that neither implies the other, and a look
+with nothing to compare reports that it *could not* check rather than passing.
+
+Divergence is total variation distance over the mix, which reads as a share of traffic: 0.2 means
+a fifth of the queue is in a different type from the one the certificate would predict. Beside it,
+the **uncovered region** is named individually, because "the distribution moved" is not something
+anybody can act on and "`two_hop` is 43% of recent traffic and was 1% of the certified split, 2 of
+200 tasks" is. `tokop canary --drift <recent.jsonl>` is the command; a certificate issued before
+M18 still reads, and says it cannot be checked for coverage rather than passing the check.
+
 ## Demo result (simulated test fixtures, 200-task test split)
 
 Generated into README.md by `tokop report --write-readme`. Headline: B0 $0.05172 per successful
@@ -498,7 +644,31 @@ These are simulated, not recorded (DECISIONS.md D1).
 
 ## Known issues
 
-- `make verify` runs all 21 checks with none skipped.
+- `make verify` runs all 31 checks with none skipped.
+- **The graph and session workloads have no committed recording, by choice.** `tokop graph` and
+  `tokop session` run `data/incident-agent/` against the deterministic in-process provider. The
+  recording plan in `tokop/recorder.py` is SPEC.md section 6's single-call plan and is left
+  exactly as it is; changing it is how committed numbers move by accident (D47).
+- **A graph's `tool` and `retrieve` steps return text the workload declares.** Tokop executes no
+  tools. That makes `incident-agent` a model of an agent's shape rather than an agent, and every
+  surface reporting on it says so.
+- **The session comparison refuses its quality half.** This build's provider answers from the task
+  and the model alone, so a compacted arm cannot lose accuracy here and any figure would describe
+  the simulator (D48.5). The cost half is measured, at three paces, under two pricings.
+- **A session's bill is counted, not provider-reported.** The in-process provider has no clock and
+  cannot expire a cache entry, which is half of what a session is. The counter and the ratio it
+  was scaled by are in the payload.
+- **A workload fingerprint over a program-generated split is not a fingerprint of traffic.** M18
+  makes a certificate expire on coverage; what it is covering is still a set nobody observed.
+- **Two latency bugs the M17 screen work surfaced, both fixed.** Fitting token ratios walks every
+  cassette — nineteen seconds here — and `lru_cache` memoizes a *result* without stopping two
+  threads both missing and both doing the work, so several tabs opening Inspect together each paid
+  for it. It is behind a lock now, with a test that four threads missing together produce one fit.
+  And the session comparison is a button rather than something Inspect does on arrival: a screen
+  people open to lint a prompt should not run six hundred simulated turns first.
+- **The ledger is generated and now has a schema that can go stale.** M16b added `calls.step`;
+  `create_all` will not add a column to an existing table, so a ledger built before it is refused
+  by name with the one command that fixes it (`tokop build-test-fixtures --ledger-only`).
 - **The demo's own calibration is still gold, by choice.** `--calibration penalized-v1` runs the
   label-free path end to end, and the demo reports what it would have chosen; the shipped
   operating point stays gold because the fixtures cannot show whether the label-free one is any
@@ -571,8 +741,8 @@ everything around it.
   Playwright's own resolution when that path is absent, which is everywhere but here.
 
 438 engine tests, 39 Playwright tests, 91% line coverage on `core/` and `optimize/`.
-`make verify`: 12 checks, none skipped, green. (At M16a: 805 engine tests, 49 Playwright tests,
-91% coverage, 21 checks.)
+`make verify`: 12 checks, none skipped, green. (At M18: 880 engine tests, 51 Playwright tests,
+31 checks.)
 
 ## The tokenizer divergence (D26)
 

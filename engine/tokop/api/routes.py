@@ -406,6 +406,36 @@ def inspect_pipeline(pipeline_id: str) -> dict[str, Any]:
     }
 
 
+#: The session comparison, computed once per process. It runs six hundred simulated turns and
+#: bootstraps three paces, which is seconds rather than milliseconds, and nothing in it depends
+#: on the request — so it is cached exactly like the report is, for exactly the same reason.
+_SESSION_CACHE: dict[str, dict[str, Any]] = {}
+
+
+@router.get("/session")
+def session(
+    workload: str = Query(
+        "data/incident-agent/workload.yaml",
+        description="A workload with a `session:` block.",
+    ),
+) -> dict[str, Any]:
+    """What a conversation costs, against what one request costs (UPGRADE_V4.md M17).
+
+    Every other number this API serves is per request. This one is per session: an entry that
+    expires between turns, a history that grows after the breakpoint, and a compaction that
+    throws the prefix away. Its bill is counted rather than provider-reported and the payload
+    says so, because the in-process provider has no clock.
+    """
+    from tokop.optimize.session_report import SessionReportError, build_session_report
+
+    if workload not in _SESSION_CACHE:
+        try:
+            _SESSION_CACHE[workload] = build_session_report(workload).as_dict()
+        except (SessionReportError, FileNotFoundError) as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return _SESSION_CACHE[workload]
+
+
 @router.get("/compare")
 def compare() -> dict[str, Any]:
     """The recorded Compare examples (SPEC.md 5.3)."""
