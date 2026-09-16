@@ -21,7 +21,7 @@ Measured on this checkout, at `acdc73f`, with the toolchain installed by `make s
 | `.git` | 23 MB | 23 MB (21.01 MiB pack, 13,287 objects) | same |
 | `web/` source and e2e | 37 files, 6,356 lines | 37 tracked files under `web/`; 23 of them under `web/src` + `web/e2e`, totalling 6,356 lines | same, split named |
 | Largest screen | `Optimize.tsx`, 995 lines | 995 lines | same |
-| Optimize at the proof stage | `optimize-proof.png` 1280 × 7280 | 1280 × 7280 px, 8.1 viewport heights at 900 px | same |
+| Optimize at the proof stage | `optimize-proof.png` 1280 × 7280 | the live page is **1280 × 7542**, 8.4 viewport heights at 900 px; the committed screenshot is stale at 7280 | **moved: 7,542** |
 | Frontend deps with zero importers | `recharts`, `clsx`, `tailwind-merge` | confirmed: 0 references in `web/src`, `web/e2e`, `web/*.ts`, `web/*.js` | same |
 | Process docs at root | 1268 / 829 / 494 / 380 / 57 | `DECISIONS.md` 1,268, `PROGRESS.md` 829, `PLAN.md` 494, `SPEC.md` 380, `CLAUDE.md` 57 | same |
 | README | 200 lines, block at 12–38 | 200 lines; `metrics:start` on line 13, `metrics:end` on line 40 | **moved: 13–40** |
@@ -29,7 +29,7 @@ Measured on this checkout, at `acdc73f`, with the toolchain installed by `make s
 | Screenshots shown in the README | 0 | 0 | same |
 | Nav items | 4; Compare and Spend absent from `docs/DEMO.md` | 4 primary + Settings; neither word appears in `docs/DEMO.md` | same |
 
-### Four things CLEANUP.md states that this checkout does not bear out
+### Five things CLEANUP.md states that this checkout does not bear out
 
 1. **`tokop report` is not byte-identical run to run.** Two consecutive runs on an unchanged
    tree differ in exactly one field, `cascade.runtime_seconds` — the wall-clock time of the
@@ -49,13 +49,22 @@ Measured on this checkout, at `acdc73f`, with the toolchain installed by `make s
 3. **`docs/DEMO.md` says "scroll" three times, not five** (lines 20, 76 and 101).
 
 4. **Item 3's stated acceptance test already passes — at the recommendation block, not at the
-   Verdict section.** `The recommendation` block carries the verdict display, both
-   cost-per-successful-task figures, and the accuracy delta with its 95% CI, and it ends at
-   ≈630 px at 1280 px width. What does *not* resolve above 900 px is the **Verdict section**:
-   the `Candidate pipeline` graph and its thirteen findings sit between the headline row and the
-   verdict, pushing the verdict sentence to ≈2,150 px. Item 3 is planned against the strict
-   reading — the Verdict section moves above the fold — and the plan says which reading each
-   change serves.
+   Verdict section.** Measured live with Playwright at 1280 px, replay mode, ledger built:
+   `The recommendation` runs 332–633 px and carries the verdict display (the pill, 567–609),
+   both cost-per-successful-task figures (493–514) and the accuracy delta with its 95% CI and n
+   (565–587). The headline row restates all three larger, 633–760. So the three things item 3
+   names resolve above 900 px **twice**, by 760 px, today. What does *not* is the **Verdict
+   section**, at 2222–2623, pushed down by the 1,410 px `Candidate pipeline` block. Item 3 is
+   planned against the strict reading, and section "Item 3" below gives the exact arithmetic of
+   what the move buys and what it does not.
+
+5. **The Optimize proof screen is 7,542 px, not 7,280.** The committed
+   `docs/screenshots/optimize-proof.png` is stale: a green `make verify` regenerates it at
+   1280 × 7542, and a live measurement agrees. `docs/screenshots/inspect.png` is stale the same
+   way, committed at 1280 × 2027 and regenerating at 1280 × 2255. The e2e suite *writes* the
+   screenshots but nothing *asserts* anything about them, so a committed shot can drift from
+   what the app renders and the build stays green. Not in scope to fix here, but it is why every
+   height in this plan is a live measurement rather than a read off a committed PNG.
 
 ### One thing the baseline run found that CLEANUP.md does not mention
 
@@ -136,10 +145,13 @@ be verified and checked against the baseline.
 | `docs/screenshots/readme-verdict.png` | **add** (generated) | Item 1: the one image on the README's first screen. |
 | `README.md` | **edit** | Item 1: embed that one image under the product line. |
 
-Depends on item 3 landing first: at 1280 × 900 today the viewport holds the recommendation
-block and the headline row but **not** the Verdict section. Item 3 moves the verdict above the
-fold, which is what makes a viewport-sized shot show "the verdict block and the headline row".
-**So item 3 is executed before item 1**, and the ranked order below reflects that.
+Depends on item 3 landing first. At 1280 × 900 today the viewport holds the header (0–332),
+`The recommendation` (332–633), the headline row (633–760) and the proof-cost row (760–812) —
+everything item 1 asks for except the `Verdict` section, which is at 2,222 px. After item 3 the
+`Verdict` section starts at 812 px, so the same viewport shot carries its heading and its
+verdict Pill too. That is what makes a viewport-sized shot "the verdict block and the headline
+row" rather than a crop of the top of the page. **So item 3 is executed before item 1**, and the
+commit order below reflects that.
 
 No gallery. The other five screenshots stay where they are and stay out of the README.
 
@@ -189,8 +201,8 @@ dependency.
 
 **Proof-stage order after the change**
 
-1. header · `The recommendation` · headline row · proof-cost row — unchanged, ends ≈800 px
-2. **`Verdict`** — moves up to here from ≈2,150 px; the sentence, the interval plot against the
+1. header · `The recommendation` · headline row · proof-cost row — unchanged, ends at 812 px
+2. **`Verdict`** — moves up to 812 from 2,222; the sentence, the interval plot against the
    margin, McNemar, the proof cost and both accuracies
 3. tab row, defaulting to `Result`
    - **`Result`** — cost-quality frontier → savings waterfall → breakdown by question type
@@ -202,20 +214,57 @@ dependency.
      answer key → disagreements, each opening its full trace
 4. footer — unchanged
 
+**Measured, at 1280 px, in replay mode with the ledger built.** Document offsets, not estimates:
+
+| Block | Today | Height |
+| --- | ---: | ---: |
+| header | 0–332 | 332 |
+| `The recommendation` | 332–633 | 301 |
+| headline row | 633–760 | 127 |
+| proof cost / scarce share | 760–812 | 52 |
+| `Candidate pipeline` | 812–2222 | **1,410** |
+| `Verdict` | 2222–2623 | 401 |
+| `Tied for cheapest` | 2623–3093 | 471 |
+| `Where these tasks came from` | 3093–3360 | 266 |
+| `What this was measured on` | 3360–3622 | 262 |
+| `Where the thresholds came from` | 3622–3988 | 366 |
+| `What checkability costs…` | 3988–4396 | 408 |
+| `Without the answer key` | 4396–5240 | 844 |
+| `Cost-quality frontier` | 5240–5990 | 750 |
+| `Savings waterfall` | 5990–6434 | 444 |
+| `Breakdown by question type` | 6434–6731 | 297 |
+| `Disagreements` | 6731–7402 | 671 |
+| footer | 7402–7542 | 140 |
+
+Baseline stage is 2,381 px and candidate stage 2,362 px; neither changes.
+
+**What the three tabs come to.** `Result` = 812 + 401 (verdict) + ~50 (tab row) + 750 + 444 +
+297 + 140 = **≈2,894 px**, 3.2 viewports, against 7,542 and 8.4 today — a 62% cut.
+`The candidate` ≈2,813 px. `What backs it` ≈4,691 px, and it is the one a reader opts into.
+
 Why `The candidate` tab exists rather than leaving that section inline: item 3 says what sits
 below the fold is "the frontier chart and the savings waterfall", and the candidate graph plus
-its thirteen findings is ≈1,400 px that would sit between them and the verdict. It is also the one
-block that has already done its work by the proof stage — the demo points at Findings at 0:10
-and at the graph morph at 0:30, both at earlier stages. Leaving it inline costs ≈1,400 px and
-lands the Result tab at ≈4,180 px; moving it behind a tab lands it at ≈2,780 px, against 7,280
-today.
+its thirteen findings is 1,410 px that would sit between them and the verdict. It is also the
+one block that has already done its work by the proof stage — the demo points at Findings at
+0:10 and at the graph morph at 0:30, both at earlier stages. Left inline, the `Result` tab is
+4,304 px instead of 2,894.
 
-Section heights behind those figures, read off the committed `optimize-proof.png` at 1280 px:
-top block (header, recommendation, headline, proof cost) 746 · candidate pipeline 1,400 ·
-verdict 400 · ties 582 · dataset provenance 292 · thresholds 418 · checkability 437 · without
-the answer key 965 · frontier 946 · waterfall 400 · by type 182 · disagreements 455 · footer 55.
-Every one is re-measured exactly with Playwright during execution and reported in
-`CLEANUP_REPORT.md`.
+**Where the 900 px line actually falls, stated exactly rather than claimed.** After the move:
+
+- The verdict display, both cost figures and the accuracy delta with its interval and n resolve
+  by **760 px** — they already do today, in `The recommendation` and again in the headline row,
+  and the move does not touch either.
+- The `Verdict` section starts at **812 px**, so its heading and its verdict Pill sit above the
+  fold. Its *sentence* lands at **≈953 px** and its interval plot at ≈1,107 — about 50 px and
+  200 px below the fold respectively.
+
+So item 3's test passes on the three things it names, and the Verdict section's fuller
+restatement of them crosses the line by about 50 px. That gap is closable — moving the 52 px
+proof-cost row below the `Verdict` section would put the sentence at ≈901 px — but chasing a
+threshold by 2 px is the habit this product exists to argue against, so the plan states the
+measurement and leaves the row where it is. Say the word if you want the 50 px.
+
+Every figure above is re-measured after the change and carried into `CLEANUP_REPORT.md`.
 
 **At the `baseline` and `candidate` stages nothing changes.** No tab row, the pipeline section
 is the whole screen, and `Build candidate` / `Run proof` are where they are today.
@@ -233,8 +282,10 @@ are today.
 
 **`docs/screenshots/optimize-proof.png` shrinks, and that is the deliverable.** It is a shot of
 the screen as a visitor meets it, so it stays one full-page shot on the default `Result` tab
-rather than growing into three. Its height before and after is one of the four figures
-`CLEANUP_REPORT.md` has to carry.
+rather than growing into three. Its height before and after — 7,542 px to ≈2,894 px — is one of
+the four figures `CLEANUP_REPORT.md` has to carry. The commit also lands the regenerated
+`inspect.png`, which is stale in the repo for the unrelated reason in finding 5 above; that is
+noted in the report rather than passed off as this pass's doing.
 
 **The test for this item**, from CLEANUP.md: a reviewer who never scrolls can state the verdict,
 the saving and the evidence grade correctly. They already could from `The recommendation`; after
