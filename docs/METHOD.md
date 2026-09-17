@@ -69,10 +69,8 @@ Sources, in the same order: **Verdict** — a paired bootstrap against the 3-poi
 
 ---
 
-The tables above are generated. The sections below are the reasoning behind them, moved
-here from the README in M14 so that a reader meets the promise before the qualifications
-(UPGRADE_V4.md M14). Nothing was softened on the way: every refusal the README used to
-make, it still makes, one click further in.
+The report engine generates the tables above. The sections below explain the calculations,
+assumptions, and limits behind them.
 
 ## How the proof works
 
@@ -87,17 +85,17 @@ a 200-task split able to settle a 3-point margin at all.
 - **McNemar's exact test** runs on the discordant pairs.
 - The **verdict** is a statement about where the confidence interval sits relative to −margin,
   never about a p-value crossing 0.05. Non-inferior when the lower bound clears −δ, worse when
-  the upper bound falls below it, inconclusive when it straddles — and an inconclusive result is
-  displayed as inconclusive, with an estimate of how many more tasks would settle it.
+  the upper bound falls below it, and inconclusive when it straddles. An inconclusive result also
+  includes an estimate of the additional sample size needed.
 
 The cascade's operating point is chosen on the **calibration** split by exhaustive grid search,
-before any test result is computed. The app says so under the chart, because a threshold tuned on
-the test split would make the test number meaningless.
+before any test result is computed. Choosing a threshold on the test split would invalidate the
+reported test result.
 
-## Proving a workload nobody labelled
+## Evaluating a workload without labels
 
-Everything above needs gold answers, and almost no team arriving with 40,000 recorded support
-tickets has them. Declare `grading: judged` and a `judge:` block instead:
+The standard proof requires reference answers. For an unlabelled workload, declare
+`grading: judged` and add a `judge:` block:
 
 1. a **cheap verifier** grades every task in both arms, producing `G`;
 2. a **strong grader** — a frontier model, or a human review queue — re-grades a sample drawn
@@ -106,11 +104,10 @@ tickets has them. Declare `grading: judged` and a `judge:` block instead:
    agreement rate.
 
 The estimator is unbiased for the strong grader's mean because the inverse-probability weight
-makes the correction term's expectation `E[H − G]` however bad `G` is. **A biased judge costs
-interval width, never correctness.** That is the property the whole design rests on, so it is
-tested against an injected judge that marks 20% of one class of correct answers wrong: the naive
-judge-only interval stops covering the truth, the corrected interval still covers it, at every
-committed seed. `make verify` runs that check by name and a failure blocks the release.
+makes the correction term's expectation `E[H − G]` for any `G`. Bias in the cheap judge increases
+the corrected interval's width. It does not bias the estimate relative to the strong grader.
+An adversarial test injects a judge that marks 20% of one class of correct answers wrong. The raw
+judge interval loses coverage while the corrected interval retains it at every committed seed.
 
 `tokop annotate` spends the budget. Where it spends it matters: the sampling rate is proportional
 to the judge's own uncertainty on both arms plus a boost for pairs the two arms disagree about,
@@ -120,26 +117,18 @@ cuts the estimator's variance by 64% against sampling uniformly at the same expe
     tokop annotate --workload W --budget 25.00     # or --queue for human review
     tokop prove --workload W --grading judged
 
-The report shows three numbers side by side — what the judge alone claimed, what the correction
-says, and what the correction cost — plus the budget strong-only grading would have needed for
-the same interval width. That last figure is allowed to be the *smaller* one: a judge can be
-unreliable enough that mixing does not pay, and Tokop reports the cost-optimal sampling rate
-rather than selling a saving that is not there.
+The report shows the raw judge estimate, the corrected estimate, correction cost, and the estimated
+cost of strong-only grading at the same interval width. Strong-only grading can be cheaper when the
+cheap judge is unreliable.
 
-One thing it does not claim: the estimate targets the **strong grader's** mean, not a perfect
-one. A strong grader that is itself wrong moves the target and no weight can correct for that.
-That limitation is rendered on the screen, in the CLI and in the metrics block above, not buried
-here.
+The estimate targets the **strong grader's** mean. Errors from the strong grader change that target
+and cannot be corrected by reweighting. The UI, CLI, and generated metrics block state this limit.
 
-## Calibrating the router without labels either
+## Calibrating without labels
 
-The cascade's thresholds are fitted on a calibration split, which under `grading: judged` has no
-answer key. The substitute is a vote over repeated generations, and the vote is the thing to be
-careful about — majority votes on unlabelled data are spurious often enough to poison what they
-train. So `penalized-v1` borrows the correction rather than the confidence: a tier does not vote
-on its own label, a distribution with no clear winner is excluded **and counted**, and a tier
-that confidently disagrees with the consensus has its disagreement weighted up rather than
-softened.
+Under `grading: judged`, the calibration split also has no answer key. Tokop can derive pseudo-labels
+from repeated generations. `penalized-v1` prevents a tier from voting on its own label, excludes and
+counts distributions with no clear winner, and increases the weight of confident disagreement.
 
     tokop prove --workload W --calibration penalized-v1
 
@@ -149,32 +138,27 @@ five. The naive vote reads that repetition as correctness and routes **every tas
 tier; the penalized version excludes those tasks and lands within one percentage point of the
 gold-calibrated accuracy floor. That check is in `make verify` by name.
 
-What it cannot do is see a wrong answer every tier agrees on. Nothing label-free can, and the
-module says so rather than leaving it to be discovered.
+The method cannot detect a wrong answer that every tier agrees on. The calibration report includes
+this limitation.
 
-## What checkability costs, and what it buys
+## Cost of a checkable output contract
 
 A contract that asks the model to show the step from the rule it quoted to the number it returned
 makes the answer cheaper to *check*. That matters in dollars: a cheap judge that agrees with the
 strong grader more often has a smaller correction term, and a smaller correction term needs fewer
 strong labels for the same interval width.
 
-It is also not free. On this workload the contract lifts judge agreement from 83.7% to 93.0% and
-cuts the annotation bill from $1.2412 to $1.1064 — and costs 7,406 extra output tokens and **2.5
-accuracy points**. Net: **it does not pay here**, and the waterfall row says so with the accuracy
-delta carrying its sign. Kirchner et al. call that a legibility tax and measure it; this is the
-rare place it has a price.
+On this workload the contract raises judge agreement from 83.7% to 93.0% and reduces the annotation
+bill from $1.2412 to $1.1064. It also adds 7,406 output tokens and reduces accuracy by **2.5 points**.
+The generation premium is greater than the annotation saving. The waterfall reports both effects.
 
-The two halves are reported apart rather than netted into one number, because they recur
-differently: the annotation saving is paid once per evaluation, the generation premium on every
-task the pipeline ever runs.
+The report keeps the two costs separate: annotation is an evaluation expense, while the generation
+premium applies to every production task.
 
 ## Certificates expire
 
-A proof is a snapshot. Nothing in it notices when a provider ships a new revision of a model
-under the same name, and vendors edit models continuously without telling you. So a certificate
-carries what it rests on — model snapshot identifiers, the price hash, the grading mode, the
-calibration mode, where the task set came from — and an expiry.
+A proof applies to a specific model and dataset snapshot. A certificate records model identifiers,
+the price hash, grading and calibration modes, dataset provenance, and an expiry.
 
     tokop certificate --out cert.json
     tokop canary --certificate cert.json      # exits 1 when a look raises
@@ -204,17 +188,16 @@ because only the second is in the self-consuming loop the collapse literature de
 Tokop computes what the items themselves reveal: how much of the generator's template space
 appears, how much of the set sits in rarely-seen templates, how concentrated it is.
 
-**Tokop's own demo dataset is refused.** It is 300 program-generated items with no real recorded
-traffic behind it, so it cannot certify behaviour on a distribution nobody has observed. The
-certificate is still issued and carries the refusal. That is the honest answer, and shipping a
-tool whose own demo passes its own provenance check would have meant weakening the check.
+**The demo dataset cannot support a production certificate.** It contains 300 program-generated
+items and no recorded traffic. Tokop still issues the certificate and records the provenance
+refusal on it.
 
 The machine-generated-text detector that would let Tokop resample a user's set towards
 human-written items is **not built and refuses**: it needs a trained model, and one that guessed
 would resample the set towards its own guess. The resampling mathematics is there and tested for
 anyone who has a real detector.
 
-## Entropy over meanings, and how many samples you actually have
+## Semantic entropy and effective sample size
 
 A sampling scorer asks a tier the same question k times and routes on how much it agrees with
 itself. "Agrees" needs a definition, and the cheap one — exact match, after the workload's own
@@ -230,45 +213,37 @@ the comparison is not charged for is how a comparison stops meaning anything. Id
 are never sent, because paying a model to confirm that "60" means "60" is most of the bill on a
 workload of numbers.
 
-**On this workload it costs money and buys nothing**, and the comparison table at the top of this
-page is where that shows: same accuracy, same AUROC and the same routing as the exact-match
-scorer at every k, for a higher bill. The demo's answers are numbers, enums and yes/no, and the
+On this workload, semantic entropy has the same accuracy, AUROC, and routing as exact match at every
+tested value of k, with additional entailment cost. The demo's answers are numbers, enums and yes/no, and the
 workload's own equivalence
 relation already merges a currency symbol, a trailing percent and a hedge in front of a yes. What
 it misses is a unit word after a number — "60" against "60 days" — and these fixtures contain
-none. That is a property of this question mix rather than of the method, and a test pins it so it
-cannot quietly stop being reported.
+none. This result describes the current question mix, not the general method. A regression test
+keeps the comparison in the report.
 
-**k samples are worth k only if the draws are independent**, and in general they are not: a model
-that misreads a rule misreads it every draw, and repeats that agree because they share a mistake
-are not evidence. So every sampled configuration carries an **effective** sample count — the
+Repeated samples are correlated when a model repeats the same mistake. Each sampled configuration
+therefore includes an **effective** sample count: the
 cluster-sampling design effect over the measured intraclass correlation of within-task agreement.
 On these fixtures it comes out at very nearly k, which is a fact about a simulator that draws
 independently, and is exactly why both sampling scorers are measured here and neither is adopted
 (`DECISIONS.md` D27). On a recording that column would say so by itself, without anyone writing
 this paragraph.
 
-**`sep-v1` is registered and refuses.** Semantic Entropy Probes recover the same quantity from
-the hidden states of a single generation, which would remove the sampling cost entirely — and
-hidden states are what no provider API returns. The registry carries a `hidden_states` flag so
-the refusal points at something real, no model sets it, and the message names the two ways
-forward: `semantic-entropy-v1`, or self-hosting. This is not a "not yet". Official APIs only is
-non-negotiable 6, and a feature that needs to break it gets dropped and logged.
+**`sep-v1` is unavailable through the supported providers.** Semantic Entropy Probes require hidden
+states from a single generation, and the provider APIs do not return them. The registry represents
+this requirement with a `hidden_states` capability flag. The error recommends
+`semantic-entropy-v1` or a self-hosted model.
 
-## When nothing wins
+## Statistically tied configurations
 
-A search that hands back *the* cheapest configuration is making a claim the data frequently
-cannot support. Several of the configurations in that same table have overlapping cost intervals
-on the 200-task split, which means the ordering between them is the bootstrap's noise — an
-artefact of which tasks landed in the resample. So the report names every
-configuration tied for cheapest, ordered by dollars, and the function that would return a single
-winner **raises** rather than picking one.
+Several configurations can have overlapping cost intervals on a finite test split. In that case,
+the report lists every configuration tied with the lowest-cost option. `single_winner` raises when
+the data does not distinguish one configuration.
 
 - **A fallback is an alternative to what is running**, chosen by scarce-model share among the
   configurations this workload actually allows the search to adopt. A fallback that shares the
   constraint it exists to survive is not a fallback, and one nobody is allowed to run is a
-  footnote. On the demo there is no such alternative, and the report says so instead of
-  designating the operating point as its own fallback.
+  footnote. The demo has no eligible alternative, so its report has no fallback.
 - **Exploration weights over a tie are uniform.** Nothing in this build explores online, so
   nothing calls them in anger. The rule is implemented and tested anyway, because greedy
   selection amplifies whichever option happened to win the last sample — the outcome-level
@@ -280,18 +255,16 @@ winner **raises** rather than picking one.
 
 ## The gate
 
-`tokop prove` exits 0 only when the verdict is non-inferior, so it works as a merge gate
-unchanged. It exits 1 on inferior **and on inconclusive**: "we could not tell" is not evidence
-that a change is safe, and a gate that passed on it would be read as though it were.
+`tokop prove` exits 0 only for a non-inferior verdict. Inferior and inconclusive results both exit
+1, which allows the command to act as a merge gate.
 
 ```yaml
 # .github/workflows/proof-gate.yml — copy it, point it at your workload
 - run: engine/.venv/bin/tokop prove --workload data/mine/workload.yaml --margin 0.03
 ```
 
-The margin is the largest quality drop you will accept in exchange for the saving. Choose it
-before you see the result, and do not widen it to make the build green — that is the single
-change that turns this gate into decoration.
+Choose the margin before running the proof. Changing it after seeing the result invalidates the
+pre-specified acceptance criterion.
 
 Tokop's own gate reports rather than blocks, because the demo verdict is *inconclusive* by
 design. What blocks is `engine/tests/test_cli_gate.py`, which runs the real CLI in a subprocess
@@ -349,8 +322,8 @@ local and deterministic and makes no model calls.
 ## Limitations in detail
 
 - **A cascade needs labelled examples from the distribution it will serve** — around 100 per
-  workload. Below about 30 the thresholds are fitted to noise, and Tokop warns rather than
-  quietly proceeding. Judged grading removes that requirement from the test comparison and
+  workload. Below about 30 the thresholds are fitted to noise, and Tokop emits a warning. Judged
+  grading removes that requirement from the test comparison and
   `--calibration penalized-v1` removes it from calibration, at the cost of excluding the tasks
   whose answer distribution settles nothing — a count the report always shows.
 - **The judged estimate is unbiased for the strong grader, not for the truth.** If your frontier
@@ -382,9 +355,8 @@ local and deterministic and makes no model calls.
   transitive, so the grouping depends on the order the samples arrive in — reproducible from the
   recording, not canonical. On this workload it changed no routing decision and cost money, which
   is a fact about a question mix of numbers and yes/no rather than about the method.
-- **`sep-v1` cannot be built against an API.** Probes over hidden states would make meaning
-  clustering nearly free, and no provider returns hidden states; the kind is registered and
-  refuses rather than quietly falling back to something else wearing its name.
+- **`sep-v1` requires hidden states.** No supported provider returns them, so the registered scorer
+  returns an explicit unsupported-capability error.
 - **A tie is about the split, not about the configurations.** Tokop reports every configuration
   whose cost interval overlaps the cheapest instead of ranking them, and computes uniform
   exploration weights over the tie — but nothing in this build explores online, so those weights

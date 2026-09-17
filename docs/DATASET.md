@@ -1,9 +1,8 @@
 # The demo dataset
 
-Generated from `data/demo/policy.yaml` by `tokop dataset --write`. Every gold answer is
-**computed from the policy in code**, never written by hand, so a question and its answer
-cannot drift apart. `tokop fixtures-check` regenerates the whole set and fails the
-build if the committed file no longer matches.
+`tokop dataset --write` generates this dataset from `data/demo/policy.yaml`. Reference answers are
+computed from the policy in code. `tokop fixtures-check` regenerates the dataset and fails when the
+committed file differs.
 
 Read this before running `make record`: once you set `RECORD_BUDGET_USD`, these are the
 questions your money will be spent answering.

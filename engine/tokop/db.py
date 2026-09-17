@@ -3,13 +3,13 @@
 SQLite, one file, single user. It holds every call Tokop has made on anyone's behalf, the
 grades and scores computed over them, and the price snapshot each run was costed with.
 
-Two design points matter beyond the obvious:
+The schema preserves two audit and privacy properties:
 
-* **Raw usage is stored next to the normalized buckets on every call.** An auditor has to be
-  able to redo the mapping from the provider's own payload, not take Tokop's word for it.
+* **Raw usage is stored next to normalized buckets.** This allows the provider mapping to be
+  reproduced.
 * **Prompts and outputs are separable from the metrics.** ``delete_run_content`` drops the
   stored request and response text for a run and leaves the numbers intact, so the deletion
-  promise in SPEC.md non-negotiable 10 does not cost the user their results.
+  aggregate results remain available after content deletion.
 """
 
 from __future__ import annotations

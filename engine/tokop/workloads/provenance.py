@@ -1,30 +1,17 @@
-"""Where the task set came from, and whether it can certify anything (UPGRADE_V3.md U8).
+"""Dataset provenance and production-certification checks (UPGRADE_V3.md U8).
 
-A certificate is a claim about production behaviour, and it is only as good as the set it was
-measured on. Two questions decide that, and neither is answerable from the numbers a proof
-produces:
+A production certificate requires an evaluation set that represents production traffic. This
+module evaluates two parts of that requirement:
 
-**Who wrote these tasks?** Shumailov et al. show that indiscriminate training on model-generated
-content causes irreversible defects in which the *tails of the distribution disappear*, and
-Alemohammad et al. show the same loop degrades quality or diversity without enough fresh real
-data each generation. The danger here is narrower than the training-time one and worth stating
-plainly: **a cascade earns its savings on easy tasks and its risk lives in the tail.** An eval
-set whose tail has thinned will certify a router that fails in production, and every number on
-the certificate will look fine while it does.
+**Task origin.** The workload declares counts for real, model-generated, and program-generated
+items. Model-generated data without an accumulating source of real traffic can lose coverage of
+rare cases.
 
-**Is the tail still there?** Measured rather than assumed. The generator's template space is
-known, so the share of it that appears at least once, the share of items sitting in
-rarely-seen templates, and the concentration of items across templates are all computable from
-the set itself. A set that has collapsed onto its common cases says so in those three numbers
-before it says so in production.
+**Tail coverage.** When template identifiers are available, the module measures template coverage,
+the share of items in rare templates, and concentration across templates.
 
-**What this module refuses to fake.** Hu et al. find that relabeling generated items with a
-frozen reference model mitigates collapse, and Drayson et al. train a machine-generated-text
-detector and importance-resample towards likely human content. Both need a model. This build has
-no credentials (DECISIONS.md D1), so the detector registry is **empty** and asking for one
-raises: a detector that guessed would importance-resample towards its own guess, which is the
-self-consuming loop wearing a lab coat. The resampling mathematics is here and tested, because a
-caller with a real detector can use it; the detector is not.
+Machine-generated-text detection requires a trained detector. This build provides the resampling
+calculation but does not register a detector. Requesting one raises an explicit error.
 """
 
 from __future__ import annotations

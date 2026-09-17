@@ -1,8 +1,7 @@
-"""Record a workload: build the response matrix every later stage computes over.
+"""Record the response matrix used by later analysis.
 
-The spend order in SPEC.md section 6 is deliberate and is followed here — cheapest first, with
-a sanity gate before the expensive part — so that a generator bug or a dataset that is too easy
-is discovered after a few dollars rather than after twenty:
+The order follows SPEC.md section 6. Lower-cost calibration runs and sanity checks occur before the
+test runs:
 
 1. B2 on the **calibration** split with each tier.
 2. **Sanity and difficulty check.** Stop if the frontier scores below 90% (almost always a
@@ -13,10 +12,9 @@ is discovered after a few dollars rather than after twenty:
 4. The single-call pipelines on the test split with the frontier model: B0 and B1, and B2c if
    the workload defines one.
 
-The same code drives two very different things. Against live providers it is ``make record``,
-capped by ``RECORD_BUDGET_USD``. Against the deterministic simulated provider it builds
-``fixtures/test/``, spends nothing, and marks every run ``origin: simulated`` so no surface can
-present it as a recording.
+With live providers, ``make record`` is capped by ``RECORD_BUDGET_USD``. With the deterministic
+provider, the recorder builds ``fixtures/test/`` without network access and marks each run
+``origin: simulated``.
 """
 
 from __future__ import annotations
@@ -318,8 +316,7 @@ class GuardSink:
 
     ``RecordingAdapter`` calls both hooks only on a cassette miss, which is the path that costs
     money. A replayed call is therefore neither refused near the cap nor billed to it, and an
-    interrupted recording can replay everything it already paid for even when the budget is
-    spent — which is the whole point of resuming.
+    interrupted recording can replay completed calls even when the budget is spent.
     """
 
     guard: SpendGuard
@@ -471,7 +468,7 @@ class Recorder:
         SPEC.md section 6 fixes the order: cheapest first, with a sanity gate before the
         expensive part. Both :meth:`run` and :func:`project` read this list, so the cost an
         operator approves is a projection of the calls that will actually be made and not of a
-        second, parallel description of them that can quietly drift.
+        separate description that could drift from execution.
         """
         # The matrix runs carry every repeat any cascade may ask for. Recorded once at full
         # depth: a setting that wants fewer samples reads a prefix, so every k is compared over
@@ -608,9 +605,8 @@ class Recorder:
         """Run a few items of every planned step, to price the rest from real answers.
 
         SPEC.md section 6 step 1 asks for this and the pre-flight projection does not replace
-        it: counting input is exact, but nothing before a call knows how long an answer will
-        be, which is the whole width of the projected band. Ten real answers per step turn that
-        band into a number.
+        it: counting input is exact, but output length is unknown before the call. Ten observed
+        answers per step replace that range with an estimate.
 
         The pilot is not a separate purchase. Every call it makes is written to the same
         cassette store the full recording reads, so those tasks are paid for once and the run
@@ -807,7 +803,7 @@ def build_test_fixtures(
     """Build ``fixtures/test/`` from the deterministic simulated provider.
 
     Spends nothing and opens no socket. Every run is marked ``origin: simulated`` and the
-    manifest says so, so the UI can label it as test data rather than a recording.
+    manifest records that origin for the UI.
 
     ``ledger_only`` rebuilds ``ledger.db`` from the committed cassettes and leaves
     ``manifest.json`` and ``extras.json`` alone. The ledger is generated rather than committed —

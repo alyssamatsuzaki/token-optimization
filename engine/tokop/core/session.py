@@ -1,12 +1,7 @@
-"""What a conversation costs over its turns, not what one request costs (UPGRADE_V4.md M17).
+"""Price a sequence of conversation turns (UPGRADE_V4.md M17).
 
-Every price in this build is a price per request. That is the right unit for the demo — one
-question, one call — and the wrong unit for the thing most people actually run, which is a
-session: a prefix established once and then read on every turn, a history that grows until
-something compacts it, and a cache entry that quietly expires while the user is at lunch.
-
-This module is the accounting for that. It takes a sequence of turns and a price and says what
-the sequence cost, bucket by bucket, with the cache modelled the way the provider bills it:
+Per-request pricing does not account for cache expiry or growing conversation history. This module
+prices a sequence of turns by token bucket:
 
 * the **static prefix** is the text up to and including the last cache breakpoint, and the cache
   key is that text exactly (SPEC.md Appendix B);
@@ -16,7 +11,7 @@ the sequence cost, bucket by bucket, with the cache modelled the way the provide
   or 2x for an hour; every later turn presenting the same prefix **reads** it at 0.1x;
 * an entry older than its lifetime has gone, and the next turn writes it again.
 
-**Three things this deliberately does not claim.**
+The result records the following assumptions and exclusions:
 
 *Whether a read refreshes the entry's lifetime.* Appendix B does not say, and nothing in this
 build has watched a real cache expire, so the default here is that it does not — which produces
@@ -36,9 +31,7 @@ model that counts it at 1,118. ``token_ratio`` is that scale factor, declared pe
 ``config/prices.yaml`` beside the price; ``SessionCost`` records the counter and the ratio it
 used, because a cache conclusion that depends on them has to say so.
 
-*Anything about quality.* A compaction that drops half a conversation may cost less and answer
-worse. This module prices; it does not grade. What compaction does to task success is measured
-where outcomes are, and is refused where nothing measured it.
+*Compaction quality.* This module prices compaction but does not grade its effect on later answers.
 """
 
 from __future__ import annotations

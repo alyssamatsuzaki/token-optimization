@@ -504,14 +504,11 @@ export default function Inspect() {
 /**
  * What the same prompt costs over a conversation (UPGRADE_V4.md M17).
  *
- * Everything above this prices one request, which is the unit the cache is easiest to reason
- * about in and the wrong one for what most people run. Over turns two things happen that a
- * per-request price cannot show: the entry expires while somebody reads the answer, and the
- * history grows after the breakpoint. This panel is those two things, priced.
+ * Per-request prices do not include cache expiry between turns or history growth after the
+ * breakpoint. This panel includes both.
  *
- * The quality column is deliberately absent. Compaction's real risk is dropping what a later
- * turn needed, and this build's provider answers from the task and the model alone — so any
- * accuracy figure here would describe the simulator. It is refused, with the reason shown.
+ * The panel omits quality because the deterministic provider cannot measure the effect of
+ * compaction on later answers.
  */
 function SessionPanel() {
   const [asked, setAsked] = useState(false);
@@ -528,8 +525,8 @@ function SessionPanel() {
         </Button>
         <p className="text-small text-graphite mt-2 max-w-prose">
           Runs both policies over the same tasks against the deterministic in-process provider.
-          Spends nothing and opens no socket; it takes a few seconds, which is why it is a button
-          rather than something this screen does on arrival.
+          This uses no network or provider budget. Run it on demand because the calculation takes
+          a few seconds.
         </p>
       </Section>
     );

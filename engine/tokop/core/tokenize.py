@@ -8,9 +8,8 @@ Three sources of truth, in descending order of authority:
 3. **An estimate**: a base counter's output times a ratio fitted per model on recorded
    provider-reported usage.
 
-Every number that leaves this module says which of the three it is and, for estimates, names
-the method. That is the whole contract: a reader must never have to guess whether a token count
-was measured or inferred (SPEC.md non-negotiable 2).
+Every result includes its source. Estimates also include the method name (SPEC.md
+non-negotiable 2).
 
 Anthropic's models from Claude 4.7 onward use a newer tokenizer that produces roughly 30% more
 tokens for the same text than earlier models such as Haiku 4.5, which is exactly the kind of
@@ -36,7 +35,7 @@ class TokenizerUnavailable(RuntimeError):
 
 @dataclass(frozen=True)
 class TokenCount:
-    """A token count and the honest story of where it came from."""
+    """A token count with its source and method."""
 
     tokens: int
     source: CountSource
@@ -153,8 +152,7 @@ def counter_named(name: str) -> BaseCounter:
 
     ``ApproxCounter`` needs no vocabulary and is therefore always honourable. ``o200k_base`` is
     downloaded on first use, so a machine without egress to the vocabulary host cannot honour it;
-    it falls back, and the report's ``token_counter_matches_fixtures`` says so rather than
-    pretending the numbers are the recorded ones.
+    it falls back. The report then sets ``token_counter_matches_fixtures`` to false.
     """
     if name == ApproxCounter.name:
         return ApproxCounter()

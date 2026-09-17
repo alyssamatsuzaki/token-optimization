@@ -1,14 +1,11 @@
 # Tokop design direction
 
-**Brief.** A measuring instrument for AI spend. The audience is founders and engineers
-deciding whether to trust a cheaper setup. The interface has to make one cost-quality
-tradeoff legible and trustworthy in under a minute, and it has to survive a sceptic who
-clicks into the number to see where it came from.
+Tokop is an analysis tool for founders and engineers deciding whether to adopt a less expensive
+LLM pipeline. The interface should explain the cost-quality tradeoff within a minute and provide
+the trace behind every reported result.
 
-The governing metaphor is a **bench instrument on drafting paper**: hairline rules instead
-of boxes, calibrated scales instead of decorative chrome, and one live needle. Instruments
-earn trust by showing their calibration, so provenance is a first-class visual element,
-not a footnote.
+The visual reference is a bench instrument on drafting paper: hairline rules, calibrated scales,
+and limited decoration. Provenance appears alongside the value it qualifies.
 
 ## 1. Palette
 
@@ -16,7 +13,7 @@ Six named values. Nothing outside this list ships.
 
 | Token | Hex | Role |
 |---|---|---|
-| `paper` | `#F2F3EF` | Page ground. A green-grey drafting stock — not cream, not white. |
+| `paper` | `#F2F3EF` | Green-grey page background. |
 | `chalk` | `#FFFFFF` | Raised surface. Used only where content must sit *above* the plane: the trace drawer, the frontier plot field, open menus. Never the default card. |
 | `ink` | `#15181A` | Primary text, axis lines, hairline rules at full strength. |
 | `graphite` | `#5E6560` | Secondary text, units, and **every estimated / projected / simulated value**. |
@@ -33,13 +30,10 @@ Derived ramps (no new hues):
   `vermilion` at the edge. This keeps scarcity readable on top of the tier ramp.
 - **Rules** are `ink` at 12% (`#15181A1F`) for hairlines and 20% for section divisions.
 
-### Why not the obvious choices
+### Rationale
 
-`indigo on Inter`, `near-black + acid green`, `cream + serif + terracotta` are the house
-styles of generated UI, and a tool whose whole pitch is "trust this number" cannot look
-auto-generated. Prussian blue and vermilion are drafting-pen inks: the pairing reads as
-technical drawing rather than dashboard, and it carries a natural better/worse axis without
-recruiting a third accent.
+Prussian blue and vermilion resemble drafting inks and provide a clear measured/warning pair. The
+palette avoids common dashboard combinations and does not require a third accent for result state.
 
 ## 2. Type
 
@@ -59,8 +53,7 @@ sits in a column that can be scanned vertically, so digits must not shift.
 
 ## 3. Numbers and provenance
 
-The rule that shapes the whole interface: *a measured number and an estimated number must never
-look alike.*
+Measured and estimated values must remain visually distinct.
 
 - **Measured** (provider-reported usage, exact token counts): `ink`, weight 500, full opacity.
 - **Estimated / projected / simulated**: `graphite`, with a superscript provenance mark, and —
@@ -82,8 +75,8 @@ look alike.*
 - **Motion.** Exactly one orchestrated transition: the baseline→candidate graph morph on
   Optimize (420 ms, `cubic-bezier(.2,.7,.3,1)`, nodes fade+translate, edges draw). Everything
   else is ≤120 ms opacity. `prefers-reduced-motion: reduce` replaces the morph with a cut.
-- **Density.** Built for 1280px and up, three-column on Optimize. Below 1024px the app is
-  view-only and says so.
+- **Density.** Built for 1280px and up, three-column on Optimize. Below 1024px the app switches to
+  view-only mode and displays an explanation.
 
 ## 5. Copy
 
@@ -179,7 +172,7 @@ reason in the same size as the label, not a tooltip.
 │ plan usage.                                                                          │
 ```
 
-## 7. Self-review against the generic-UI checklist
+## 7. Design review
 
 Written, then revised. What changed on review:
 

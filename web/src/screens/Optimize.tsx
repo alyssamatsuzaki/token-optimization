@@ -52,9 +52,8 @@ import { TraceDrawer } from "../components/TraceDrawer";
 type Stage = "baseline" | "candidate" | "proof";
 
 /**
- * A finding's projected saving, styled by its own confidence rather than uniformly: a measured
- * finding must not look like a heuristic one (docs/DESIGN.md section 3). A quality finding with
- * no token saving says so instead of printing "$0.00000", which reads as a measurement of zero.
+ * Style projected savings by confidence (docs/DESIGN.md section 3). Quality-only findings use a
+ * text label because "$0.00000" would imply a measured monetary value.
  */
 function FindingAmount({ finding, mark }: { finding: FindingView; mark: Provenance }) {
   const amount = Number(finding.projected_usd_per_1k);
@@ -617,9 +616,8 @@ export default function Optimize() {
 /**
  * What the same comparison says with the answer key withheld (UPGRADE_V3.md U1).
  *
- * The row that matters is the middle one: what the cheap judge claimed on its own, and how far
- * that was from the corrected estimate. That gap is the judge's bias, *measured* rather than
- * assumed away, and showing it is the only reason anyone should believe the corrected number.
+ * Show the raw cheap-judge estimate beside the corrected estimate. Their difference is the
+ * measured judge bias.
  */
 function JudgedPanel({ judged, margin }: { judged: JudgedView; margin: number }) {
   if (!judged?.available) {
@@ -753,9 +751,8 @@ function CalibrationPanel({ calibration }: { calibration: CalibrationView }) {
 /**
  * The legibility tax, priced (UPGRADE_V3.md U4).
  *
- * The accuracy delta is rendered with its sign whatever that sign is. Hiding a negative one
- * next to a saving is the single most tempting dishonesty in this product, and the engine test
- * `test_contract.py` fails if this row ever stops carrying it.
+ * Always render the signed accuracy delta beside the saving. `test_contract.py` checks this
+ * disclosure.
  */
 function ContractPanel({ contract }: { contract: ContractView }) {
   if (!contract) return null;
@@ -921,9 +918,8 @@ function FingerprintPanel({ fingerprint }: { fingerprint: WorkloadFingerprintVie
         </dd>
       </dl>
       <p className="mt-3 text-small text-graphite max-w-prose">
-        A difficulty proxy, and it says so: nothing here carries a difficulty label, and inventing
-        one would make the drift check a check on an invention. What it measures is how much of
-        the split sits in its smallest region — which is the region a claim covers least.
+        This is a coverage proxy, not a labelled difficulty measure. It reports how much of the
+        split lies in its smallest task-type region.
       </p>
     </Section>
   );
@@ -932,9 +928,8 @@ function FingerprintPanel({ fingerprint }: { fingerprint: WorkloadFingerprintVie
 /**
  * Every configuration the data cannot tell apart on cost (UPGRADE_V3.md U7).
  *
- * A single winner drawn out of overlapping intervals is a single-vendor recommendation
- * manufactured from sampling error. The screen shows the whole tie, ordered by dollars, and
- * names the fallback — or says why there isn't one.
+ * List every configuration with an overlapping cost interval, ordered by cost, and include an
+ * eligible fallback when one exists.
  */
 function TiesPanel({ ties }: { ties: TiesView | null }) {
   if (!ties) return null;

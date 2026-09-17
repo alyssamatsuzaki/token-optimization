@@ -1,5 +1,9 @@
 # Progress
 
+> **Project record.** This append-only milestone log explains how the current implementation was
+> built. It is not a setup guide. Start with [README.md](README.md), or use
+> [docs/README.md](docs/README.md) to find technical documentation.
+
 ## Milestones
 
 | M | State | Notes |

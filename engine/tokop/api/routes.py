@@ -1,12 +1,9 @@
 """The /api surface (SPEC.md section 4, 5).
 
-Every number served here comes from ``optimize/report.py`` — the same function the CLI runs and
-the README is generated from — so the UI, the tests and the docs cannot drift apart
-(non-negotiable 1). Nothing here recomputes a metric on its own.
+Every reported metric comes from ``optimize/report.py``, which is also used by the CLI and generated
+documentation. Routes do not recompute aggregate metrics (non-negotiable 1).
 
-The mode shapes what is *offered*, not what is claimed: in replay mode every live control is
-reported as disabled with the reason, so the UI can render a real disabled state rather than a
-button that does nothing (non-negotiable 9).
+In replay mode, live controls include a disabled reason (non-negotiable 9).
 """
 
 from __future__ import annotations
@@ -36,9 +33,8 @@ from tokop.workloads.spec import load_workload
 router = APIRouter(prefix="/api")
 
 
-#: Live actions whose endpoint does not exist yet. They are disabled in **every** mode with the
-#: reason that is actually true, because a control that is enabled and does nothing is worse
-#: than one that is honestly unavailable (SPEC.md non-negotiable 9).
+#: Live actions without an endpoint. They remain disabled in every mode and include a reason
+#: (SPEC.md non-negotiable 9).
 UNIMPLEMENTED_LIVE_ACTIONS: dict[str, str] = {
     "new_experiment": (
         "Running a new experiment is not built. The engine can do it — `tokop record` drives "
@@ -60,7 +56,7 @@ UNIMPLEMENTED_LIVE_ACTIONS: dict[str, str] = {
     "sync_models": (
         "Syncing the model listing needs openrouter.ai, which this environment's egress policy "
         "blocks. `tokop sync-models` is implemented and will work where the host is reachable; "
-        "the committed snapshot is a hand-built fixture and says so. See DECISIONS.md D2."
+        "the committed snapshot is marked as a hand-built fixture. See DECISIONS.md D2."
     ),
     "delete_content": "",  # filled in below: this one really is wired
 }
@@ -423,8 +419,8 @@ def session(
 
     Every other number this API serves is per request. This one is per session: an entry that
     expires between turns, a history that grows after the breakpoint, and a compaction that
-    throws the prefix away. Its bill is counted rather than provider-reported and the payload
-    says so, because the in-process provider has no clock.
+    throws the prefix away. The in-process provider has no clock, so the payload marks its cost
+    as locally calculated.
     """
     from tokop.optimize.session_report import SessionReportError, build_session_report
 

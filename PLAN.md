@@ -1,5 +1,9 @@
 # Tokop implementation plan
 
+> **Project record.** This is the original milestone plan, retained for implementation history.
+> For current setup and contribution instructions, use [README.md](README.md) and
+> [CONTRIBUTING.md](CONTRIBUTING.md).
+
 Written before M0, from SPEC.md. Deviations are logged in DECISIONS.md as they happen.
 
 ## Milestones to files

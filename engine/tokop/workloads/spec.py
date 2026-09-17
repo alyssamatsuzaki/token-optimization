@@ -1,10 +1,8 @@
 """Workload and pipeline definitions, loaded from YAML (SPEC.md section 4, 6).
 
-A pipeline is a list of content blocks for the system prompt and for the user message, plus a
-model role, a token cap and an output contract. Blocks carry an optional cache breakpoint. That
-is the whole vocabulary, and it is deliberately small: the product's argument is that *where*
-text sits and *what order* it is in changes the bill, so the definition format has to make
-position and order the explicit, editable thing.
+A pipeline contains ordered system and user blocks, a model role, a token cap, and an output
+contract. Blocks can include a cache breakpoint. The format keeps position and ordering explicit
+because both affect cache cost.
 
 Variables are ``{{name}}``. The demo supplies ``handbook``, ``question`` and ``timestamp``.
 """
@@ -77,8 +75,7 @@ class StepSpec(BaseModel):
     is the reply. A `tool` or `retrieve` step is *local*: Tokop has no tool runtime and does not
     pretend to one, so such a step's `user` blocks are the arguments it was called with and its
     `emits` blocks are the result the **workload declares** it returns. That makes a graph a
-    model of an agent's shape rather than an agent, which is the honest description and the one
-    the workload's own notes have to carry.
+    structural model of an agent. Workload notes describe any execution behavior outside Tokop.
     """
 
     id: str
@@ -180,8 +177,7 @@ class PipelineSpec(BaseModel):
     steps: list[StepSpec] = Field(default_factory=list)
     #: Which step's output is the pipeline's answer. Empty means the last step in run order,
     #: which is right for a graph that ends in the thing it is answering with and wrong for one
-    #: that ends in a verifier — so a graph that ends in a verifier has to say so, rather than
-    #: having the answer quietly become a verdict.
+    #: that ends in a verifier. Such a graph must set this field explicitly.
     output_step: str = ""
 
     model_config = {"frozen": True}

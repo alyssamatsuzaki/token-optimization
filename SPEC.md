@@ -1,5 +1,9 @@
 # Tokop: build spec
 
+> **Product contract.** This document records the requirements the repository was built against.
+> For setup and day-to-day use, start with [README.md](README.md). For implementation details, use
+> the index in [docs/README.md](docs/README.md).
+
 Working name: **Tokop**. Rename freely; the name appears only in the UI header, the CLI, and the README.
 
 Tokop finds the cheapest way to run an AI workload that stays within a stated quality margin of what you run today, and it attaches the statistical proof.
