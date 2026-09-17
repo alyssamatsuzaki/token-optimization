@@ -1,5 +1,9 @@
 # Decisions
 
+> **Project record.** This append-only log preserves architectural and product decisions in the
+> order they were made. Current guidance lives in [README.md](README.md),
+> [CONTRIBUTING.md](CONTRIBUTING.md), and [docs/README.md](docs/README.md).
+
 Every choice the spec left open, and every place reality contradicted the spec. One line of
 rationale each, newest at the bottom of each section.
 
