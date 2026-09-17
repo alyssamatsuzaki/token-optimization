@@ -1,5 +1,9 @@
 # Cleanup plan
 
+> **Historical proposal.** This audit describes a cleanup pass against an earlier commit and is
+> retained for context. Its measurements and status lines are not current project instructions.
+> See [README.md](README.md) and [CONTRIBUTING.md](CONTRIBUTING.md) for the supported workflow.
+
 Against `CLEANUP.md`, on `claude/nifty-cray-ryedyy` at `acdc73f`. Nothing here adds a feature.
 Every change below names the `CLEANUP.md` work item it comes from.
 
