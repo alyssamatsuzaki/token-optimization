@@ -1,14 +1,116 @@
 # Tokop
 
-**Tokop finds the cheapest way to run your AI workload without getting worse, and proves it.**
+Tokop helps you reduce the cost of an LLM workload without guessing whether the cheaper version
+is still good enough.
 
-Give it a workload — tasks plus a way to grade them — and the pipeline you run today. It records
-what that pipeline really costs, ranks the waste by dollars, builds a cheaper candidate, and then
-runs a non-inferiority test on held-out tasks to say whether the candidate is actually as good.
-The headline is **cost per successful task**. Token counts are supporting evidence.
+Give it a set of tasks, a baseline pipeline, and a way to grade answers. Tokop measures the
+baseline, identifies expensive prompt and pipeline choices, builds lower-cost candidates, and
+compares the best candidate with the baseline on held-out tasks. The main metric is **cost per
+successful task**. The final result includes a confidence interval, a non-inferiority verdict, the
+cost of producing the proof, and the number of future tasks needed to earn that cost back.
 
-The proof has a price of its own, so Tokop reports that too, next to the task volume at which the
-savings repay it.
+Tokop is a local application with a React interface, a Python engine and CLI, and a SQLite ledger.
+It can run entirely from the included fixtures, so you can explore the full product without an API
+key or network access.
+
+## Quick start
+
+Requirements:
+
+- Python 3.12
+- [`uv`](https://docs.astral.sh/uv/)
+- Node.js and [`pnpm`](https://pnpm.io/)
+
+Install the dependencies and start the fixture-backed demo:
+
+```bash
+make setup
+make demo
+```
+
+Open [http://localhost:8000](http://localhost:8000). The first report may take several seconds to
+build; later requests are cached for the life of the server.
+
+For frontend hot reload during development:
+
+```bash
+make dev
+```
+
+This starts the API on port 8000 and Vite on port 5173.
+
+## What you can do
+
+### Optimize a workload
+
+The **Optimize** screen walks through one decision from start to finish:
+
+1. Review the current pipeline's cost, accuracy, model usage, and evidence quality.
+2. Inspect findings ranked by projected dollars saved per 1,000 tasks.
+3. Build a candidate using cache-friendly prompt ordering, a clearer output contract, and a model
+   cascade.
+4. Compare the candidate and baseline on the same held-out tasks.
+5. Review the verdict, confidence interval, proof cost, repayment point, and cost-quality frontier.
+6. Open disagreements to see the requests, responses, usage, scores, and grades behind the result.
+7. Export the prompt diff, cascade configuration, and routing rule for use in your own application.
+
+Tokop does not deploy a proxy or sit in your request path. It produces evidence and implementation
+artifacts; you decide how and where to apply them.
+
+### Inspect a prompt
+
+Use **Inspect** to paste a system prompt, user prompt, and optional tool definitions. It shows:
+
+- estimated tokens and cost across the model registry;
+- whether the reusable prefix is large enough to cache;
+- prompt problems with the affected text highlighted;
+- projected savings and the formula behind each finding; and
+- deterministic safe fixes as a diff, including both the input-token change and expected output
+  savings.
+
+Inspect also includes:
+
+- **Brief**, which produces a compact version of long reference material; and
+- **Session analysis**, which compares cache and compaction strategies over a multi-turn
+  conversation instead of pricing one isolated request.
+
+Token counts in Inspect are estimates and always name the counting method. Recorded provider usage
+is kept separate from estimated usage throughout the product.
+
+### Compare models
+
+Use **Compare** to view the same prompt and response side by side across models. Each response shows
+input and output tokens, cost, time to first token, and total latency.
+
+A manual column lets you paste a response from a subscription application. Manual responses receive
+an estimated token count, but Tokop does not claim API usage or cost for them. It does not automate
+consumer applications or use subscription credentials.
+
+### Review spend
+
+The **Spend** screen breaks the ledger down by day, provider, workload, model, pipeline, and split.
+It reports ordinary spend and scarce-model spend separately, and keeps cost per successful task next
+to accuracy so that a lower bill is not mistaken for a better system.
+
+### Check settings and stored data
+
+The **Settings** screen shows:
+
+- replay or live mode and the active recording source;
+- configured providers without exposing API keys;
+- recording and daily spend caps;
+- model roles, prices, cache thresholds, and price provenance;
+- scarce models and workload-level provider restrictions; and
+- stored runs and a control for deleting prompt and response content.
+
+Deleting stored content keeps derived usage, cost, score, and grade data, so aggregate reports remain
+available without retaining the original text.
+
+## Demo result
+
+The repository includes a 300-task returns-policy workload. Its fixtures are deterministic,
+simulated test data: they exercise the complete engine but are not evidence about production
+traffic. The interface and generated report label them accordingly.
 
 <!-- metrics:start -->
 <!-- generated by `tokop report --write-readme`; do not edit by hand -->
@@ -39,162 +141,272 @@ savings repay it.
 <sub>~ simulated: these numbers are real engine output computed over simulated traces, because this build has no API credentials. See DECISIONS.md D1. Token estimates use `bytes-bpe-approx-v1`.</sub>
 <!-- metrics:end -->
 
-## Why now
+The important part of this example is not the size of the projected saving. It is that Tokop
+reports the result as **inconclusive** rather than rounding a borderline interval into a pass. See
+[the demo guide](docs/DEMO.md) for a guided tour of the interface and [the method](docs/METHOD.md)
+for the full calculation.
 
-More AI usage is billed per token. GitHub Copilot moved to usage-based billing in June 2026, and
-Anthropic requires third-party tools to use API keys rather than a subscription. Teams that want
-to cut cost need evidence that quality held — and "we switched to the cheap model and it seemed
-fine" is not evidence.
+## How the optimization works
 
-Cutting cost feels risky because nobody can say whether the cheaper setup is as good. Tokop turns
-that into a measurement.
+### 1. Record or replay the baseline
 
-## What it does
+The runner renders every task, sends the request through a provider adapter, normalizes the
+provider's usage fields, prices the call against a snapshot, grades the answer, and stores the
+trace. Failed calls remain in the dataset as failures rather than disappearing from the result.
 
-1. **Records what the current pipeline costs**, per task and per step, from provider-reported
-   usage rather than an estimate.
-2. **Finds waste and ranks it by projected dollars.** A 7,000-token handbook that cannot be
-   cached outranks a politeness phrase by three orders of magnitude, and the ranking says so.
-3. **Builds a candidate**: cache-friendly prompt order, a tightened prompt with an output
-   contract, and a model cascade that sends each task to the cheapest model that can be trusted
-   with it.
-4. **Proves it on held-out tasks**, with cost per successful task, confidence intervals, a
-   McNemar test, and a non-inferiority verdict against a margin you set.
+Replay mode uses committed cassettes and never falls back to a live request. Record mode keys a
+cassette by the canonical request, so an interrupted run can resume without purchasing the same
+request twice.
 
-## Run it
+### 2. Find expensive choices
 
-No API keys needed — the app runs entirely from committed fixtures.
+The prompt linter is local and deterministic. Findings are ranked by confidence-weighted projected
+savings, not by cosmetic severity. It understands that removing a token from a cached prefix saves
+less than removing the same token from uncached input.
+
+For multi-step workloads, graph findings can also identify unused outputs, repeated work, and
+context copied across steps.
+
+### 3. Build and calibrate candidates
+
+The included transforms can reorganize reusable prompt content, tighten instructions and output
+contracts, and construct a cascade of cheap, mid-tier, and frontier models.
+
+Cascade scorers estimate whether an answer can be accepted or should be escalated. They never see
+the gold answer. Gold-aware grading is implemented in a separate module and guarded by isolation
+tests. Thresholds are selected on the calibration split before the test result is computed.
+
+### 4. Prove the selected candidate
+
+Tokop evaluates the baseline and candidate on matching held-out tasks. The report includes Wilson
+intervals, paired bootstrap intervals, an exact McNemar test, and a non-inferiority verdict against
+the workload's configured margin.
+
+If a workload has no complete answer key, Tokop can use a cheap judge on every item and a strong
+grader on a sampled subset. The active-evaluation estimate corrects the cheap judge's measured
+bias. A poor judge increases uncertainty rather than silently defining correctness.
+
+### 5. Track when the result stops applying
+
+Dataset provenance records how much of the evaluation set came from real traffic, programs, or
+models. Workload fingerprints describe task mix, input lengths, and a declared difficulty proxy.
+Certificates bind a result to those inputs and the model snapshot; canary checks can expire a
+certificate when outcomes or traffic coverage drift.
+
+## Use it with your own workload
+
+The engine supports workload files and JSONL, CSV, or OpenTelemetry ingestion. The browser is
+currently centered on the included demo, so custom-workload setup is CLI-driven rather than a
+finished upload wizard.
+
+A workload defines:
+
+- the task dataset and calibration/test split;
+- prompt pipelines or graph steps;
+- grounding material and template variables;
+- the grading or judging method;
+- the acceptable non-inferiority margin;
+- cascade tiers and scorer features;
+- allowed providers; and
+- dataset provenance and annotation settings.
+
+Start from [`data/demo/workload.yaml`](data/demo/workload.yaml) and read
+[`docs/DATASET.md`](docs/DATASET.md) for the expected data shape. Then use these commands to inspect
+and run it:
 
 ```bash
-make setup     # uv venv (Python 3.12) + uv sync, pnpm install
-make demo      # production build, replay mode, http://localhost:8000
+tokop ingest --help
+tokop build-test-fixtures --workload path/to/workload.yaml
+tokop prove --workload path/to/workload.yaml
+tokop export --workload path/to/workload.yaml
 ```
 
-Or in development, with hot reload:
+Run `tokop <command> --help` before using a command against a custom workload; some commands require
+additional paths or options. `tokop report` and `tokop lint` currently operate on the default demo
+report.
+
+## Replay and live modes
+
+### Replay mode
+
+Replay is the default and the recommended way to evaluate the project:
+
+- no API keys;
+- no provider calls;
+- deterministic committed fixtures; and
+- live controls disabled with an explanation.
+
+### Live mode
+
+Copy `.env.example` to `.env` and set only the providers and budgets you intend to use:
+
+```dotenv
+ANTHROPIC_API_KEY=
+OPENROUTER_API_KEY=
+RECORD_BUDGET_USD=
+DAILY_BUDGET_USD=5
+TOKOP_MODE=live
+```
+
+`DAILY_BUDGET_USD` caps live actions in the application. `RECORD_BUDGET_USD` is separate: setting it
+is explicit consent for `tokop record` to spend up to that amount. Tokop never fills in either
+budget for you.
+
+Before a live recording, Tokop:
+
+1. verifies live mode, a key, and a recording budget;
+2. estimates whether the test split is large enough to reach a conclusion;
+3. prints a full cost projection against the cap;
+4. asks for confirmation;
+5. runs a small pilot and updates the projection from measured answer lengths; and
+6. enforces the cap on every subsequent call.
+
+Run a recording only after reviewing the generated dataset described in
+[`docs/DATASET.md`](docs/DATASET.md):
 
 ```bash
-make dev       # uvicorn on :8000, Vite on :5173
+make record
 ```
 
-Everything else:
+## CLI reference
+
+Run `tokop --help` for the current options. The main commands are:
+
+| Command | Purpose |
+| --- | --- |
+| `tokop report` | Recompute the complete report from fixtures. |
+| `tokop prove` | Compare the candidate with the baseline; exits nonzero unless it is non-inferior. |
+| `tokop lint` | Run deterministic prompt lint for a pipeline. |
+| `tokop power` | Estimate the test size required for a conclusive proof. |
+| `tokop record` | Record live provider responses within `RECORD_BUDGET_USD`. |
+| `tokop annotate` | Purchase strong-grader labels for the judged proof. |
+| `tokop ingest` | Import JSONL, CSV, or OpenTelemetry data. |
+| `tokop export` | Write the recommended prompt, cascade config, or routing rule. |
+| `tokop provenance` | Report where the task set came from and whether it can support a certificate. |
+| `tokop certificate` | Issue a certificate for a completed proof. |
+| `tokop canary` | Check new observations against a certificate. |
+| `tokop graph` | Analyze a multi-step workload and test a graph change. |
+| `tokop session` | Price a multi-turn conversation and compare compaction strategies. |
+| `tokop dataset` | Show or regenerate the demo dataset. |
+| `tokop fixtures-check` | Verify generated data, cassettes, and annotations. |
+| `tokop build-test-fixtures` | Rebuild deterministic fixtures without spending money. |
+| `tokop recording-state` | Explain which fixture source is active. |
+| `tokop sync-models` | Update model metadata from the OpenRouter listing. |
+| `tokop models` | List models, roles, prices, and provenance. |
+
+## Architecture
+
+Production uses one FastAPI process to serve both `/api/*` and the built React application. SQLite
+stores the local ledger; there is no queue or worker. The main layers are:
+
+```text
+Browser / CLI
+    │
+    ▼
+Report builder ── lint, cascade search, proof, evidence, export
+    │
+    ▼
+Workload runner ── render, call, normalize, price, grade, record
+    │
+    ▼
+Provider adapters ── Anthropic, OpenAI-compatible, cassette, simulated
+    │
+    ▼
+Core ── usage, pricing, tokens, statistics, budgets, registry, sessions
+```
+
+Every headline number is produced by `optimize/report.py:build_report()`. The API, CLI, generated
+README block, demo guide, and browser all consume that result. `tokop report --check` fails when
+those surfaces disagree.
+
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for module-level details and
+[`docs/METHOD.md`](docs/METHOD.md) for the statistical and accounting methods.
+
+## Configuration
+
+Configuration is kept outside the application code:
+
+- [`config/providers.yaml`](config/providers.yaml) defines adapters, endpoints, usage mappings, and
+  provider availability.
+- [`config/models.yaml`](config/models.yaml) assigns model roles, scarce models, concurrency, and
+  the fallback listing snapshot.
+- [`config/prices.yaml`](config/prices.yaml) contains direct-provider price overrides, cache rates,
+  source URLs, retrieval dates, and verification status.
+
+Runs use a content-addressed price snapshot, so a future config change does not silently reprice a
+past result.
+
+## Verification and development
+
+Run the complete verification suite:
 
 ```bash
-make verify    # every check in SPEC.md section 10, in order
-tokop report   # recompute every headline metric from the fixtures
-tokop lint B0  # the prompt lint over a pipeline
-tokop prove    # exits nonzero unless the verdict is non-inferior — a CI gate
-make record    # four gates, then it records — needs a key and RECORD_BUDGET_USD
-tokop power    # how many test tasks a conclusive verdict needs, before recording any
-tokop build-test-fixtures   # rebuild fixtures/test/ from the simulator; spends nothing
+make verify
 ```
 
-## The four screens
+It covers Python formatting and linting, type checking, unit and integration tests, fixture
+integrity, generated-report consistency, frontend lint and type checking, a production build, and
+Playwright flows in replay mode.
 
-**Optimize** — what's the cheapest way to run this workload without getting worse? It opens with
-the recommendation: what the workload costs now, what it could cost, the quality change against
-the margin you allowed, and an **evidence grade** in one word — `recording`, `simulated` or
-`insufficient` — that expands into the whole chain behind it, link by link, each with what would
-change it. Then the current pipeline as a graph, findings ranked by dollars, the candidate, and
-the proof: verdict, interval plot against the margin, every configuration tied for cheapest,
-savings waterfall, cost-quality frontier, breakdown by question type, and every disagreement
-openable as a full trace. **Deploy** exports a prompt diff, a cascade config and a routing rule —
-Tokop hands them over and never sits in your request path.
+Other useful targets:
 
-**Inspect** — what will this prompt cost, and what in it is waste? Token counts and cost per
-1,000 calls across the registry, cacheability against each model's minimum, lint findings with
-highlighted spans, and deterministic safe fixes shown as a diff. Brief mode compresses long
-material into something that fits in a chat window, for people whose scarce resource is a
-subscription rather than an API bill.
-
-**Compare** — which model is good enough for this prompt? One prompt, side-by-side columns with
-tokens, cost and time to first token, plus a manual column for subscription apps that have no
-public API.
-
-**Spend** — where did the money and the scarce-model budget go?
-
-## Where Tokop sits
-
-Described by category, not by feature: observability and evaluation tools (Langfuse, Helicone,
-LangSmith, Braintrust) report spend and quality. Gateways and routers (LiteLLM, Portkey,
-OpenRouter, Martian, Not Diamond, RouteLLM) move traffic.
-
-Tokop's claim is narrower and testable: **for one workload, the cheapest pipeline that is
-statistically non-inferior to the one you run today, with the proof attached.**
-
-A model vendor has little reason to recommend a competitor's cheaper model. A neutral optimizer
-can.
-
-**Business hypothesis, labelled as a hypothesis:** charge a share of verified savings. The proof
-engine is what would make savings billable — you cannot invoice against "it seemed fine".
-
-## Limitations
-
-Seven that matter most, shortest first. The reasoning behind each, and the rest of the list, is
-in [docs/METHOD.md](docs/METHOD.md#limitations-in-detail).
-
-- **v1 accounts for text only.** Image, video and audio have reserved schema fields and are
-  refused rather than mispriced.
-- **The prompt lint is lexical.** It catches an exact duplicate and not a paraphrase.
-- **Savings depend on the price spreads at recording time**, and learning a cascade costs money
-  up front — which is why the proof cost is a headline number rather than a footnote.
-- **The judged estimate is unbiased for the strong grader, not for the truth.** What the
-  correction removes completely is the *cheap* judge's bias, and it reports how large that was.
-- **A cascade needs around 100 labelled examples** from the distribution it will serve, or a
-  judged and pseudo-labelled substitute that excludes the tasks it cannot settle — a count the
-  report always shows.
-- **This build ships one workload: the demo.** `tokop prove --workload` refuses anything else by
-  name rather than reporting the demo's numbers under your workload's title.
-- **No live recording has ever run.** Every number here is simulated and labelled simulated.
-  `make record` is built and gated behind consent; it needs a key and `RECORD_BUDGET_USD`, and
-  Tokop sets neither.
-
-## Roadmap
-
-In rough order, from the exclusions this version made on purpose:
-
-1. ~~**Judges and human rating for unlabelled workloads**~~ — shipped in M9. `grading: judged`,
-   `tokop annotate`, and a cost-optimal allocation policy; see [docs/METHOD.md](docs/METHOD.md).
-   What is still labelled is calibration.
-2. ~~**Calibrating the router without labels**~~ — shipped in M10, along with a priced
-   checkable-output-contract lever; see [docs/METHOD.md](docs/METHOD.md).
-3. ~~**Certificates that expire**~~ and ~~**dataset provenance**~~ — shipped in M11; see
-   [docs/METHOD.md](docs/METHOD.md).
-4. ~~**Semantic entropy** over meaning clusters~~ and ~~a report that names every configuration
-   statistically tied for cheapest~~ — shipped in M12; see [docs/METHOD.md](docs/METHOD.md).
-   What is still missing is a recording to measure them on, which is what would make the
-   effective-sample column interesting.
-5. **One real recording** — half shipped in M13. The gates that decide whether it should happen
-   are built and tested: a power estimate that refuses a split too small to conclude, a counted
-   projection printed against the cap, a ten-task pilot that re-projects from real answer
-   lengths, and a cap that is now enforced per call. The recording itself needs a key and a
-   budget; [docs/METHOD.md](docs/METHOD.md) says what it would change.
-6. **An upload wizard** for YAML, JSONL or CSV workloads.
-7. **LangGraph trace import** — the pipeline spec already uses nodes, edges and shared state.
-8. **Experiments**: semantic caching with its own false-hit evaluation, and TRIM-style output
-   compression.
-
-Deliberately out of scope, and staying that way: browser automation of consumer AI apps, reuse of
-subscription credentials, account pooling, and rate-limit evasion of any kind. Anthropic's terms
-restrict OAuth tokens from Free, Pro and Max plans to Claude Code and Claude.ai, and other
-vendors' consumer terms say similar things. Official APIs only. Subscription apps appear as a
-manual column in Compare — Tokop hands you the prompt and takes the answer back.
-
-## Repository
-
-```
-engine/     Python 3.12 package `tokop` — adapters, core maths, workloads, optimization, API, CLI
-web/        Vite + React + TypeScript SPA
-config/     providers.yaml, models.yaml, prices.yaml
-data/demo/  policy.yaml, the generated dataset and handbook, pipeline definitions
-fixtures/   committed cassettes and run manifests
-docs/       ARCHITECTURE.md, DATASET.md, DEMO.md, DESIGN.md, screenshots
+```bash
+make fmt       # format and autofix Python code
+make build     # build the web application
+make clean     # remove generated web and Python test output
 ```
 
-`SPEC.md` is the specification this was built from. `DECISIONS.md` records every choice the spec
-left open and every place reality contradicted it. `PROGRESS.md` is the build log.
+## Deployment
 
-## Origin
+The included `Dockerfile` builds the frontend and serves it with the API. Replay mode is the safe
+default and requires no egress. A warm instance is recommended because the first report build fits
+scorers, searches cascade settings, and runs bootstrap calculations before caching the result.
 
-The author used to run one prompt through several AI apps by hand, paste the answers back into
-Claude to compare them, and hit usage limits doing it. That habit is a model cascade with a human
-as the scorer. Tokop automates the scorer and adds the statistics.
+See [`docs/DEPLOY.md`](docs/DEPLOY.md) for container examples, resource guidance, warm-up commands,
+and the additional safeguards required for live mode.
+
+## Current limitations
+
+- **Text only.** Image, audio, and video fields are reserved but refused rather than mispriced.
+- **Lexical prompt lint.** Exact and structural problems are detected; paraphrases are not.
+- **One polished browser workload.** The engine accepts custom workload files, but a general upload
+  wizard is not built yet.
+- **Calibration data is still required.** A cascade needs labelled examples or an explicitly
+  reported judged and pseudo-labelled substitute.
+- **A judged result is relative to its strong grader.** Active evaluation removes measured cheap-
+  judge bias; it does not turn a model grader into ground truth.
+- **Savings depend on recorded prices and traffic.** Price snapshots preserve historical results,
+  while certificates and canaries describe whether a result still applies.
+- **The committed demo is simulated.** No live production recording is included.
+- **No production gateway.** Tokop exports changes for another application to adopt.
+- **No multi-user product layer.** Authentication, hosted billing, and tenancy are outside the
+  current scope.
+
+## Repository layout
+
+```text
+engine/      Python package: adapters, workload runner, optimization, API, and CLI
+web/         React and TypeScript single-page application
+config/      provider, model-role, concurrency, and price configuration
+data/        demo and example workload definitions, datasets, and grounding documents
+fixtures/    committed cassettes, manifests, annotations, and generated ledger inputs
+docs/        architecture, method, dataset, design, demo, deployment, and screenshots
+scripts/     development, verification, dataset, and documentation helpers
+```
+
+The most useful supporting documents are:
+
+- [`docs/DEMO.md`](docs/DEMO.md) — guided product walkthrough;
+- [`docs/METHOD.md`](docs/METHOD.md) — complete methodology and evidence chain;
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — implementation structure;
+- [`docs/DATASET.md`](docs/DATASET.md) — demo data and generation rules;
+- [`docs/DEPLOY.md`](docs/DEPLOY.md) — container deployment;
+- [`SPEC.md`](SPEC.md) — original product specification; and
+- [`DECISIONS.md`](DECISIONS.md) — implementation decisions and tradeoffs.
+
+## Scope and safety
+
+Tokop uses official provider APIs only. It does not automate consumer AI products, reuse
+subscription credentials, pool accounts, evade rate limits, or proxy application traffic. The
+manual Compare column is the only integration with subscription applications: you copy the prompt
+out and paste the response back yourself.
