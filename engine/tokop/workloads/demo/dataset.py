@@ -28,18 +28,29 @@ HANDBOOK_FILE = "handbook.md"
 def build(
     policy: Policy | None = None,
     *,
-    size: int = 300,
+    size: int = 304,
     calibration_size: int = 100,
     seed: int = 20260911,
 ) -> Bundle:
     resolved = policy or load_policy()
     items = generate(resolved, size=size, seed=seed)
-    split = split_items(items, calibration_size=calibration_size, seed=seed)
+    # Keep the established calibration set fixed when the proof set grows. Re-stratifying all
+    # items after adding observations would silently tune the cascade on a different sample and
+    # turn "four more test tasks" into an entirely new experiment.
+    if size > 300 and calibration_size == 100:
+        original_items = generate(resolved, size=300, seed=seed)
+        original_split = split_items(original_items, calibration_size=calibration_size, seed=seed)
+        calibration_ids = {item.id for item in original_split.calibration}
+        calibration = tuple(item for item in items if item.id in calibration_ids)
+        test = tuple(item for item in items if item.id not in calibration_ids)
+    else:
+        split = split_items(items, calibration_size=calibration_size, seed=seed)
+        calibration, test = split.calibration, split.test
     return Bundle(
         items=tuple(items),
         grounding=render_handbook(resolved),
-        calibration=split.calibration,
-        test=split.test,
+        calibration=calibration,
+        test=test,
         seed=seed,
     )
 

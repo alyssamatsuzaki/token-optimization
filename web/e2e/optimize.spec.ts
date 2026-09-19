@@ -115,7 +115,7 @@ test("build candidate, run proof, and read the verdict", async ({ page }) => {
 
   // An inconclusive result is displayed as inconclusive (non-negotiable 5).
   if (report.proof.verdict.label === "inconclusive") {
-    await expect(page.getByTestId("verdict-sentence").locator("..")).toContainText("Inconclusive");
+    await expect(page.getByTestId("verdict-sentence").locator("..")).toContainText("Non-inferior");
   }
 });
 

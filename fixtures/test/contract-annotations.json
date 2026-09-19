@@ -3,15 +3,15 @@
   "candidate_pipeline": "B2c",
   "cost": {
     "budget_usd": "0.6",
-    "grading_everything_usd": "2.42018",
-    "judge_usd": "0.372339",
+    "grading_everything_usd": "2.51499",
+    "judge_usd": "0.386931",
     "over_budget": true,
     "prewarm_projected_usd": "0.05191125",
     "projected_strong_usd": "0.60000125",
-    "strong_usd": "0.6568475",
-    "total_usd": "1.0291865"
+    "strong_usd": "0.6332275",
+    "total_usd": "1.0201585"
   },
-  "generated_at": "2026-09-14T15:05:35.097049+00:00",
+  "generated_at": "2026-09-17T11:19:00.737204+00:00",
   "items": [
     {
       "baseline": {
@@ -36,7 +36,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1252983231306036,
+      "rate": 0.12140074360720594,
       "sampled": 0,
       "task_id": "cp_order_shipping-22b5770f25"
     },
@@ -63,7 +63,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.15052186591455255,
+      "rate": 0.14583967282725435,
       "sampled": 0,
       "task_id": "cp_order_shipping-32ef02e371"
     },
@@ -90,7 +90,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 1,
       "task_id": "cp_order_shipping-35476d9c76"
     },
@@ -117,7 +117,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.14507993704383337,
+      "rate": 0.14056702276254276,
       "sampled": 0,
       "task_id": "cp_order_shipping-7bf2c63588"
     },
@@ -144,7 +144,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6410984547061398,
+      "rate": 0.621156190938252,
       "sampled": 1,
       "task_id": "cp_order_shipping-88734dfae0"
     },
@@ -171,7 +171,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "cp_order_shipping-89d00cde02"
     },
@@ -198,7 +198,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "cp_order_shipping-8eb05acba3"
     },
@@ -225,7 +225,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "cp_order_shipping-b0fe9b4e15"
     },
@@ -252,7 +252,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.09268284764975615,
+      "rate": 0.08979981809162439,
       "sampled": 0,
       "task_id": "cp_order_shipping-b633b612d8"
     },
@@ -279,7 +279,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.11135219487671236,
+      "rate": 0.1078884291710494,
       "sampled": 0,
       "task_id": "cp_order_shipping-ccfa10db80"
     },
@@ -306,7 +306,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.11192616648944623,
+      "rate": 0.1084445465942865,
       "sampled": 0,
       "task_id": "cp_order_shipping-dcf34b5879"
     },
@@ -333,9 +333,36 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6389745261578575,
+      "rate": 0.6190983301569766,
       "sampled": 1,
       "task_id": "cp_oversize_shipping-08b40a648c"
+    },
+    {
+      "baseline": {
+        "answer_hash": "0076139eb7b10b36",
+        "judge_cassette_key": "d65822b567cfad0efb9436cd677cc1c73d2129b127a8a0a731605dec284fe094",
+        "judge_confidence": 0.918,
+        "judge_correct": 1,
+        "judge_parsed": true,
+        "strong_cassette_key": null,
+        "strong_correct": null,
+        "strong_failed": false,
+        "tier": "frontier"
+      },
+      "candidate": {
+        "answer_hash": "8df7e7c038f2b15d",
+        "judge_cassette_key": "a4db711d22187dafce1e2cda35d28fc5e40d32053b4cebd8806ebc0803ebf1e3",
+        "judge_confidence": 0.975,
+        "judge_correct": 1,
+        "judge_parsed": true,
+        "strong_cassette_key": null,
+        "strong_correct": null,
+        "strong_failed": false,
+        "tier": "frontier"
+      },
+      "rate": 0.1673345012805696,
+      "sampled": 0,
+      "task_id": "cp_oversize_shipping-31f67735bf"
     },
     {
       "baseline": {
@@ -360,7 +387,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.11875137638187733,
+      "rate": 0.11505744879053317,
       "sampled": 0,
       "task_id": "cp_oversize_shipping-5becc2888c"
     },
@@ -387,7 +414,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1493438107955513,
+      "rate": 0.14469826275979517,
       "sampled": 1,
       "task_id": "cp_oversize_shipping-67d5ff033a"
     },
@@ -414,7 +441,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.14939646877986712,
+      "rate": 0.14474928274388651,
       "sampled": 1,
       "task_id": "cp_oversize_shipping-7746a8d5fe"
     },
@@ -441,7 +468,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.11331368189894153,
+      "rate": 0.10978890139705276,
       "sampled": 0,
       "task_id": "cp_oversize_shipping-af60f93342"
     },
@@ -468,7 +495,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1645711821741252,
+      "rate": 0.1594519654619061,
       "sampled": 0,
       "task_id": "cp_oversize_shipping-bb25770148"
     },
@@ -495,7 +522,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6399455654658388,
+      "rate": 0.6200391639296512,
       "sampled": 1,
       "task_id": "cp_oversize_shipping-f4746096fd"
     },
@@ -522,7 +549,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1303929872002836,
+      "rate": 0.12633693102803345,
       "sampled": 0,
       "task_id": "cp_refund_amount-b103ea4b6b"
     },
@@ -549,7 +576,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.636377909548737,
+      "rate": 0.6165824849378713,
       "sampled": 0,
       "task_id": "cp_refund_amount-dd9b313b2a"
     },
@@ -576,7 +603,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6580428518304822,
+      "rate": 0.6375735088996968,
       "sampled": 1,
       "task_id": "cp_restocking_amount-12daf01c65"
     },
@@ -603,7 +630,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6274914471047311,
+      "rate": 0.6079724483325504,
       "sampled": 1,
       "task_id": "cp_restocking_amount-1624129432"
     },
@@ -630,7 +657,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "cp_restocking_amount-1cf0545b59"
     },
@@ -657,7 +684,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.13551670172433689,
+      "rate": 0.13130126524823488,
       "sampled": 1,
       "task_id": "cp_restocking_amount-1d85ae8219"
     },
@@ -684,7 +711,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.157744532390842,
+      "rate": 0.1528376681646254,
       "sampled": 0,
       "task_id": "cp_restocking_amount-2a3cbff5a0"
     },
@@ -711,7 +738,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.7190580650105863,
+      "rate": 0.6966907585670838,
       "sampled": 1,
       "task_id": "cp_restocking_amount-2bcb471002"
     },
@@ -738,7 +765,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6394485757281706,
+      "rate": 0.6195576337526256,
       "sampled": 1,
       "task_id": "cp_restocking_amount-586181a0b0"
     },
@@ -765,7 +792,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.13287929394195278,
+      "rate": 0.1287458977223413,
       "sampled": 0,
       "task_id": "cp_restocking_amount-b36e504bc4"
     },
@@ -792,7 +819,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.14939646877986712,
+      "rate": 0.14474928274388651,
       "sampled": 0,
       "task_id": "cp_restocking_amount-d1ef302d16"
     },
@@ -819,7 +846,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6248260522375646,
+      "rate": 0.6053899642992758,
       "sampled": 1,
       "task_id": "cp_restocking_amount-ec781ff573"
     },
@@ -846,7 +873,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "cp_seasonal_window-316b8f0533"
     },
@@ -873,7 +900,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6272794427228754,
+      "rate": 0.6077670386434003,
       "sampled": 1,
       "task_id": "cp_seasonal_window-4fbce89341"
     },
@@ -900,7 +927,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6351625497843377,
+      "rate": 0.6154049306381656,
       "sampled": 1,
       "task_id": "cp_seasonal_window-5f3308c59f"
     },
@@ -927,7 +954,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.10500928863878381,
+      "rate": 0.10174282789981234,
       "sampled": 0,
       "task_id": "cp_seasonal_window-65ad4bdeab"
     },
@@ -954,7 +981,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.11740828218911457,
+      "rate": 0.11375613342044667,
       "sampled": 0,
       "task_id": "cp_seasonal_window-8c1a698596"
     },
@@ -981,7 +1008,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.20474495564202003,
+      "rate": 0.1983760775382205,
       "sampled": 1,
       "task_id": "cp_seasonal_window-8cbf5f299f"
     },
@@ -1008,7 +1035,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.7153461714510221,
+      "rate": 0.6930943286463722,
       "sampled": 1,
       "task_id": "cp_seasonal_window-9f7254c786"
     },
@@ -1035,7 +1062,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.14249780466414377,
+      "rate": 0.13806521122066112,
       "sampled": 0,
       "task_id": "cp_seasonal_window-adb04bc334"
     },
@@ -1062,7 +1089,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.12926563047990167,
+      "rate": 0.12524464231462193,
       "sampled": 0,
       "task_id": "cp_seasonal_window-c1e82f2706"
     },
@@ -1089,7 +1116,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.10186481710142024,
+      "rate": 0.09869616954597527,
       "sampled": 0,
       "task_id": "cp_seasonal_window-d25bb17225"
     },
@@ -1116,7 +1143,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1433195732447692,
+      "rate": 0.13886141754065295,
       "sampled": 0,
       "task_id": "ex_final_sale_defect_days-d2dc970990"
     },
@@ -1143,7 +1170,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "ex_final_sale_defect_days-dab89d9939"
     },
@@ -1170,7 +1197,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.11135219487671236,
+      "rate": 0.1078884291710494,
       "sampled": 0,
       "task_id": "ex_final_sale_window-1822f9f952"
     },
@@ -1197,7 +1224,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.12140635472913809,
+      "rate": 0.11762984032431709,
       "sampled": 0,
       "task_id": "ex_final_sale_window-229c51dcab"
     },
@@ -1224,7 +1251,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.09268284764975615,
+      "rate": 0.08979981809162439,
       "sampled": 0,
       "task_id": "ex_final_sale_window-38f3e7a385"
     },
@@ -1251,7 +1278,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "ex_final_sale_window-a07fec8335"
     },
@@ -1262,8 +1289,8 @@
         "judge_confidence": 0.583,
         "judge_correct": 0,
         "judge_parsed": true,
-        "strong_cassette_key": "41463b42d5eecf49fd9dc75d6c16505cd60e1bd5b957214df604ad8923dab372",
-        "strong_correct": 0,
+        "strong_cassette_key": null,
+        "strong_correct": null,
         "strong_failed": false,
         "tier": "frontier"
       },
@@ -1273,13 +1300,13 @@
         "judge_confidence": 0.53,
         "judge_correct": 0,
         "judge_parsed": true,
-        "strong_cassette_key": "b8e2965a26e47b688ef62d0c7d2b62921ea11e83c8261bbcba1340173621fe44",
-        "strong_correct": 0,
+        "strong_cassette_key": null,
+        "strong_correct": null,
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.5910130323935376,
-      "sampled": 1,
+      "rate": 0.5726287457122454,
+      "sampled": 0,
       "task_id": "ex_opened_electronics_fee-a9d079b45e"
     },
     {
@@ -1305,7 +1332,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.11740828218911457,
+      "rate": 0.11375613342044667,
       "sampled": 0,
       "task_id": "ex_opened_electronics_fee-df157e6139"
     },
@@ -1332,7 +1359,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6502350281507061,
+      "rate": 0.6300085584917751,
       "sampled": 1,
       "task_id": "ex_opened_electronics_window-271ee8292c"
     },
@@ -1359,7 +1386,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6295111304375113,
+      "rate": 0.6099293065914995,
       "sampled": 1,
       "task_id": "ex_opened_electronics_window-f375d0ba57"
     },
@@ -1386,7 +1413,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.18512337998714676,
+      "rate": 0.1793648584274609,
       "sampled": 1,
       "task_id": "ex_safety_escalation-0c85dd3af9"
     },
@@ -1413,7 +1440,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1413470054489302,
+      "rate": 0.13695020922399517,
       "sampled": 0,
       "task_id": "ex_safety_escalation-24215fe08a"
     },
@@ -1440,7 +1467,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.18206627350013205,
+      "rate": 0.17640284751193452,
       "sampled": 0,
       "task_id": "ex_safety_escalation-5292ec10c9"
     },
@@ -1467,7 +1494,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.11359346132823767,
+      "rate": 0.1100599778960347,
       "sampled": 0,
       "task_id": "ex_safety_escalation-f4c2887fe5"
     },
@@ -1494,7 +1521,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.19240736948149145,
+      "rate": 0.1864222692446735,
       "sampled": 0,
       "task_id": "ex_used_safety_gear-039dce3e34"
     },
@@ -1521,7 +1548,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6393061384010951,
+      "rate": 0.6194196271377537,
       "sampled": 1,
       "task_id": "ex_used_safety_gear-05016af39a"
     },
@@ -1548,7 +1575,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6703003309760693,
+      "rate": 0.6494497020190015,
       "sampled": 0,
       "task_id": "ex_used_safety_gear-a3ae98188a"
     },
@@ -1575,7 +1602,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1773943130726506,
+      "rate": 0.17187621494552344,
       "sampled": 0,
       "task_id": "ex_used_safety_gear-c323b7a005"
     },
@@ -1602,7 +1629,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.20246897428537622,
+      "rate": 0.19617089376377614,
       "sampled": 1,
       "task_id": "ex_used_safety_gear-f6d3cae37d"
     },
@@ -1629,7 +1656,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "ex_worn_footwear_refund-6b2815fc7b"
     },
@@ -1656,7 +1683,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6870298768071617,
+      "rate": 0.6656588519370612,
       "sampled": 1,
       "task_id": "lu_annual_fee-3f88672603"
     },
@@ -1683,7 +1710,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1291367905864196,
+      "rate": 0.1251198101661606,
       "sampled": 0,
       "task_id": "lu_annual_fee-48b3ae6925"
     },
@@ -1710,7 +1737,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.11760326612114759,
+      "rate": 0.11394505210466235,
       "sampled": 0,
       "task_id": "lu_annual_fee-780fa8b991"
     },
@@ -1737,7 +1764,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1529614900809619,
+      "rate": 0.1482034090730738,
       "sampled": 0,
       "task_id": "lu_annual_fee-82b2a92b63"
     },
@@ -1764,7 +1791,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.15604990239164018,
+      "rate": 0.15119575200084934,
       "sampled": 0,
       "task_id": "lu_annual_fee-981d3340fc"
     },
@@ -1791,7 +1818,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.13533183005385943,
+      "rate": 0.13112214426954089,
       "sampled": 0,
       "task_id": "lu_annual_fee-9a3c1764b7"
     },
@@ -1818,7 +1845,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.09425381158833579,
+      "rate": 0.09132191500049429,
       "sampled": 0,
       "task_id": "lu_annual_fee-a04cfa50c3"
     },
@@ -1845,7 +1872,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.15052186591455255,
+      "rate": 0.14583967282725435,
       "sampled": 1,
       "task_id": "lu_annual_fee-b21eaeafb8"
     },
@@ -1872,7 +1899,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.10334199379999237,
+      "rate": 0.10012739659806413,
       "sampled": 0,
       "task_id": "lu_annual_fee-badf0ba2f1"
     },
@@ -1899,7 +1926,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08621453729578968,
+      "rate": 0.0835327135747091,
       "sampled": 0,
       "task_id": "lu_band_fee-03c192b911"
     },
@@ -1926,7 +1953,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.16621770663693575,
+      "rate": 0.16104727247925782,
       "sampled": 0,
       "task_id": "lu_band_fee-09f7084cb7"
     },
@@ -1953,7 +1980,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.19421836242351873,
+      "rate": 0.18817692871924882,
       "sampled": 0,
       "task_id": "lu_band_fee-74aed8d851"
     },
@@ -1980,7 +2007,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.628116486535365,
+      "rate": 0.6085780450378125,
       "sampled": 0,
       "task_id": "lu_band_fee-934f06ba41"
     },
@@ -2007,7 +2034,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "lu_band_fee-968f7a2267"
     },
@@ -2034,7 +2061,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6376048193596323,
+      "rate": 0.6177712300037282,
       "sampled": 1,
       "task_id": "lu_band_fee-b3c0098871"
     },
@@ -2061,7 +2088,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "lu_band_fee-c23712ec47"
     },
@@ -2088,7 +2115,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "lu_band_fee-f6bfa5b3a9"
     },
@@ -2115,7 +2142,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1582164968698921,
+      "rate": 0.15329495152869044,
       "sampled": 1,
       "task_id": "lu_band_fee-f9c42252b0"
     },
@@ -2142,7 +2169,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.2049892883665254,
+      "rate": 0.19861280995172306,
       "sampled": 1,
       "task_id": "lu_escalation_hours-0bc39950a6"
     },
@@ -2169,7 +2196,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1303929872002836,
+      "rate": 0.12633693102803345,
       "sampled": 0,
       "task_id": "lu_escalation_hours-254c9d69ad"
     },
@@ -2196,7 +2223,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "lu_escalation_hours-33170b1338"
     },
@@ -2223,7 +2250,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6313495494788892,
+      "rate": 0.61171053903826,
       "sampled": 1,
       "task_id": "lu_escalation_hours-3ebc6b37d0"
     },
@@ -2250,7 +2277,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 1,
       "task_id": "lu_escalation_hours-65fab454e4"
     },
@@ -2277,7 +2304,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.0878608510036438,
+      "rate": 0.08512781639293196,
       "sampled": 0,
       "task_id": "lu_escalation_hours-707c480bd6"
     },
@@ -2304,7 +2331,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1303929872002836,
+      "rate": 0.12633693102803345,
       "sampled": 0,
       "task_id": "lu_escalation_hours-af0ff3701a"
     },
@@ -2331,7 +2358,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.5837943008527916,
+      "rate": 0.5656345629087461,
       "sampled": 0,
       "task_id": "lu_escalation_hours-e25d2f60e4"
     },
@@ -2358,7 +2385,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "lu_escalation_hours-eb019b5a2c"
     },
@@ -2385,7 +2412,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.11605447046906474,
+      "rate": 0.11244443390674379,
       "sampled": 0,
       "task_id": "lu_final_sale-2747fe906e"
     },
@@ -2412,7 +2439,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "lu_final_sale-32791a4d19"
     },
@@ -2439,9 +2466,36 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "lu_final_sale-4e907e596e"
+    },
+    {
+      "baseline": {
+        "answer_hash": "6e37170bb766d70c",
+        "judge_cassette_key": "2d1123e99252dd9fdbdb7f9b42c442d955472d3a5aba0a472b859cebf1776be4",
+        "judge_confidence": 0.926,
+        "judge_correct": 1,
+        "judge_parsed": true,
+        "strong_cassette_key": null,
+        "strong_correct": null,
+        "strong_failed": false,
+        "tier": "frontier"
+      },
+      "candidate": {
+        "answer_hash": "8c56d14292266880",
+        "judge_cassette_key": "98f768619767be1fc1dddda1548e0ba13a6870ae54260aefab0b9a9946b2110b",
+        "judge_confidence": 0.98,
+        "judge_correct": 1,
+        "judge_parsed": true,
+        "strong_cassette_key": null,
+        "strong_correct": null,
+        "strong_failed": false,
+        "tier": "frontier"
+      },
+      "rate": 0.15119575200084934,
+      "sampled": 0,
+      "task_id": "lu_final_sale-724916b36f"
     },
     {
       "baseline": {
@@ -2466,7 +2520,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.12008399139809156,
+      "rate": 0.11634861095350885,
       "sampled": 0,
       "task_id": "lu_final_sale-9d177b7818"
     },
@@ -2493,7 +2547,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "lu_final_sale-c4e0210a48"
     },
@@ -2520,7 +2574,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.17859605013766758,
+      "rate": 0.17304057029895728,
       "sampled": 0,
       "task_id": "lu_final_sale-ce9587bb9b"
     },
@@ -2547,7 +2601,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6709411585702597,
+      "rate": 0.6500705957749191,
       "sampled": 1,
       "task_id": "lu_final_sale-e351d99257"
     },
@@ -2574,7 +2628,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.11192616648944623,
+      "rate": 0.1084445465942865,
       "sampled": 0,
       "task_id": "lu_free_ship_threshold-1e5aaf42a4"
     },
@@ -2601,7 +2655,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.18965474895422987,
+      "rate": 0.1837552728274134,
       "sampled": 1,
       "task_id": "lu_free_ship_threshold-45dcd3228f"
     },
@@ -2628,7 +2682,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.103892207198886,
+      "rate": 0.10066049483991939,
       "sampled": 0,
       "task_id": "lu_free_ship_threshold-4b753ba287"
     },
@@ -2655,7 +2709,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.0878608510036438,
+      "rate": 0.08512781639293196,
       "sampled": 0,
       "task_id": "lu_free_ship_threshold-4bf8de1490"
     },
@@ -2682,9 +2736,36 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6390341252934594,
+      "rate": 0.6191560753781387,
       "sampled": 1,
       "task_id": "lu_free_ship_threshold-6a5aee3611"
+    },
+    {
+      "baseline": {
+        "answer_hash": "c1b13c2106e66487",
+        "judge_cassette_key": "6fbf1098b1df921b615128b5d234f8dd50aad6d2ed141dcad96b34a41f393009",
+        "judge_confidence": 0.98,
+        "judge_correct": 1,
+        "judge_parsed": true,
+        "strong_cassette_key": null,
+        "strong_correct": null,
+        "strong_failed": false,
+        "tier": "frontier"
+      },
+      "candidate": {
+        "answer_hash": "5888372847b3a308",
+        "judge_cassette_key": "b63821263193db7e85e452da1ed1685a01c6c8433d4c9d7cbf189f601d7eaa4c",
+        "judge_confidence": 0.98,
+        "judge_correct": 1,
+        "judge_parsed": true,
+        "strong_cassette_key": null,
+        "strong_correct": null,
+        "strong_failed": false,
+        "tier": "frontier"
+      },
+      "rate": 0.0819172822729609,
+      "sampled": 0,
+      "task_id": "lu_free_ship_threshold-942c555f11"
     },
     {
       "baseline": {
@@ -2709,7 +2790,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1359100325450145,
+      "rate": 0.13168236096381059,
       "sampled": 0,
       "task_id": "lu_free_ship_threshold-d252da8614"
     },
@@ -2736,7 +2817,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1278716843336012,
+      "rate": 0.12389405681210976,
       "sampled": 0,
       "task_id": "lu_free_ship_threshold-ef8b35ef64"
     },
@@ -2763,7 +2844,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.7062108645881228,
+      "rate": 0.6842431882757226,
       "sampled": 0,
       "task_id": "lu_free_ship_threshold-f2bce90093"
     },
@@ -2790,7 +2871,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "lu_packaging-1e30616a18"
     },
@@ -2817,7 +2898,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.14132269746927537,
+      "rate": 0.13692665737803303,
       "sampled": 1,
       "task_id": "lu_packaging-39bb7ce2d5"
     },
@@ -2844,7 +2925,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.15294503113020788,
+      "rate": 0.14818746210099462,
       "sampled": 0,
       "task_id": "lu_packaging-4d318df47e"
     },
@@ -2871,7 +2952,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "lu_packaging-8cf6a4f627"
     },
@@ -2898,7 +2979,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.15052186591455255,
+      "rate": 0.14583967282725435,
       "sampled": 0,
       "task_id": "lu_packaging-93522ff577"
     },
@@ -2925,7 +3006,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6893651026703179,
+      "rate": 0.6679214373348119,
       "sampled": 0,
       "task_id": "lu_packaging-e3e0340ab9"
     },
@@ -2952,7 +3033,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "lu_packaging-f749f25971"
     },
@@ -2979,7 +3060,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6218936483482986,
+      "rate": 0.6025487769328457,
       "sampled": 0,
       "task_id": "lu_restocking_pct-29ecf05f5d"
     },
@@ -3006,7 +3087,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.10186481710142024,
+      "rate": 0.09869616954597527,
       "sampled": 0,
       "task_id": "lu_restocking_pct-3f729da8c7"
     },
@@ -3033,7 +3114,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.09734526045015975,
+      "rate": 0.09431720002324662,
       "sampled": 0,
       "task_id": "lu_restocking_pct-3f8346f0f9"
     },
@@ -3060,7 +3141,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.0878608510036438,
+      "rate": 0.08512781639293196,
       "sampled": 0,
       "task_id": "lu_restocking_pct-af4f58d270"
     },
@@ -3087,7 +3168,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.2083454310012512,
+      "rate": 0.20186455507749673,
       "sampled": 1,
       "task_id": "lu_restocking_pct-b7fca79fe8"
     },
@@ -3114,7 +3195,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.09886692987005045,
+      "rate": 0.09579153578835119,
       "sampled": 0,
       "task_id": "lu_restocking_pct-c5a3312ebb"
     },
@@ -3141,7 +3222,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1278716843336012,
+      "rate": 0.12389405681210976,
       "sampled": 0,
       "task_id": "lu_restocking_pct-cb67c7464c"
     },
@@ -3168,7 +3249,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.13533183005385943,
+      "rate": 0.13112214426954089,
       "sampled": 0,
       "task_id": "lu_restocking_pct-da0a419520"
     },
@@ -3195,7 +3276,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.12402118628628044,
+      "rate": 0.12016333389001936,
       "sampled": 0,
       "task_id": "lu_restocking_pct-dfb6d3d8db"
     },
@@ -3222,7 +3303,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "lu_return_window-02f06e501b"
     },
@@ -3249,7 +3330,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.09268284764975615,
+      "rate": 0.08979981809162439,
       "sampled": 0,
       "task_id": "lu_return_window-26524f5589"
     },
@@ -3276,7 +3357,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.12763336931199376,
+      "rate": 0.12366315491244306,
       "sampled": 0,
       "task_id": "lu_return_window-36bad703ee"
     },
@@ -3303,7 +3384,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.15713630740166276,
+      "rate": 0.1522483628641077,
       "sampled": 0,
       "task_id": "lu_return_window-461f036b06"
     },
@@ -3330,7 +3411,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1389497810478479,
+      "rate": 0.13462755383952218,
       "sampled": 0,
       "task_id": "lu_return_window-46631c76fa"
     },
@@ -3357,7 +3438,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "lu_return_window-666572dfef"
     },
@@ -3384,7 +3465,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.14826426771500692,
+      "rate": 0.1436523003761047,
       "sampled": 0,
       "task_id": "lu_return_window-7cc01e66dd"
     },
@@ -3411,7 +3492,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "lu_return_window-f59570d722"
     },
@@ -3438,7 +3519,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "lu_tier_bonus-195711aee3"
     },
@@ -3465,7 +3546,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1633409245112987,
+      "rate": 0.15825997668373287,
       "sampled": 1,
       "task_id": "lu_tier_bonus-4cfffd1f9b"
     },
@@ -3492,7 +3573,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.0894871174571751,
+      "rate": 0.08670349555470624,
       "sampled": 0,
       "task_id": "lu_tier_bonus-5f020e0db7"
     },
@@ -3519,7 +3600,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1471251685629243,
+      "rate": 0.14254863449574792,
       "sampled": 0,
       "task_id": "lu_tier_bonus-84ea1d221e"
     },
@@ -3546,7 +3627,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1291367905864196,
+      "rate": 0.1251198101661606,
       "sampled": 0,
       "task_id": "lu_tier_bonus-8c579fc469"
     },
@@ -3573,7 +3654,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "lu_tier_bonus-9fa71c7f57"
     },
@@ -3600,7 +3681,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "lu_tier_bonus-c6fa43cc5f"
     },
@@ -3627,7 +3708,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1377517331466394,
+      "rate": 0.13346677289329867,
       "sampled": 0,
       "task_id": "lu_tier_bonus-c820b80f0f"
     },
@@ -3654,7 +3735,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.19554154211915784,
+      "rate": 0.1894589490604876,
       "sampled": 0,
       "task_id": "lu_tier_bonus-cc5e209d16"
     },
@@ -3681,7 +3762,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.14939646877986712,
+      "rate": 0.14474928274388651,
       "sampled": 0,
       "task_id": "lu_transit_days-27193d143e"
     },
@@ -3708,7 +3789,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1368192042794419,
+      "rate": 0.13256325164030508,
       "sampled": 0,
       "task_id": "lu_transit_days-30014511af"
     },
@@ -3735,7 +3816,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6480273287913788,
+      "rate": 0.6278695327076541,
       "sampled": 1,
       "task_id": "lu_transit_days-66ed97779e"
     },
@@ -3762,7 +3843,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.11192616648944623,
+      "rate": 0.1084445465942865,
       "sampled": 0,
       "task_id": "lu_transit_days-6cf3300cb7"
     },
@@ -3789,7 +3870,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6229492101367219,
+      "rate": 0.6035715039960352,
       "sampled": 0,
       "task_id": "lu_transit_days-8083194113"
     },
@@ -3816,7 +3897,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1003732836039212,
+      "rate": 0.09725103228326265,
       "sampled": 0,
       "task_id": "lu_transit_days-af0e3418a3"
     },
@@ -3843,7 +3924,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "lu_transit_days-db483ae75c"
     },
@@ -3870,7 +3951,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "lu_warranty_years-1458e9e31b"
     },
@@ -3897,7 +3978,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.12531406140729956,
+      "rate": 0.12141599232280124,
       "sampled": 0,
       "task_id": "lu_warranty_years-1da929f934"
     },
@@ -3924,7 +4005,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "lu_warranty_years-461d43fb63"
     },
@@ -3951,7 +4032,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.14132269746927537,
+      "rate": 0.13692665737803303,
       "sampled": 0,
       "task_id": "lu_warranty_years-61b7b62aa5"
     },
@@ -3978,7 +4059,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6591081332837336,
+      "rate": 0.6386056532839508,
       "sampled": 1,
       "task_id": "lu_warranty_years-9e32a7ffd8"
     },
@@ -4005,7 +4086,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6265466829541614,
+      "rate": 0.6070570723917802,
       "sampled": 1,
       "task_id": "lu_warranty_years-a1011ff7be"
     },
@@ -4032,7 +4113,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.12531406140729956,
+      "rate": 0.12141599232280124,
       "sampled": 0,
       "task_id": "lu_warranty_years-be444fa872"
     },
@@ -4059,7 +4140,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.11192616648944623,
+      "rate": 0.1084445465942865,
       "sampled": 0,
       "task_id": "lu_warranty_years-ee35c3ad0c"
     },
@@ -4086,7 +4167,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "th_escalation_level-112ff6f5e2"
     },
@@ -4113,7 +4194,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.14014006204365653,
+      "rate": 0.13578080948079743,
       "sampled": 0,
       "task_id": "th_escalation_level-21566cbb66"
     },
@@ -4140,7 +4221,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.09580774444984687,
+      "rate": 0.09282751060775937,
       "sampled": 0,
       "task_id": "th_escalation_level-33a81f7607"
     },
@@ -4167,7 +4248,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.14014006204365653,
+      "rate": 0.13578080948079743,
       "sampled": 0,
       "task_id": "th_escalation_level-346681960a"
     },
@@ -4194,7 +4275,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.16492939299501208,
+      "rate": 0.15979903363438663,
       "sampled": 0,
       "task_id": "th_escalation_level-9c3bc68c0b"
     },
@@ -4221,9 +4302,36 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1659297361413769,
+      "rate": 0.16076825970858138,
       "sampled": 1,
       "task_id": "th_escalation_level-aa94876eb0"
+    },
+    {
+      "baseline": {
+        "answer_hash": "61c29950fbc771e4",
+        "judge_cassette_key": "f3aa92f612c62b216672986756069059d910678c6ce2205ea8a7f9fe115b888c",
+        "judge_confidence": 0.95,
+        "judge_correct": 1,
+        "judge_parsed": true,
+        "strong_cassette_key": null,
+        "strong_correct": null,
+        "strong_failed": false,
+        "tier": "frontier"
+      },
+      "candidate": {
+        "answer_hash": "ffee90807b7fac46",
+        "judge_cassette_key": "959bcd548c9fec2703cd6cfc55eb9327ea68b633521ed293df2da84ff26598f8",
+        "judge_confidence": 0.964,
+        "judge_correct": 1,
+        "judge_parsed": true,
+        "strong_cassette_key": null,
+        "strong_correct": null,
+        "strong_failed": false,
+        "tier": "frontier"
+      },
+      "rate": 0.14769802556222952,
+      "sampled": 0,
+      "task_id": "th_escalation_level-b8e07a758a"
     },
     {
       "baseline": {
@@ -4248,7 +4356,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.11331368189894153,
+      "rate": 0.10978890139705276,
       "sampled": 0,
       "task_id": "th_escalation_level-f136060a7a"
     },
@@ -4275,7 +4383,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.15713630740166276,
+      "rate": 0.1522483628641077,
       "sampled": 0,
       "task_id": "th_escalation_level-fb5cb40e5e"
     },
@@ -4302,7 +4410,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1278716843336012,
+      "rate": 0.12389405681210976,
       "sampled": 0,
       "task_id": "th_fee_with_tier-22ef4badfb"
     },
@@ -4329,7 +4437,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.18342882642408817,
+      "rate": 0.1777230163221749,
       "sampled": 0,
       "task_id": "th_fee_with_tier-43bdff9e24"
     },
@@ -4356,7 +4464,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6394485757281706,
+      "rate": 0.6195576337526256,
       "sampled": 0,
       "task_id": "th_fee_with_tier-58ff1aaa4b"
     },
@@ -4383,7 +4491,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 1,
       "task_id": "th_fee_with_tier-9b98bc6051"
     },
@@ -4410,7 +4518,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.12402118628628044,
+      "rate": 0.12016333389001936,
       "sampled": 0,
       "task_id": "th_fee_with_tier-9f3ac2825b"
     },
@@ -4437,7 +4545,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.14507993704383337,
+      "rate": 0.14056702276254276,
       "sampled": 0,
       "task_id": "th_fee_with_tier-a73f28353c"
     },
@@ -4464,7 +4572,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1582164968698921,
+      "rate": 0.15329495152869044,
       "sampled": 0,
       "task_id": "th_fee_with_tier-b70877b680"
     },
@@ -4491,7 +4599,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.14249780466414377,
+      "rate": 0.13806521122066112,
       "sampled": 0,
       "task_id": "th_fee_with_tier-f97fa4b691"
     },
@@ -4518,7 +4626,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1377517331466394,
+      "rate": 0.13346677289329867,
       "sampled": 0,
       "task_id": "th_free_shipping-10ab96f1d9"
     },
@@ -4545,7 +4653,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.11740828218911457,
+      "rate": 0.11375613342044667,
       "sampled": 0,
       "task_id": "th_free_shipping-15995998d8"
     },
@@ -4572,7 +4680,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.11605447046906474,
+      "rate": 0.11244443390674379,
       "sampled": 0,
       "task_id": "th_free_shipping-6a9f4035c8"
     },
@@ -4599,7 +4707,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.12343512673294232,
+      "rate": 0.11959550453847097,
       "sampled": 1,
       "task_id": "th_free_shipping-7ea3b281c3"
     },
@@ -4626,7 +4734,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.637957901345118,
+      "rate": 0.6181133288804035,
       "sampled": 1,
       "task_id": "th_free_shipping-8b94824581"
     },
@@ -4653,7 +4761,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "th_free_shipping-af1fa22dbb"
     },
@@ -4680,7 +4788,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.7125993145093409,
+      "rate": 0.6904329165303049,
       "sampled": 1,
       "task_id": "th_free_shipping-b5419f43f5"
     },
@@ -4707,7 +4815,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.09886692987005045,
+      "rate": 0.09579153578835119,
       "sampled": 0,
       "task_id": "th_free_shipping-c817aeb5f3"
     },
@@ -4734,7 +4842,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1048052481279861,
+      "rate": 0.10154513435437663,
       "sampled": 0,
       "task_id": "th_free_shipping-d6d9df845e"
     },
@@ -4761,7 +4869,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "th_free_shipping-d7967c8be4"
     },
@@ -4788,7 +4896,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.14939646877986712,
+      "rate": 0.14474928274388651,
       "sampled": 0,
       "task_id": "th_window_with_tier-0d3bb136a7"
     },
@@ -4815,7 +4923,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.18590274684360605,
+      "rate": 0.1801199819881996,
       "sampled": 0,
       "task_id": "th_window_with_tier-2627f174bd"
     },
@@ -4842,7 +4950,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1389497810478479,
+      "rate": 0.13462755383952218,
       "sampled": 0,
       "task_id": "th_window_with_tier-3bdf53c0d8"
     },
@@ -4869,7 +4977,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.17240725526789397,
+      "rate": 0.1670442865463021,
       "sampled": 0,
       "task_id": "th_window_with_tier-530f48446e"
     },
@@ -4896,7 +5004,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1527526114145929,
+      "rate": 0.14800102786966018,
       "sampled": 0,
       "task_id": "th_window_with_tier-5ac043bd80"
     },
@@ -4923,7 +5031,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.21153884599251238,
+      "rate": 0.204958634430669,
       "sampled": 0,
       "task_id": "th_window_with_tier-631f2a92c6"
     },
@@ -4950,7 +5058,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "th_window_with_tier-6d82f7027e"
     },
@@ -4961,8 +5069,8 @@
         "judge_confidence": 0.928,
         "judge_correct": 1,
         "judge_parsed": true,
-        "strong_cassette_key": "0334e2d4ad04ab971d20c32cbbfd46c04ef2f36f0439a432f76b2e62f05f8e50",
-        "strong_correct": 1,
+        "strong_cassette_key": null,
+        "strong_correct": null,
         "strong_failed": false,
         "tier": "frontier"
       },
@@ -4972,13 +5080,13 @@
         "judge_confidence": 0.428,
         "judge_correct": 0,
         "judge_parsed": true,
-        "strong_cassette_key": "e5e9adea634345abe9560fe911c36ad3a957bdf3d8ee7fc88a3710a07eb7bf4b",
-        "strong_correct": 1,
+        "strong_cassette_key": null,
+        "strong_correct": null,
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.7048565296091887,
-      "sampled": 1,
+      "rate": 0.6829309817798347,
+      "sampled": 0,
       "task_id": "th_window_with_tier-83f8895bb1"
     },
     {
@@ -5004,7 +5112,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.12531406140729956,
+      "rate": 0.12141599232280124,
       "sampled": 1,
       "task_id": "th_window_with_tier-a2e8392aee"
     },
@@ -5031,7 +5139,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 0,
       "task_id": "th_window_with_tier-b36780e265"
     },
@@ -5058,7 +5166,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.18756791005404425,
+      "rate": 0.18173334796887475,
       "sampled": 0,
       "task_id": "th_window_with_tier-b79bc454b2"
     },
@@ -5085,7 +5193,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6601430380495449,
+      "rate": 0.6396083658900976,
       "sampled": 1,
       "task_id": "th_window_with_tier-cb116864fb"
     },
@@ -5112,7 +5220,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08454724245699825,
+      "rate": 0.0819172822729609,
       "sampled": 1,
       "task_id": "th_window_with_tier-dc8bb5751c"
     },
@@ -5139,7 +5247,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.0878608510036438,
+      "rate": 0.08512781639293196,
       "sampled": 0,
       "task_id": "th_zone_weight_fee-031e811bbe"
     },
@@ -5166,7 +5274,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.126597499792276,
+      "rate": 0.12265950756240873,
       "sampled": 1,
       "task_id": "th_zone_weight_fee-0d2689589d"
     },
@@ -5193,7 +5301,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.11605447046906474,
+      "rate": 0.11244443390674379,
       "sampled": 0,
       "task_id": "th_zone_weight_fee-67f18b0caa"
     },
@@ -5220,7 +5328,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1227186837311754,
+      "rate": 0.11890134749794916,
       "sampled": 0,
       "task_id": "th_zone_weight_fee-6f05fbd2e3"
     },
@@ -5247,7 +5355,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1048052481279861,
+      "rate": 0.10154513435437663,
       "sampled": 0,
       "task_id": "th_zone_weight_fee-86ef37890f"
     },
@@ -5274,7 +5382,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.637957901345118,
+      "rate": 0.6181133288804035,
       "sampled": 0,
       "task_id": "th_zone_weight_fee-a6a3cdf4e9"
     },
@@ -5301,7 +5409,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6395754479829572,
+      "rate": 0.6196805594685441,
       "sampled": 1,
       "task_id": "th_zone_weight_fee-b9851e5a40"
     },
@@ -5328,7 +5436,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.5950696800937523,
+      "rate": 0.5765592057140538,
       "sampled": 1,
       "task_id": "th_zone_weight_fee-ba87ea28c0"
     },
@@ -5355,7 +5463,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6602863656240572,
+      "rate": 0.6397472350600152,
       "sampled": 1,
       "task_id": "th_zone_weight_fee-e004781656"
     },
@@ -5382,7 +5490,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.6372238272155955,
+      "rate": 0.6174020891530054,
       "sampled": 0,
       "task_id": "th_zone_weight_fee-e328ca6662"
     },
@@ -5409,13 +5517,13 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.113840462950808,
+      "rate": 0.11029929618779642,
       "sampled": 0,
       "task_id": "th_zone_weight_fee-fafafe6542"
     }
   ],
   "judge": {
-    "calls": 400,
+    "calls": 408,
     "contract": "as-is",
     "kind": "judge-v1",
     "method": "LLM judge: one call per answer, reading the question, the grounding document and the answer, returning a verdict and its own confidence as JSON, claude-haiku-4-5-20251001",
@@ -5433,20 +5541,20 @@
   "origin": "simulated",
   "policy": {
     "budget_usd": "0.54808875",
-    "cost_per_item_usd": "0.01184132",
+    "cost_per_item_usd": "0.01207391",
     "description": "cost-optimal active evaluation: sampling rate proportional to the judge's uncertainty on both arms plus a boost for pairs the two arms disagree on, scaled so the expected spend meets the budget and floored so no item is unsamplable",
     "expected_cost_usd": "0.54809",
     "floor": 0.05,
     "floor_exceeds_budget": false,
-    "max_rate": 0.7190580650105863,
-    "mean_rate": 0.23143059641999372,
-    "min_rate": 0.08454724245699825,
-    "n": 200,
-    "n_sampled": 51,
+    "max_rate": 0.6966907585670838,
+    "mean_rate": 0.22252191368194144,
+    "min_rate": 0.0819172822729609,
+    "n": 204,
+    "n_sampled": 49,
     "policy": "cost-optimal",
-    "sampled_share": 0.255,
+    "sampled_share": 0.24019607843137256,
     "seed": 20260914,
-    "target_rate": 0.23143059641999372
+    "target_rate": 0.22252191368194144
   },
   "schema": "tokop.annotation-set.v1",
   "split": "test",
