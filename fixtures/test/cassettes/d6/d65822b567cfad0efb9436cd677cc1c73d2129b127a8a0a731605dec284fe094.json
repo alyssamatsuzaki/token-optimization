@@ -1,0 +1,97 @@
+{
+  "attempt": 1,
+  "error": null,
+  "key": "d65822b567cfad0efb9436cd677cc1c73d2129b127a8a0a731605dec284fe094",
+  "latency_ms": 460.37,
+  "model": "claude-haiku-4-5-20251001",
+  "notes": {},
+  "origin": "simulated",
+  "provider": "simulated",
+  "provider_cost_usd": null,
+  "raw_response": {
+    "_tokop_origin": "simulated",
+    "content": [
+      {
+        "text": "{\"correct\": true, \"confidence\": 0.918, \"why\": \"checked against sec-shipping-fees\"}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_sim_d65822b567cfad0e",
+    "model": "claude-haiku-4-5-20251001",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 6300,
+      "input_tokens": 108,
+      "output_tokens": 34
+    }
+  },
+  "raw_usage": {
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 6300,
+    "input_tokens": 108,
+    "output_tokens": 34
+  },
+  "recorded_at": "2026-09-17T11:17:44.257441+00:00",
+  "request": {
+    "max_tokens": 150,
+    "messages": [
+      {
+        "blocks": [
+          {
+            "cache": null,
+            "text": "Customer question: Work out shipping on 40 lb of backpacks going to Zone 5 (international), surcharge included where it applies.\n\nAnswer under review:\n<<<ANSWER\n{\"answer\": \"178.95\", \"evidence\": \"## Shipping fees  Fees are charged per order, by the total shipped weight, not per item.\", \"section\": \"sec-shipping-fees\"}\nANSWER>>>\n"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "prewarm": false,
+    "provider": "simulated",
+    "stop_sequences": [],
+    "system": [
+      {
+        "cache": null,
+        "text": {
+          "$blob": "ba85e0cb260695f919fed99032ca5576ae676fb845f3c27bd10e94e527c372ff"
+        }
+      },
+      {
+        "cache": "5m",
+        "text": {
+          "$blob": "2a37db64591628a47aeeeb6b5a5fcd6f383a1b06842c4fe02fdb8c097b83d664"
+        }
+      }
+    ],
+    "temperature": null,
+    "tools": []
+  },
+  "response_text": "{\"correct\": true, \"confidence\": 0.918, \"why\": \"checked against sec-shipping-fees\"}",
+  "stop_reason": "end_turn",
+  "ttft_ms": 341.37,
+  "usage": {
+    "audio_in": 0,
+    "cache_read": 6300,
+    "cache_write_1h": 0,
+    "cache_write_5m": 0,
+    "image_in": 0,
+    "image_out": 0,
+    "input_uncached": 108,
+    "output_reasoning": 0,
+    "output_visible": 34,
+    "raw": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 6300,
+      "input_tokens": 108,
+      "output_tokens": 34
+    },
+    "sources": {
+      "cache_read": "provider",
+      "input_uncached": "provider",
+      "output_visible": "provider"
+    }
+  }
+}

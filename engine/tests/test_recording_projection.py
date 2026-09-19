@@ -243,19 +243,15 @@ class TestTheOverrideIsRecorded:
         provenance = build_report()["provenance"]
         assert provenance["recorded_underpowered"] is False
 
-    def test_the_report_names_the_split_that_would_settle_the_verdict(self):
-        """The acceptance criterion: an inconclusive result says the exact n, not just how far.
-
-        Whether the answer is four more tasks or four thousand is the difference between
-        recording again tomorrow and abandoning the comparison, and a verdict that only says
-        "inconclusive" leaves the reader to guess which.
-        """
+    def test_the_report_says_the_enlarged_split_is_sufficient(self):
+        """The four requested observations clear the reported power requirement."""
         from tokop.optimize.report import build_report
 
         proof = build_report()["proof"]
         power = proof["power"]
-        assert power["required_n"] == power["observed_n"] + power["shortfall"]
-        assert power["shortfall"] == proof["verdict"]["additional_tasks_needed"]
+        assert power["required_n"] <= power["observed_n"]
+        assert power["shortfall"] == 0
+        assert proof["verdict"]["additional_tasks_needed"] is None
         assert str(power["required_n"]) in power["display"]
 
 

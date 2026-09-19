@@ -1,0 +1,6 @@
+Customer question: For a refund of $180 with no safety concern, name the escalation level key that handles it.
+
+Answer under review:
+<<<ANSWER
+{"answer": "tier_1", "evidence": "Any complaint that mentions an injury, a failure of safety equipment, or a near miss goes straight to the customer relations manager and is never handled at the front line, whatever the amount involved.", "section": "sec-escalation", "derivation": "sec-escalation gives the rule; applying it to the values in the question yields tier_1"}
+ANSWER>>>

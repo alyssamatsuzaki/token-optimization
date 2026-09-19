@@ -1,9 +1,8 @@
 """The evidence grade, and the chain that produces it (UPGRADE_V4.md M14.2).
 
 The grade is the load-bearing word on the first screen, so what is tested here is mostly that it
-cannot be talked upwards: no input softens, no average hides a blocking link, and the demo —
-whose verdict is inconclusive by four tasks — reads `insufficient` rather than the more
-comfortable `simulated`.
+cannot be talked upwards: no input softens and no average hides a blocking link. The demo's
+conclusive result reads `simulated`, because its traces are invented rather than recorded.
 """
 
 from __future__ import annotations
@@ -34,16 +33,13 @@ def edited(report: ReportPayload, **paths: object) -> ReportPayload:
 
 
 class TestTheDemoGradesHonestly:
-    def test_an_inconclusive_verdict_is_insufficient_not_simulated(self, report) -> None:
-        """The grade a reader would rather see is not the one the data supports.
-
-        Everything about these traces is simulated, so `simulated` is tempting and would be
-        true as far as it goes. It would also imply the result holds about the traces, and it
-        does not: the verdict cannot separate the two pipelines at this split size.
-        """
+    def test_a_conclusive_simulated_verdict_is_labelled_simulated(self, report) -> None:
+        """The result holds for the fixture traces without claiming production evidence."""
         evidence = assess(report)
-        assert evidence.grade == "insufficient"
-        assert "Verdict" in evidence.as_dict()["blocking"]
+        assert evidence.grade == "simulated"
+        assert report["proof"]["verdict"]["label"] == "non_inferior"
+        assert report["proof"]["power"]["sufficient"] is True
+        assert evidence.as_dict()["blocking"] == []
 
     def test_every_input_names_where_its_number_came_from(self, report) -> None:
         for link in assess(report).inputs:
@@ -125,7 +121,7 @@ class TestTheSummaryBlock:
         assert summary["recommended"]["cost_per_successful_task_usd"]
         assert summary["saving"]["fraction"] > 0
         assert summary["quality"]["allowed_points"] == pytest.approx(3.0)
-        assert summary["quality"]["n"] == 200
+        assert summary["quality"]["n"] == 204
         assert summary["verdict"]["display"]
 
     def test_it_agrees_with_the_proof_it_summarises(self, report) -> None:

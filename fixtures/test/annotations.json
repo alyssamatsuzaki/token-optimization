@@ -3,15 +3,15 @@
   "candidate_pipeline": "B3",
   "cost": {
     "budget_usd": "0.6",
-    "grading_everything_usd": "2.53999",
-    "judge_usd": "0.390745",
+    "grading_everything_usd": "2.63689",
+    "judge_usd": "0.405690",
     "over_budget": true,
-    "prewarm_projected_usd": "0.05266750",
-    "projected_strong_usd": "0.59999750",
+    "prewarm_projected_usd": "0.05266125",
+    "projected_strong_usd": "0.60000125",
     "strong_usd": "0.6008325",
-    "total_usd": "0.9915775"
+    "total_usd": "1.0065225"
   },
-  "generated_at": "2026-09-14T10:35:17.945283+00:00",
+  "generated_at": "2026-09-17T11:18:19.460081+00:00",
   "items": [
     {
       "baseline": {
@@ -36,7 +36,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.09430336055466837,
+      "rate": 0.0909243999292676,
       "sampled": 0,
       "task_id": "cp_order_shipping-22b5770f25"
     },
@@ -63,7 +63,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.11953308016451551,
+      "rate": 0.11525011963232293,
       "sampled": 0,
       "task_id": "cp_order_shipping-32ef02e371"
     },
@@ -90,7 +90,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.10747030268560205,
+      "rate": 0.10361956058013871,
       "sampled": 1,
       "task_id": "cp_order_shipping-35476d9c76"
     },
@@ -117,7 +117,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.547440386598402,
+      "rate": 0.5278251841263983,
       "sampled": 0,
       "task_id": "cp_order_shipping-7bf2c63588"
     },
@@ -144,7 +144,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.5418901279170483,
+      "rate": 0.5224737954050841,
       "sampled": 1,
       "task_id": "cp_order_shipping-88734dfae0"
     },
@@ -171,7 +171,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.4994441339683122,
+      "rate": 0.4815486734742188,
       "sampled": 1,
       "task_id": "cp_order_shipping-89d00cde02"
     },
@@ -198,7 +198,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.09216168187752931,
+      "rate": 0.08885945921649957,
       "sampled": 0,
       "task_id": "cp_order_shipping-8eb05acba3"
     },
@@ -225,7 +225,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.06714102465377443,
+      "rate": 0.0647353110363615,
       "sampled": 0,
       "task_id": "cp_order_shipping-b0fe9b4e15"
     },
@@ -252,7 +252,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08735401475613339,
+      "rate": 0.08422405443875379,
       "sampled": 0,
       "task_id": "cp_order_shipping-b633b612d8"
     },
@@ -279,7 +279,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.14258387831871078,
+      "rate": 0.13747499028097682,
       "sampled": 0,
       "task_id": "cp_order_shipping-ccfa10db80"
     },
@@ -306,7 +306,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.14993023236981945,
+      "rate": 0.1445581189185589,
       "sampled": 0,
       "task_id": "cp_order_shipping-dcf34b5879"
     },
@@ -333,9 +333,36 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.08777206731761074,
+      "rate": 0.08462712786124531,
       "sampled": 0,
       "task_id": "cp_oversize_shipping-08b40a648c"
+    },
+    {
+      "baseline": {
+        "answer_hash": "25e642bde3ec480a",
+        "judge_cassette_key": "83fa466916c4f9bb922faddeeb9d4683df7855b9ec05e8ea7b838e66090e41fe",
+        "judge_confidence": 0.98,
+        "judge_correct": 1,
+        "judge_parsed": true,
+        "strong_cassette_key": null,
+        "strong_correct": null,
+        "strong_failed": false,
+        "tier": "frontier"
+      },
+      "candidate": {
+        "answer_hash": "0076139eb7b10b36",
+        "judge_cassette_key": "d65822b567cfad0efb9436cd677cc1c73d2129b127a8a0a731605dec284fe094",
+        "judge_confidence": 0.918,
+        "judge_correct": 1,
+        "judge_parsed": true,
+        "strong_cassette_key": null,
+        "strong_correct": null,
+        "strong_failed": false,
+        "tier": "frontier"
+      },
+      "rate": 0.12600726358499792,
+      "sampled": 0,
+      "task_id": "cp_oversize_shipping-31f67735bf"
     },
     {
       "baseline": {
@@ -360,7 +387,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.5328725399151572,
+      "rate": 0.5137793143912712,
       "sampled": 1,
       "task_id": "cp_oversize_shipping-5becc2888c"
     },
@@ -387,7 +414,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.5089658195700214,
+      "rate": 0.49072918989016,
       "sampled": 1,
       "task_id": "cp_oversize_shipping-67d5ff033a"
     },
@@ -414,7 +441,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1064997876039394,
+      "rate": 0.10268381978677298,
       "sampled": 1,
       "task_id": "cp_oversize_shipping-7746a8d5fe"
     },
@@ -441,7 +468,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.49406312326533475,
+      "rate": 0.4763604684484015,
       "sampled": 1,
       "task_id": "cp_oversize_shipping-af60f93342"
     },
@@ -468,7 +495,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.18038463982868103,
+      "rate": 0.17392132195937907,
       "sampled": 0,
       "task_id": "cp_oversize_shipping-bb25770148"
     },
@@ -495,7 +522,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.06714102465377443,
+      "rate": 0.0647353110363615,
       "sampled": 0,
       "task_id": "cp_oversize_shipping-f4746096fd"
     },
@@ -522,7 +549,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.5042938445635798,
+      "rate": 0.48622461527641686,
       "sampled": 1,
       "task_id": "cp_refund_amount-b103ea4b6b"
     },
@@ -549,7 +576,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.505363198993281,
+      "rate": 0.48725565392933856,
       "sampled": 0,
       "task_id": "cp_refund_amount-dd9b313b2a"
     },
@@ -576,7 +603,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.5161499472039023,
+      "rate": 0.497655904805555,
       "sampled": 1,
       "task_id": "cp_restocking_amount-12daf01c65"
     },
@@ -603,7 +630,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.5533477106328404,
+      "rate": 0.5335208442795452,
       "sampled": 1,
       "task_id": "cp_restocking_amount-1624129432"
     },
@@ -630,7 +657,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.06714102465377443,
+      "rate": 0.0647353110363615,
       "sampled": 0,
       "task_id": "cp_restocking_amount-1cf0545b59"
     },
@@ -657,7 +684,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1205066235217596,
+      "rate": 0.1161887801958691,
       "sampled": 1,
       "task_id": "cp_restocking_amount-1d85ae8219"
     },
@@ -684,7 +711,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.11237926580500394,
+      "rate": 0.10835263184378445,
       "sampled": 0,
       "task_id": "cp_restocking_amount-2a3cbff5a0"
     },
@@ -711,7 +738,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.19173692166286332,
+      "rate": 0.18486684296234032,
       "sampled": 1,
       "task_id": "cp_restocking_amount-2bcb471002"
     },
@@ -738,7 +765,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.49830624270826324,
+      "rate": 0.4804515537173387,
       "sampled": 1,
       "task_id": "cp_restocking_amount-586181a0b0"
     },
@@ -765,7 +792,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.5368548065228397,
+      "rate": 0.5176188933790421,
       "sampled": 0,
       "task_id": "cp_restocking_amount-b36e504bc4"
     },
@@ -792,7 +819,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.5531432324797777,
+      "rate": 0.5333236927331261,
       "sampled": 0,
       "task_id": "cp_restocking_amount-d1ef302d16"
     },
@@ -819,7 +846,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.535548350670189,
+      "rate": 0.5163592488262112,
       "sampled": 1,
       "task_id": "cp_restocking_amount-ec781ff573"
     },
@@ -846,7 +873,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.08552052103592714,
+      "rate": 0.08245625618317423,
       "sampled": 0,
       "task_id": "cp_seasonal_window-316b8f0533"
     },
@@ -873,7 +900,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.12734461298199415,
+      "rate": 0.1227817593297787,
       "sampled": 1,
       "task_id": "cp_seasonal_window-4fbce89341"
     },
@@ -900,7 +927,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.10552268401977095,
+      "rate": 0.10174172656192178,
       "sampled": 0,
       "task_id": "cp_seasonal_window-5f3308c59f"
     },
@@ -927,7 +954,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.08852707675383552,
+      "rate": 0.0853550847391964,
       "sampled": 0,
       "task_id": "cp_seasonal_window-65ad4bdeab"
     },
@@ -954,7 +981,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.10845718750663777,
+      "rate": 0.10457108457275356,
       "sampled": 0,
       "task_id": "cp_seasonal_window-8c1a698596"
     },
@@ -981,7 +1008,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.16656962126033167,
+      "rate": 0.16060130593926417,
       "sampled": 1,
       "task_id": "cp_seasonal_window-8cbf5f299f"
     },
@@ -1008,7 +1035,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.12734461298199415,
+      "rate": 0.1227817593297787,
       "sampled": 0,
       "task_id": "cp_seasonal_window-9f7254c786"
     },
@@ -1035,7 +1062,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.13017661054964222,
+      "rate": 0.12551228428588854,
       "sampled": 0,
       "task_id": "cp_seasonal_window-adb04bc334"
     },
@@ -1062,7 +1089,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.178645108536393,
+      "rate": 0.17224411938696618,
       "sampled": 0,
       "task_id": "cp_seasonal_window-c1e82f2706"
     },
@@ -1089,7 +1116,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.08998515491331731,
+      "rate": 0.08676091885710144,
       "sampled": 0,
       "task_id": "cp_seasonal_window-d25bb17225"
     },
@@ -1116,7 +1143,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.10008531321764542,
+      "rate": 0.09649918086187133,
       "sampled": 0,
       "task_id": "ex_final_sale_defect_days-d2dc970990"
     },
@@ -1143,7 +1170,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.12042145486773147,
+      "rate": 0.11610666319903312,
       "sampled": 0,
       "task_id": "ex_final_sale_defect_days-dab89d9939"
     },
@@ -1170,7 +1197,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.10939200667606302,
+      "rate": 0.10547240846537448,
       "sampled": 0,
       "task_id": "ex_final_sale_window-1822f9f952"
     },
@@ -1197,7 +1224,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.1306899844223026,
+      "rate": 0.12600726358499792,
       "sampled": 0,
       "task_id": "ex_final_sale_window-229c51dcab"
     },
@@ -1224,7 +1251,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.08130992988779576,
+      "rate": 0.07839653369566654,
       "sampled": 0,
       "task_id": "ex_final_sale_window-38f3e7a385"
     },
@@ -1251,7 +1278,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.5434717442122097,
+      "rate": 0.5239987411939728,
       "sampled": 1,
       "task_id": "ex_final_sale_window-a07fec8335"
     },
@@ -1278,7 +1305,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.5648193106114698,
+      "rate": 0.5445814081677305,
       "sampled": 0,
       "task_id": "ex_opened_electronics_fee-a9d079b45e"
     },
@@ -1305,7 +1332,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.06714102465377443,
+      "rate": 0.0647353110363615,
       "sampled": 0,
       "task_id": "ex_opened_electronics_fee-df157e6139"
     },
@@ -1332,7 +1359,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.5310258464892827,
+      "rate": 0.5119987893854457,
       "sampled": 0,
       "task_id": "ex_opened_electronics_window-271ee8292c"
     },
@@ -1359,7 +1386,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.494263860472883,
+      "rate": 0.47655401309020906,
       "sampled": 1,
       "task_id": "ex_opened_electronics_window-f375d0ba57"
     },
@@ -1386,7 +1413,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.5521074235863199,
+      "rate": 0.5323249976545509,
       "sampled": 1,
       "task_id": "ex_safety_escalation-0c85dd3af9"
     },
@@ -1413,7 +1440,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.16558581424448507,
+      "rate": 0.1596527494717542,
       "sampled": 0,
       "task_id": "ex_safety_escalation-24215fe08a"
     },
@@ -1440,7 +1467,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.07730424247883053,
+      "rate": 0.07453437309160993,
       "sampled": 0,
       "task_id": "ex_safety_escalation-5292ec10c9"
     },
@@ -1467,7 +1494,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.14479756116199272,
+      "rate": 0.13960935519623816,
       "sampled": 0,
       "task_id": "ex_safety_escalation-f4c2887fe5"
     },
@@ -1494,7 +1521,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.12478576926532077,
+      "rate": 0.12031460091588074,
       "sampled": 0,
       "task_id": "ex_used_safety_gear-039dce3e34"
     },
@@ -1521,7 +1548,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.12318171360833179,
+      "rate": 0.11876801978444458,
       "sampled": 0,
       "task_id": "ex_used_safety_gear-05016af39a"
     },
@@ -1548,7 +1575,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.06846506409756045,
+      "rate": 0.06601190914697853,
       "sampled": 0,
       "task_id": "ex_used_safety_gear-a3ae98188a"
     },
@@ -1575,7 +1602,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.17714192426695163,
+      "rate": 0.170794795345085,
       "sampled": 0,
       "task_id": "ex_used_safety_gear-c323b7a005"
     },
@@ -1602,7 +1629,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.5140760265655201,
+      "rate": 0.49565629430984515,
       "sampled": 1,
       "task_id": "ex_used_safety_gear-f6d3cae37d"
     },
@@ -1629,7 +1656,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.11717362951681509,
+      "rate": 0.11297520988315744,
       "sampled": 0,
       "task_id": "ex_worn_footwear_refund-6b2815fc7b"
     },
@@ -1656,7 +1683,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.5325144425089531,
+      "rate": 0.5134340478855621,
       "sampled": 1,
       "task_id": "lu_annual_fee-3f88672603"
     },
@@ -1683,7 +1710,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.1064997876039394,
+      "rate": 0.10268381978677298,
       "sampled": 0,
       "task_id": "lu_annual_fee-48b3ae6925"
     },
@@ -1710,7 +1737,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.08552052103592714,
+      "rate": 0.08245625618317423,
       "sampled": 0,
       "task_id": "lu_annual_fee-780fa8b991"
     },
@@ -1737,7 +1764,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.15870242185319333,
+      "rate": 0.15301599422809492,
       "sampled": 0,
       "task_id": "lu_annual_fee-82b2a92b63"
     },
@@ -1764,7 +1791,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.06714102465377443,
+      "rate": 0.0647353110363615,
       "sampled": 0,
       "task_id": "lu_annual_fee-981d3340fc"
     },
@@ -1791,7 +1818,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.1644334746006402,
+      "rate": 0.1585416990275809,
       "sampled": 0,
       "task_id": "lu_annual_fee-9a3c1764b7"
     },
@@ -1818,7 +1845,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.12478576926532077,
+      "rate": 0.12031460091588074,
       "sampled": 0,
       "task_id": "lu_annual_fee-a04cfa50c3"
     },
@@ -1845,7 +1872,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.0974538959572133,
+      "rate": 0.09396204926909411,
       "sampled": 0,
       "task_id": "lu_annual_fee-b21eaeafb8"
     },
@@ -1872,7 +1899,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.09105655032891906,
+      "rate": 0.08779392536585766,
       "sampled": 0,
       "task_id": "lu_annual_fee-badf0ba2f1"
     },
@@ -1899,7 +1926,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.5039728056877704,
+      "rate": 0.4859150794659722,
       "sampled": 1,
       "task_id": "lu_band_fee-03c192b911"
     },
@@ -1926,7 +1953,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.5486118547344592,
+      "rate": 0.5289546776744625,
       "sampled": 0,
       "task_id": "lu_band_fee-09f7084cb7"
     },
@@ -1953,7 +1980,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1619224518333111,
+      "rate": 0.15612064810229842,
       "sampled": 0,
       "task_id": "lu_band_fee-74aed8d851"
     },
@@ -1980,7 +2007,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.08888329512925873,
+      "rate": 0.0856985395412165,
       "sampled": 0,
       "task_id": "lu_band_fee-934f06ba41"
     },
@@ -2007,7 +2034,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.09323677674083801,
+      "rate": 0.08989603261895764,
       "sampled": 0,
       "task_id": "lu_band_fee-968f7a2267"
     },
@@ -2034,7 +2061,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.5417471642501489,
+      "rate": 0.5223359542343341,
       "sampled": 1,
       "task_id": "lu_band_fee-b3c0098871"
     },
@@ -2061,7 +2088,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.06714102465377443,
+      "rate": 0.0647353110363615,
       "sampled": 0,
       "task_id": "lu_band_fee-c23712ec47"
     },
@@ -2088,7 +2115,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.06714102465377443,
+      "rate": 0.0647353110363615,
       "sampled": 0,
       "task_id": "lu_band_fee-f6bfa5b3a9"
     },
@@ -2115,7 +2142,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.1590367076520508,
+      "rate": 0.15333830231433082,
       "sampled": 1,
       "task_id": "lu_band_fee-f9c42252b0"
     },
@@ -2142,7 +2169,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.12130456950304339,
+      "rate": 0.1169581351700446,
       "sampled": 1,
       "task_id": "lu_escalation_hours-0bc39950a6"
     },
@@ -2169,7 +2196,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.06714102465377443,
+      "rate": 0.0647353110363615,
       "sampled": 0,
       "task_id": "lu_escalation_hours-254c9d69ad"
     },
@@ -2196,7 +2223,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.11953308016451551,
+      "rate": 0.11525011963232293,
       "sampled": 0,
       "task_id": "lu_escalation_hours-33170b1338"
     },
@@ -2223,7 +2250,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.1064997876039394,
+      "rate": 0.10268381978677298,
       "sampled": 0,
       "task_id": "lu_escalation_hours-3ebc6b37d0"
     },
@@ -2250,7 +2277,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.5080175634688389,
+      "rate": 0.48981491052119414,
       "sampled": 1,
       "task_id": "lu_escalation_hours-65fab454e4"
     },
@@ -2277,7 +2304,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.10552268401977095,
+      "rate": 0.10174172656192178,
       "sampled": 0,
       "task_id": "lu_escalation_hours-707c480bd6"
     },
@@ -2304,7 +2331,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.06714102465377443,
+      "rate": 0.0647353110363615,
       "sampled": 0,
       "task_id": "lu_escalation_hours-af0ff3701a"
     },
@@ -2331,7 +2358,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.5266655394700942,
+      "rate": 0.5077947154596044,
       "sampled": 0,
       "task_id": "lu_escalation_hours-e25d2f60e4"
     },
@@ -2358,7 +2385,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.06977244191420656,
+      "rate": 0.06727244262913872,
       "sampled": 0,
       "task_id": "lu_escalation_hours-eb019b5a2c"
     },
@@ -2385,7 +2412,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.15908666208244143,
+      "rate": 0.1533864668397556,
       "sampled": 0,
       "task_id": "lu_final_sale-2747fe906e"
     },
@@ -2412,7 +2439,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.10453887700392435,
+      "rate": 0.1007931700944118,
       "sampled": 0,
       "task_id": "lu_final_sale-32791a4d19"
     },
@@ -2439,9 +2466,36 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.0710638997178799,
+      "rate": 0.06851762652441352,
       "sampled": 0,
       "task_id": "lu_final_sale-4e907e596e"
+    },
+    {
+      "baseline": {
+        "answer_hash": "078208a566710a0a",
+        "judge_cassette_key": "8daa3e0f746863e5e4bfe681434f555448ad6b81b458cedff28f78ad95874f5f",
+        "judge_confidence": 0.418,
+        "judge_correct": 0,
+        "judge_parsed": true,
+        "strong_cassette_key": null,
+        "strong_correct": null,
+        "strong_failed": false,
+        "tier": "frontier"
+      },
+      "candidate": {
+        "answer_hash": "62ea65d77b48551e",
+        "judge_cassette_key": "d2fb716e0fe3a135ca3214e2ea3b16681413da1959a3ce4f5dd6121e85906899",
+        "judge_confidence": 0.98,
+        "judge_correct": 1,
+        "judge_parsed": true,
+        "strong_cassette_key": null,
+        "strong_correct": null,
+        "strong_failed": false,
+        "tier": "cheap"
+      },
+      "rate": 0.48559335385314967,
+      "sampled": 0,
+      "task_id": "lu_final_sale-724916b36f"
     },
     {
       "baseline": {
@@ -2466,7 +2520,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.06714102465377443,
+      "rate": 0.0647353110363615,
       "sampled": 0,
       "task_id": "lu_final_sale-9d177b7818"
     },
@@ -2493,7 +2547,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.07608326357185927,
+      "rate": 0.07335714278094356,
       "sampled": 0,
       "task_id": "lu_final_sale-c4e0210a48"
     },
@@ -2520,7 +2574,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.545954818103193,
+      "rate": 0.5263928446722557,
       "sampled": 0,
       "task_id": "lu_final_sale-ce9587bb9b"
     },
@@ -2547,7 +2601,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.1064997876039394,
+      "rate": 0.10268381978677298,
       "sampled": 0,
       "task_id": "lu_final_sale-e351d99257"
     },
@@ -2574,7 +2628,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.14127535063999982,
+      "rate": 0.13621334813717795,
       "sampled": 0,
       "task_id": "lu_free_ship_threshold-1e5aaf42a4"
     },
@@ -2601,7 +2655,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.09659151811100963,
+      "rate": 0.09313057107237699,
       "sampled": 0,
       "task_id": "lu_free_ship_threshold-45dcd3228f"
     },
@@ -2628,7 +2682,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.06714102465377443,
+      "rate": 0.0647353110363615,
       "sampled": 0,
       "task_id": "lu_free_ship_threshold-4b753ba287"
     },
@@ -2655,7 +2709,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.1506726837285311,
+      "rate": 0.14527396768439788,
       "sampled": 0,
       "task_id": "lu_free_ship_threshold-4bf8de1490"
     },
@@ -2682,9 +2736,36 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.11911928762667673,
+      "rate": 0.1148511535936059,
       "sampled": 0,
       "task_id": "lu_free_ship_threshold-6a5aee3611"
+    },
+    {
+      "baseline": {
+        "answer_hash": "6eb85318a1e51984",
+        "judge_cassette_key": "3553cef238f7bf2e36980d0fd06b18f0ac74ef0729e0a17818cce28095f69837",
+        "judge_confidence": 0.98,
+        "judge_correct": 1,
+        "judge_parsed": true,
+        "strong_cassette_key": null,
+        "strong_correct": null,
+        "strong_failed": false,
+        "tier": "frontier"
+      },
+      "candidate": {
+        "answer_hash": "368aed5089579fe6",
+        "judge_cassette_key": "22e367c489bf92730292f1d62b64f700b76741148c55ba3fc944aa5cf3c50770",
+        "judge_confidence": 0.98,
+        "judge_correct": 1,
+        "judge_parsed": true,
+        "strong_cassette_key": null,
+        "strong_correct": null,
+        "strong_failed": false,
+        "tier": "cheap"
+      },
+      "rate": 0.0647353110363615,
+      "sampled": 0,
+      "task_id": "lu_free_ship_threshold-942c555f11"
     },
     {
       "baseline": {
@@ -2709,7 +2790,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.11953308016451551,
+      "rate": 0.11525011963232293,
       "sampled": 0,
       "task_id": "lu_free_ship_threshold-d252da8614"
     },
@@ -2736,7 +2817,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.09107787742975153,
+      "rate": 0.08781448830056134,
       "sampled": 0,
       "task_id": "lu_free_ship_threshold-ef8b35ef64"
     },
@@ -2763,7 +2844,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.08322840040566701,
+      "rate": 0.08024626396607736,
       "sampled": 0,
       "task_id": "lu_free_ship_threshold-f2bce90093"
     },
@@ -2790,7 +2871,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.10939200667606302,
+      "rate": 0.10547240846537448,
       "sampled": 0,
       "task_id": "lu_packaging-1e30616a18"
     },
@@ -2817,7 +2898,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.16461985193767378,
+      "rate": 0.1587213983238787,
       "sampled": 1,
       "task_id": "lu_packaging-39bb7ce2d5"
     },
@@ -2844,7 +2925,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.09323677674083801,
+      "rate": 0.08989603261895764,
       "sampled": 0,
       "task_id": "lu_packaging-4d318df47e"
     },
@@ -2871,7 +2952,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.06714102465377443,
+      "rate": 0.0647353110363615,
       "sampled": 0,
       "task_id": "lu_packaging-8cf6a4f627"
     },
@@ -2898,7 +2979,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.1064997876039394,
+      "rate": 0.10268381978677298,
       "sampled": 0,
       "task_id": "lu_packaging-93522ff577"
     },
@@ -2925,7 +3006,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.11641254160368687,
+      "rate": 0.11224139232472076,
       "sampled": 0,
       "task_id": "lu_packaging-e3e0340ab9"
     },
@@ -2952,7 +3033,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.06714102465377443,
+      "rate": 0.0647353110363615,
       "sampled": 0,
       "task_id": "lu_packaging-f749f25971"
     },
@@ -2979,7 +3060,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.134632638586496,
+      "rate": 0.1298086494730448,
       "sampled": 0,
       "task_id": "lu_restocking_pct-29ecf05f5d"
     },
@@ -3006,7 +3087,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.13593480042844014,
+      "rate": 0.13106415387281564,
       "sampled": 0,
       "task_id": "lu_restocking_pct-3f729da8c7"
     },
@@ -3033,7 +3114,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.11774026644322703,
+      "rate": 0.11352154378057888,
       "sampled": 0,
       "task_id": "lu_restocking_pct-3f8346f0f9"
     },
@@ -3060,7 +3141,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.06714102465377443,
+      "rate": 0.0647353110363615,
       "sampled": 0,
       "task_id": "lu_restocking_pct-af4f58d270"
     },
@@ -3087,7 +3168,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.11034340569670349,
+      "rate": 0.10638971814062068,
       "sampled": 1,
       "task_id": "lu_restocking_pct-b7fca79fe8"
     },
@@ -3114,7 +3195,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.08206639450156508,
+      "rate": 0.07912589361105184,
       "sampled": 0,
       "task_id": "lu_restocking_pct-c5a3312ebb"
     },
@@ -3141,7 +3222,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.10154601925342076,
+      "rate": 0.09790754869727777,
       "sampled": 0,
       "task_id": "lu_restocking_pct-cb67c7464c"
     },
@@ -3168,7 +3249,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.08957876415000907,
+      "rate": 0.08636908938174379,
       "sampled": 0,
       "task_id": "lu_restocking_pct-da0a419520"
     },
@@ -3195,7 +3276,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.11683568006015284,
+      "rate": 0.11264936941074265,
       "sampled": 0,
       "task_id": "lu_restocking_pct-dfb6d3d8db"
     },
@@ -3222,7 +3303,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.5037517575189887,
+      "rate": 0.4857019516200108,
       "sampled": 0,
       "task_id": "lu_return_window-02f06e501b"
     },
@@ -3249,7 +3330,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.5072221507668375,
+      "rate": 0.4890479980569913,
       "sampled": 0,
       "task_id": "lu_return_window-26524f5589"
     },
@@ -3276,7 +3357,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.09892739383140214,
+      "rate": 0.09538275060168348,
       "sampled": 0,
       "task_id": "lu_return_window-36bad703ee"
     },
@@ -3303,7 +3384,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.06714102465377443,
+      "rate": 0.0647353110363615,
       "sampled": 0,
       "task_id": "lu_return_window-461f036b06"
     },
@@ -3330,7 +3411,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.5448472632892684,
+      "rate": 0.5253249743837256,
       "sampled": 1,
       "task_id": "lu_return_window-46631c76fa"
     },
@@ -3357,7 +3438,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.06714102465377443,
+      "rate": 0.0647353110363615,
       "sampled": 0,
       "task_id": "lu_return_window-666572dfef"
     },
@@ -3384,7 +3465,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.12668250536131187,
+      "rate": 0.12214337552516094,
       "sampled": 0,
       "task_id": "lu_return_window-7cc01e66dd"
     },
@@ -3411,7 +3492,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.09848824496284041,
+      "rate": 0.09495933676872209,
       "sampled": 0,
       "task_id": "lu_return_window-f59570d722"
     },
@@ -3438,7 +3519,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.12478576926532077,
+      "rate": 0.12031460091588074,
       "sampled": 0,
       "task_id": "lu_tier_bonus-195711aee3"
     },
@@ -3465,7 +3546,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.5101929920177417,
+      "rate": 0.4919123918223331,
       "sampled": 1,
       "task_id": "lu_tier_bonus-4cfffd1f9b"
     },
@@ -3492,7 +3573,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.12216449742494764,
+      "rate": 0.11778725122510013,
       "sampled": 0,
       "task_id": "lu_tier_bonus-5f020e0db7"
     },
@@ -3519,7 +3600,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.06714102465377443,
+      "rate": 0.0647353110363615,
       "sampled": 0,
       "task_id": "lu_tier_bonus-84ea1d221e"
     },
@@ -3546,7 +3627,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.08089333250386296,
+      "rate": 0.07799486331060923,
       "sampled": 0,
       "task_id": "lu_tier_bonus-8c579fc469"
     },
@@ -3573,7 +3654,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.06714102465377443,
+      "rate": 0.0647353110363615,
       "sampled": 0,
       "task_id": "lu_tier_bonus-9fa71c7f57"
     },
@@ -3600,7 +3681,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.12130456950304339,
+      "rate": 0.1169581351700446,
       "sampled": 0,
       "task_id": "lu_tier_bonus-c6fa43cc5f"
     },
@@ -3627,7 +3708,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.10939200667606302,
+      "rate": 0.10547240846537448,
       "sampled": 0,
       "task_id": "lu_tier_bonus-c820b80f0f"
     },
@@ -3654,7 +3735,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.5148176003800056,
+      "rate": 0.49637129697453025,
       "sampled": 0,
       "task_id": "lu_tier_bonus-cc5e209d16"
     },
@@ -3681,7 +3762,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.13001098746373285,
+      "rate": 0.12535259560022383,
       "sampled": 0,
       "task_id": "lu_transit_days-27193d143e"
     },
@@ -3708,7 +3789,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.1323457104034077,
+      "rate": 0.12760366365381634,
       "sampled": 0,
       "task_id": "lu_transit_days-30014511af"
     },
@@ -3735,7 +3816,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.5020464418040982,
+      "rate": 0.484057738655018,
       "sampled": 1,
       "task_id": "lu_transit_days-66ed97779e"
     },
@@ -3762,7 +3843,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.09534397738152917,
+      "rate": 0.09192773066936107,
       "sampled": 0,
       "task_id": "lu_transit_days-6cf3300cb7"
     },
@@ -3789,7 +3870,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.11459109656106724,
+      "rate": 0.11048521103351086,
       "sampled": 0,
       "task_id": "lu_transit_days-8083194113"
     },
@@ -3816,7 +3897,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.50191401110231,
+      "rate": 0.4839300530452849,
       "sampled": 1,
       "task_id": "lu_transit_days-af0e3418a3"
     },
@@ -3843,7 +3924,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.06714102465377443,
+      "rate": 0.0647353110363615,
       "sampled": 0,
       "task_id": "lu_transit_days-db483ae75c"
     },
@@ -3870,7 +3951,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.09536162259914767,
+      "rate": 0.09194474364550685,
       "sampled": 0,
       "task_id": "lu_warranty_years-1458e9e31b"
     },
@@ -3897,7 +3978,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.09951494858855295,
+      "rate": 0.09594925282817152,
       "sampled": 0,
       "task_id": "lu_warranty_years-1da929f934"
     },
@@ -3924,7 +4005,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.5013700557800128,
+      "rate": 0.4834055880529739,
       "sampled": 0,
       "task_id": "lu_warranty_years-461d43fb63"
     },
@@ -3951,7 +4032,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.06714102465377443,
+      "rate": 0.0647353110363615,
       "sampled": 0,
       "task_id": "lu_warranty_years-61b7b62aa5"
     },
@@ -3978,7 +4059,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.06714102465377443,
+      "rate": 0.0647353110363615,
       "sampled": 1,
       "task_id": "lu_warranty_years-9e32a7ffd8"
     },
@@ -4005,7 +4086,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.11489502232642831,
+      "rate": 0.11077824690917809,
       "sampled": 0,
       "task_id": "lu_warranty_years-a1011ff7be"
     },
@@ -4032,7 +4113,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.10046705001689744,
+      "rate": 0.09686723974332326,
       "sampled": 0,
       "task_id": "lu_warranty_years-be444fa872"
     },
@@ -4059,7 +4140,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.1436600321109678,
+      "rate": 0.13851258467015928,
       "sampled": 0,
       "task_id": "lu_warranty_years-ee35c3ad0c"
     },
@@ -4086,7 +4167,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.10446657837972446,
+      "rate": 0.10072346198451602,
       "sampled": 0,
       "task_id": "th_escalation_level-112ff6f5e2"
     },
@@ -4113,7 +4194,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.47196623336922167,
+      "rate": 0.45505532680456307,
       "sampled": 0,
       "task_id": "th_escalation_level-21566cbb66"
     },
@@ -4140,7 +4221,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.12210321659195905,
+      "rate": 0.11772816613063604,
       "sampled": 0,
       "task_id": "th_escalation_level-33a81f7607"
     },
@@ -4167,7 +4248,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.5069372847633554,
+      "rate": 0.4887733390175412,
       "sampled": 0,
       "task_id": "th_escalation_level-346681960a"
     },
@@ -4194,7 +4275,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.5514117560162781,
+      "rate": 0.5316542563789032,
       "sampled": 1,
       "task_id": "th_escalation_level-9c3bc68c0b"
     },
@@ -4221,9 +4302,36 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.09536162259914767,
+      "rate": 0.09194474364550685,
       "sampled": 0,
       "task_id": "th_escalation_level-aa94876eb0"
+    },
+    {
+      "baseline": {
+        "answer_hash": "b01ac5349699688b",
+        "judge_cassette_key": "6ffcdb43a1c29260c9ca41017aea81716506270faa498b5ebea3c7a67f9a1de7",
+        "judge_confidence": 0.98,
+        "judge_correct": 1,
+        "judge_parsed": true,
+        "strong_cassette_key": null,
+        "strong_correct": null,
+        "strong_failed": false,
+        "tier": "frontier"
+      },
+      "candidate": {
+        "answer_hash": "61c29950fbc771e4",
+        "judge_cassette_key": "f3aa92f612c62b216672986756069059d910678c6ce2205ea8a7f9fe115b888c",
+        "judge_confidence": 0.95,
+        "judge_correct": 1,
+        "judge_parsed": true,
+        "strong_cassette_key": null,
+        "strong_correct": null,
+        "strong_failed": false,
+        "tier": "mid"
+      },
+      "rate": 0.09790754869727777,
+      "sampled": 0,
+      "task_id": "th_escalation_level-b8e07a758a"
     },
     {
       "baseline": {
@@ -4248,7 +4356,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.10453887700392435,
+      "rate": 0.1007931700944118,
       "sampled": 0,
       "task_id": "th_escalation_level-f136060a7a"
     },
@@ -4275,7 +4383,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.15715969320009932,
+      "rate": 0.15152854270769078,
       "sampled": 0,
       "task_id": "th_escalation_level-fb5cb40e5e"
     },
@@ -4302,7 +4410,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.06977244191420656,
+      "rate": 0.06727244262913872,
       "sampled": 0,
       "task_id": "th_fee_with_tier-22ef4badfb"
     },
@@ -4329,7 +4437,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.507902442150177,
+      "rate": 0.48970391408631814,
       "sampled": 1,
       "task_id": "th_fee_with_tier-43bdff9e24"
     },
@@ -4356,7 +4464,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.5077653592712683,
+      "rate": 0.48957174299048395,
       "sampled": 0,
       "task_id": "th_fee_with_tier-58ff1aaa4b"
     },
@@ -4383,7 +4491,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.5304867398286316,
+      "rate": 0.5114789993235724,
       "sampled": 1,
       "task_id": "th_fee_with_tier-9b98bc6051"
     },
@@ -4410,7 +4518,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.140739226985129,
+      "rate": 0.13569643419773506,
       "sampled": 0,
       "task_id": "th_fee_with_tier-9f3ac2825b"
     },
@@ -4437,7 +4545,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.12042145486773147,
+      "rate": 0.11610666319903312,
       "sampled": 0,
       "task_id": "th_fee_with_tier-a73f28353c"
     },
@@ -4464,7 +4572,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.1841461234132519,
+      "rate": 0.17754802874648906,
       "sampled": 0,
       "task_id": "th_fee_with_tier-b70877b680"
     },
@@ -4491,7 +4599,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.5540375164889386,
+      "rate": 0.5341859338708865,
       "sampled": 1,
       "task_id": "th_fee_with_tier-f97fa4b691"
     },
@@ -4518,7 +4626,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.5143309132186823,
+      "rate": 0.4959020481817372,
       "sampled": 0,
       "task_id": "th_free_shipping-10ab96f1d9"
     },
@@ -4545,7 +4653,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.10843434007415789,
+      "rate": 0.10454905578103353,
       "sampled": 0,
       "task_id": "th_free_shipping-15995998d8"
     },
@@ -4572,7 +4680,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.09216168187752931,
+      "rate": 0.08885945921649957,
       "sampled": 0,
       "task_id": "th_free_shipping-6a9f4035c8"
     },
@@ -4599,7 +4707,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.1399316584336157,
+      "rate": 0.13491780143728824,
       "sampled": 1,
       "task_id": "th_free_shipping-7ea3b281c3"
     },
@@ -4626,7 +4734,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.06714102465377443,
+      "rate": 0.0647353110363615,
       "sampled": 0,
       "task_id": "th_free_shipping-8b94824581"
     },
@@ -4653,7 +4761,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.5082210183648006,
+      "rate": 0.49001107547458694,
       "sampled": 0,
       "task_id": "th_free_shipping-af1fa22dbb"
     },
@@ -4680,7 +4788,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.06714102465377443,
+      "rate": 0.0647353110363615,
       "sampled": 0,
       "task_id": "th_free_shipping-b5419f43f5"
     },
@@ -4707,7 +4815,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.07360170690604485,
+      "rate": 0.07096450216450606,
       "sampled": 0,
       "task_id": "th_free_shipping-c817aeb5f3"
     },
@@ -4734,7 +4842,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.08322840040566701,
+      "rate": 0.08024626396607736,
       "sampled": 0,
       "task_id": "th_free_shipping-d6d9df845e"
     },
@@ -4761,7 +4869,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.1264965025668182,
+      "rate": 0.12196403735126096,
       "sampled": 0,
       "task_id": "th_free_shipping-d7967c8be4"
     },
@@ -4788,7 +4896,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.1186393748872129,
+      "rate": 0.11438843649002121,
       "sampled": 0,
       "task_id": "th_window_with_tier-0d3bb136a7"
     },
@@ -4815,7 +4923,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.16778981798720166,
+      "rate": 0.161777782095933,
       "sampled": 0,
       "task_id": "th_window_with_tier-2627f174bd"
     },
@@ -4842,7 +4950,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.09216168187752931,
+      "rate": 0.08885945921649957,
       "sampled": 0,
       "task_id": "th_window_with_tier-3bdf53c0d8"
     },
@@ -4869,7 +4977,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.07366415398256466,
+      "rate": 0.07102471171511492,
       "sampled": 0,
       "task_id": "th_window_with_tier-530f48446e"
     },
@@ -4896,7 +5004,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.12130456950304339,
+      "rate": 0.1169581351700446,
       "sampled": 0,
       "task_id": "th_window_with_tier-5ac043bd80"
     },
@@ -4923,7 +5031,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.5657554826191021,
+      "rate": 0.5454840364253437,
       "sampled": 1,
       "task_id": "th_window_with_tier-631f2a92c6"
     },
@@ -4950,7 +5058,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.5055394850600812,
+      "rate": 0.4874256235332362,
       "sampled": 0,
       "task_id": "th_window_with_tier-6d82f7027e"
     },
@@ -4977,7 +5085,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.5631720718449271,
+      "rate": 0.5429931912101672,
       "sampled": 0,
       "task_id": "th_window_with_tier-83f8895bb1"
     },
@@ -5004,7 +5112,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.11500976288764499,
+      "rate": 0.11088887622943572,
       "sampled": 1,
       "task_id": "th_window_with_tier-a2e8392aee"
     },
@@ -5031,7 +5139,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.125247068027777,
+      "rate": 0.12075937099531105,
       "sampled": 0,
       "task_id": "th_window_with_tier-b36780e265"
     },
@@ -5058,7 +5166,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.1637261466603712,
+      "rate": 0.157859715181577,
       "sampled": 0,
       "task_id": "th_window_with_tier-b79bc454b2"
     },
@@ -5085,7 +5193,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.5423677416139684,
+      "rate": 0.5229342958425556,
       "sampled": 1,
       "task_id": "th_window_with_tier-cb116864fb"
     },
@@ -5112,7 +5220,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.06714102465377443,
+      "rate": 0.0647353110363615,
       "sampled": 0,
       "task_id": "th_window_with_tier-dc8bb5751c"
     },
@@ -5139,7 +5247,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.06977244191420656,
+      "rate": 0.06727244262913872,
       "sampled": 0,
       "task_id": "th_zone_weight_fee-031e811bbe"
     },
@@ -5166,7 +5274,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.11683568006015284,
+      "rate": 0.11264936941074265,
       "sampled": 1,
       "task_id": "th_zone_weight_fee-0d2689589d"
     },
@@ -5193,7 +5301,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.11592553868672098,
+      "rate": 0.11177183909004831,
       "sampled": 0,
       "task_id": "th_zone_weight_fee-67f18b0caa"
     },
@@ -5220,7 +5328,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.12042145486773147,
+      "rate": 0.11610666319903312,
       "sampled": 0,
       "task_id": "th_zone_weight_fee-6f05fbd2e3"
     },
@@ -5247,7 +5355,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.06846506409756045,
+      "rate": 0.06601190914697853,
       "sampled": 0,
       "task_id": "th_zone_weight_fee-86ef37890f"
     },
@@ -5274,7 +5382,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.5238565585757744,
+      "rate": 0.5050863824720356,
       "sampled": 0,
       "task_id": "th_zone_weight_fee-a6a3cdf4e9"
     },
@@ -5301,7 +5409,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.5548496882282972,
+      "rate": 0.5349690048834819,
       "sampled": 1,
       "task_id": "th_zone_weight_fee-b9851e5a40"
     },
@@ -5328,7 +5436,7 @@
         "strong_failed": false,
         "tier": "mid"
       },
-      "rate": 0.5306094895308112,
+      "rate": 0.5115973508112239,
       "sampled": 1,
       "task_id": "th_zone_weight_fee-ba87ea28c0"
     },
@@ -5355,7 +5463,7 @@
         "strong_failed": false,
         "tier": "cheap"
       },
-      "rate": 0.5266416069599162,
+      "rate": 0.5077716404693398,
       "sampled": 0,
       "task_id": "th_zone_weight_fee-e004781656"
     },
@@ -5382,7 +5490,7 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.5082586863522527,
+      "rate": 0.49004739378960216,
       "sampled": 0,
       "task_id": "th_zone_weight_fee-e328ca6662"
     },
@@ -5409,13 +5517,13 @@
         "strong_failed": false,
         "tier": "frontier"
       },
-      "rate": 0.5100566527519232,
+      "rate": 0.4917809376953707,
       "sampled": 0,
       "task_id": "th_zone_weight_fee-fafafe6542"
     }
   ],
   "judge": {
-    "calls": 400,
+    "calls": 408,
     "contract": "as-is",
     "kind": "judge-v1",
     "method": "LLM judge: one call per answer, reading the question, the grounding document and the answer, returning a verdict and its own confidence as JSON, claude-haiku-4-5-20251001",
@@ -5436,21 +5544,21 @@
   },
   "origin": "simulated",
   "policy": {
-    "budget_usd": "0.54733250",
-    "cost_per_item_usd": "0.01243660",
+    "budget_usd": "0.54733875",
+    "cost_per_item_usd": "0.01266778",
     "description": "cost-optimal active evaluation: sampling rate proportional to the judge's uncertainty on both arms plus a boost for pairs the two arms disagree on, scaled so the expected spend meets the budget and floored so no item is unsamplable",
-    "expected_cost_usd": "0.54733",
+    "expected_cost_usd": "0.54734",
     "floor": 0.05,
     "floor_exceeds_budget": false,
-    "max_rate": 0.5657554826191021,
-    "mean_rate": 0.22004908897930303,
-    "min_rate": 0.06714102465377443,
-    "n": 200,
+    "max_rate": 0.5454840364253437,
+    "mean_rate": 0.2117997856163664,
+    "min_rate": 0.0647353110363615,
+    "n": 204,
     "n_sampled": 44,
     "policy": "cost-optimal",
-    "sampled_share": 0.22,
+    "sampled_share": 0.21568627450980393,
     "seed": 20260914,
-    "target_rate": 0.22004908897930303
+    "target_rate": 0.2117997856163664
   },
   "schema": "tokop.annotation-set.v1",
   "split": "test",

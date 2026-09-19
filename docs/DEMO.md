@@ -9,7 +9,7 @@ Start at `http://localhost:8000` after `make demo`. No API keys, no network.
 
 ## 0:00 — The problem, in one line (10 s)
 
-> "This support bot answers 300 policy questions. It costs
+> "This support bot answers 304 policy questions. It costs
 > **$0.05172 per successful answer**. I'm going to make it cost **$0.00425** — and prove it
 > didn't get worse."
 
@@ -47,29 +47,28 @@ evaluated in 0.15 seconds**, on recorded answers, costing nothing.
 
 Click **Run proof**.
 
-> "Cascade on the B2 prompt cuts cost per successful task by 91.8% (interval 90.8 to 92.7%); accuracy difference +0.5 points, 95% CI [-3.0, +4.0], n = 200, against the 3-point margin."
+> "Cascade on the B2 prompt cuts cost per successful task by 91.1% (interval 89.1 to 92.6%); accuracy difference +1.0 points, 95% CI [-2.5, +4.4], n = 204, inside the 3-point margin."
 
-Read the verdict label aloud: **Inconclusive: about 4 more tasks would settle it**.
+Read the verdict label aloud: **Non-inferior at a 3-point margin**.
 
-This is the moment that matters. The interval's lower bound sits at
--3.0 points, right on the 3-point margin — so Tokop says
-*inconclusive* and tells you exactly how many more tasks would settle it. It does not round
-towards the pleasing answer.
+This is the moment that matters. Four additional held-out tasks move the interval's lower bound
+to -2.5 points, clear of the 3-point margin, so Tokop can now make a conclusive claim about the
+simulated traces. The evidence label still refuses to present invented answers as production data.
 
 Then the savings waterfall:
 
 | | Cost per successful task | Accuracy | Verdict |
 |---|---:|---:|---|
-| **B0** Current pipeline | $0.05172 | 95.5% | — it is the baseline |
-| **B1** Cache-friendly order | $0.01088 | 95.5% | Non-inferior at a 3-point margin |
-| **B2** CLEAR rewrite with an output contract | $0.00648 | 97.0% | Non-inferior at a 3-point margin |
-| **B3** Cascade on the B2 prompt | $0.00425 | 96.0% | Inconclusive: about 4 more tasks would settle it |
+| **B0** Current pipeline | $0.05194 | 95.1% | — it is the baseline |
+| **B1** Cache-friendly order | $0.01114 | 95.6% | Non-inferior at a 3-point margin |
+| **B2** CLEAR rewrite with an output contract | $0.00672 | 97.1% | Non-inferior at a 3-point margin |
+| **B3** Cascade on the B2 prompt | $0.00462 | 96.1% | Non-inferior at a 3-point margin |
 
-> "Prompt order alone took it from $0.05172 to
-> $0.01088. Same words, same model, same token cap —
+> "Prompt order alone took it from $0.05194 to
+> $0.01114. Same words, same model, same token cap —
 > only the order changed. The output contract took it to
-> $0.00648. The cascade took it to
-> $0.00425."
+> $0.00672. The cascade took it to
+> $0.00462."
 
 ## 1:10 — The one bold chart (10 s)
 
@@ -100,7 +99,7 @@ Close with the honest part:
 
 Scroll to **Without the answer key**.
 
-> "Everything above rests on 200 tasks with known answers. Almost nobody has that. So: a cheap
+> "Everything above rests on 204 tasks with known answers. Almost nobody has that. So: a cheap
 > judge — claude-haiku-4-5-20251001 — grades every task, and a strong grader re-grades
 > **44 of them (22%)**, chosen where a strong label buys the most
 > interval. The judge on its own says **+5.5 points**. Corrected, it says

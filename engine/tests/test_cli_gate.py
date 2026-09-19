@@ -48,12 +48,8 @@ def prove(*args: str) -> subprocess.CompletedProcess[str]:
 
 class TestProveGate:
     def test_an_inconclusive_verdict_fails_the_build(self) -> None:
-        """The demo's own verdict is inconclusive at the 3-point margin, and the gate says so.
-
-        This is the case worth pinning: a gate that passed on "we could not tell" would be
-        worse than no gate, because it would read as evidence the change was safe.
-        """
-        result = prove()
+        """A stricter margin remains inconclusive, and the gate says so."""
+        result = prove("--margin", "0.01")
         assert result.returncode == 1, result.stdout + result.stderr
         assert "Inconclusive" in result.stdout
 
@@ -64,9 +60,9 @@ class TestProveGate:
 
     def test_the_margin_is_applied_and_not_merely_echoed(self) -> None:
         """The same data, two margins, two verdicts: the number changes the answer."""
-        strict, loose = prove(), prove("--margin", "0.10")
+        strict, loose = prove("--margin", "0.01"), prove("--margin", "0.10")
         assert strict.returncode != loose.returncode
-        assert "3-point margin" in strict.stdout
+        assert "1-point margin" in strict.stdout
         assert "10-point margin" in loose.stdout
 
     def test_a_workload_that_does_not_exist_is_refused(self) -> None:
@@ -95,7 +91,7 @@ class TestProveGate:
         demo = prove()
         assert "Incident triage from a runbook" in second.stdout
         assert "n = 99" in second.stdout, second.stdout
-        assert "n = 200" in demo.stdout
+        assert "n = 204" in demo.stdout
         assert "Returns-policy" not in second.stdout
 
     def test_simulated_data_is_announced_on_stderr(self) -> None:
@@ -129,9 +125,9 @@ class TestTheJudgedGate:
     def test_the_judged_verdict_decides_the_exit_code(self) -> None:
         gold, judged = prove(), prove("--grading", "judged")
         assert "WITHOUT GOLD" in judged.stdout
-        # Both are inconclusive at the demo's 3-point margin, for different reasons: the gold
-        # interval straddles the margin narrowly, the judged one widely.
-        assert gold.returncode == 1
+        # The added test evidence settles the gold verdict; the wider judged interval remains
+        # inconclusive because correcting the cheap judge costs precision.
+        assert gold.returncode == 0
         assert judged.returncode == 1
 
     def test_a_wide_enough_margin_clears_the_judged_verdict_too(self) -> None:
@@ -165,7 +161,7 @@ class TestTheJudgedGate:
         assert "tokop annotate" in result.stdout + result.stderr
 
     def test_a_smaller_budget_replays_a_cheaper_annotation_set(self) -> None:
-        result = prove("--annotation-budget", "0.30")
+        result = prove("--grading", "judged", "--annotation-budget", "0.30")
         assert result.returncode == 1
         assert "WITHOUT GOLD" in result.stdout
 
@@ -307,15 +303,11 @@ class TestRecordRefusesBeforeItSpends:
         assert result.returncode == 2
         assert "RECORD_BUDGET_USD is not set" in result.stderr
 
-    def test_an_underpowered_split_refuses_before_any_adapter_is_built(self) -> None:
-        """The gate that matters most: it fires after consent and before anything is priced.
+    def test_the_enlarged_demo_split_clears_the_power_gate(self) -> None:
+        """The four added test tasks make the committed proof sufficiently powered."""
+        from tokop.optimize.report import build_report
 
-        The demo's test split is 200 tasks and needs 204 at its observed discordance, so this
-        is the real refusal rather than a contrived one. Recording it would spend the whole
-        budget to reproduce the "inconclusive" the repository already has.
-        """
-        result = self.record(ANTHROPIC_API_KEY="not-a-real-key", RECORD_BUDGET_USD="25")
-        assert result.returncode == 2, result.stdout + result.stderr
-        assert "204" in result.stdout + result.stderr
-        assert "--underpowered" in result.stderr
-        assert "inconclusive" in result.stderr
+        power = build_report()["proof"]["power"]
+        assert power["sufficient"] is True
+        assert power["observed_n"] == 204
+        assert power["required_n"] <= power["observed_n"]

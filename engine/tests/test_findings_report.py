@@ -215,7 +215,7 @@ def report():
 class TestReport:
     def test_it_builds_from_the_committed_fixtures(self, report) -> None:
         assert report["workload"]["id"] == "returns-support"
-        assert report["proof"]["candidate"]["n"] == 200
+        assert report["proof"]["candidate"]["n"] == 204
         assert report["provenance"]["fixture_source"] in ("demo", "test")
 
     def test_every_headline_number_is_present(self, report) -> None:
@@ -229,7 +229,7 @@ class TestReport:
             "proof_cost_usd",
             "repayment_tasks",
         }
-        assert headline["n"] == 200
+        assert headline["n"] == 204
 
     def test_it_is_deterministic(self, report) -> None:
         assert build_report().headline() == report.headline()
@@ -311,7 +311,7 @@ class TestReport:
     def test_the_breakdown_covers_every_question_type(self, report) -> None:
         types = {b["question_type"] for b in report["proof"]["by_type"]}
         assert types == {"lookup", "two_hop", "computation", "exception"}
-        assert sum(b["n"] for b in report["proof"]["by_type"]) == 200
+        assert sum(b["n"] for b in report["proof"]["by_type"]) == 204
 
     def test_an_inconclusive_verdict_says_inconclusive(self, report) -> None:
         """SPEC.md non-negotiable 5: inconclusive results are displayed as inconclusive."""
@@ -325,11 +325,11 @@ class TestReport:
         for arm in ("baseline", "candidate"):
             accuracy = proof[arm]["accuracy"]
             assert accuracy["low"] <= accuracy["point"] <= accuracy["high"]
-            assert accuracy["n"] == 200
+            assert accuracy["n"] == 204
             assert accuracy["method"]
 
     def test_split_sizes_are_stated(self, report) -> None:
-        assert report["proof"]["split_sizes"] == {"calibration": 100, "test": 200}
+        assert report["proof"]["split_sizes"] == {"calibration": 100, "test": 204}
 
     def test_prices_carry_provenance(self, report) -> None:
         assert report["provenance"]["price_snapshot_id"]
