@@ -17,6 +17,7 @@ document that matches your task.
 | Document | Contents |
 | --- | --- |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Runtime topology, module boundaries, adapters, reporting, and storage. |
+| [`VALIDATION_STRATEGY.md`](VALIDATION_STRATEGY.md) | Release acceptance gates, FMEA, deterministic CI, recovery, and hardening checklist. |
 | [`METHOD.md`](METHOD.md) | Cost accounting, statistics, cascade calibration, evidence, and limitations. |
 | [`DESIGN.md`](DESIGN.md) | Visual system, interaction principles, accessibility, and screen layouts. |
 | [`../SPEC.md`](../SPEC.md) | Original product requirements and acceptance criteria. |
