@@ -10,7 +10,7 @@ Start at `http://localhost:8000` after `make demo`. No API keys, no network.
 ## 0:00 — The problem, in one line (10 s)
 
 > "This support bot answers 304 policy questions. It costs
-> **$0.05172 per successful answer**. I'm going to make it cost **$0.00425** — and prove it
+> **$0.05194 per successful answer**. I'm going to make it cost **$0.00462** — and prove it
 > didn't get worse."
 
 Point at the headline row. Both numbers are already on screen.
@@ -19,9 +19,9 @@ Point at the headline row. Both numbers are already on screen.
 
 Scroll to **Findings**. They are ranked by projected dollars per 1,000 tasks, not by severity.
 
-> "The top two findings are the same mistake seen from two angles. 200 calls, 0 cache reads, ~8,714 input tokens per call, a 21,818-character block identical…
+> "The top two findings are the same mistake seen from two angles. 204 calls, 0 cache reads, ~8,714 input tokens per call, a 21,818-character block identical…
 > That's $39.21 per thousand tasks. And the second:
-> 200 calls share only their first ~845 tokens; ~7,869 tokens per call sit after t…"
+> 204 calls share only their first ~845 tokens; ~7,869 tokens per call sit after t…"
 
 The point to make: **the ranking is in dollars.** Politeness filler is on this list too, at
 $0.20 — three orders of magnitude down, exactly where it
@@ -41,7 +41,7 @@ cascade, each edge labelled with the share of tasks that flows along it.
 > vouch for."
 
 The cascade summary underneath shows the search: **2,601 threshold settings
-evaluated in 0.15 seconds**, on recorded answers, costing nothing.
+evaluated in 0.42 seconds**, on recorded answers, costing nothing.
 
 ## 0:45 — Run the proof (25 s)
 
@@ -51,9 +51,7 @@ Click **Run proof**.
 
 Read the verdict label aloud: **Non-inferior at a 3-point margin**.
 
-This is the moment that matters. Four additional held-out tasks move the interval's lower bound
-to -2.5 points, clear of the 3-point margin, so Tokop can now make a conclusive claim about the
-simulated traces. The evidence label still refuses to present invented answers as production data.
+This is the moment that matters. The interval's lower bound is -2.5 points, above the -3.0-point margin, so Tokop can make a conclusive non-inferiority claim about the simulated traces. The evidence label still refuses to present invented answers as production data.
 
 Then the savings waterfall:
 
@@ -88,8 +86,8 @@ Click **Open trace** on any disagreement.
 
 Close with the honest part:
 
-> "The proof cost **$16.61** to produce and repays after
-> **367 tasks**. And these fixtures are simulated — this build had no
+> "The proof cost **$17.09** to produce and repays after
+> **381 tasks**. And these fixtures are simulated — this build had no
 > API credentials, so the model answers underneath are generated. The engine, the statistics and
 > every number on screen are real."
 
@@ -102,12 +100,12 @@ Scroll to **Without the answer key**.
 > "Everything above rests on 204 tasks with known answers. Almost nobody has that. So: a cheap
 > judge — claude-haiku-4-5-20251001 — grades every task, and a strong grader re-grades
 > **44 of them (22%)**, chosen where a strong label buys the most
-> interval. The judge on its own says **+5.5 points**. Corrected, it says
-> **-3.5 points**, interval **-12.5 to +5.6**. The gap
-> between those two — **+9.0 points** — is the judge's bias, and Tokop measured it
+> interval. The judge on its own says **+5.9 points**. Corrected, it says
+> **-3.2 points**, interval **-12.4 to +6.0**. The gap
+> between those two — **+9.1 points** — is the judge's bias, and Tokop measured it
 > rather than assuming it away."
 
-> "This demo happens to have gold answers, so we can check: the gold-graded difference is +0.5 points, and the gold-free interval covers it. A real unlabelled workload never gets to run that check, which is exactly why it is run here."
+> "This demo happens to have gold answers, so we can check: the gold-graded difference is +1.0 points, and the gold-free interval covers it. A real unlabelled workload never gets to run that check, which is exactly why it is run here."
 
 > "The estimator is unbiased for the strong grader's mean no matter how bad the cheap judge is.
 > A bad judge costs interval width, never correctness. That is the whole argument, and it is why
@@ -149,7 +147,5 @@ marks 20% of one class of correct answers wrong. The naive judge-only interval s
 true accuracy; the corrected interval still covers it, at every committed seed. That test is a
 release blocker — `make verify` runs it by name.
 
-**"Why is the verdict inconclusive rather than a pass?"**
-Because the interval straddles the margin by a fraction of a point. Reporting that as a pass is
-how cost-cutting decisions go wrong. It tells you the remedy instead: about
-4 more tasks.
+**"Why does the verdict pass when the lower bound is close to the margin?"**
+Because the unrounded lower bound is above the predeclared -3.0-point margin. Tokop computes the verdict before rounding the displayed interval and does not move the threshold after seeing the result.
