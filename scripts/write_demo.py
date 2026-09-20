@@ -20,7 +20,6 @@ from pathlib import Path
 
 from tokop.optimize.report import build_report
 
-
 # The cascade search time is a wall-clock measurement of the machine that generated the file,
 # so it moves between runs on the same fixtures. It is a real measured number and stays in the
 # document; it just is not evidence that the document is stale.
@@ -75,6 +74,60 @@ def _judged_variables(payload: object) -> dict[str, object]:
     }
 
 
+def _proof_interpretation(proof: dict) -> tuple[str, str]:
+    """Explain the computed verdict without hard-coding the current fixture outcome."""
+    verdict = proof["verdict"]
+    label = verdict["label"]
+    low = proof["delta_accuracy"]["low"] * 100
+    margin = verdict["margin"] * 100
+
+    if label == "non_inferior":
+        explanation = (
+            "This is the moment that matters. The interval's lower bound is "
+            f"{low:+.1f} points, above the -{margin:.1f}-point margin, so Tokop can make a "
+            "conclusive non-inferiority claim about the simulated traces. The evidence label "
+            "still refuses to present invented answers as production data."
+        )
+        faq = (
+            '**"Why does the verdict pass when the lower bound is close to the margin?"**\n'
+            f"Because the unrounded lower bound is above the predeclared -{margin:.1f}-point "
+            "margin. Tokop computes the verdict before rounding the displayed interval and does "
+            "not move the threshold after seeing the result."
+        )
+        return explanation, faq
+
+    if label == "inconclusive":
+        additional = verdict.get("additional_tasks_needed")
+        remedy = (
+            f"about {additional:,} more tasks"
+            if additional is not None
+            else "more informative paired evidence"
+        )
+        explanation = (
+            "This is the moment that matters. The interval's lower bound is "
+            f"{low:+.1f} points and does not clear the -{margin:.1f}-point margin, so Tokop says "
+            f"*inconclusive* and asks for {remedy}. It does not round towards the pleasing answer."
+        )
+        faq = (
+            '**"Why is the verdict inconclusive rather than a pass?"**\n'
+            "Because the interval does not clear the predeclared margin. Reporting that as a pass "
+            f"is how cost-cutting decisions go wrong; the remedy is {remedy}."
+        )
+        return explanation, faq
+
+    explanation = (
+        "This is the moment that matters. The evidence falls outside the allowed "
+        f"-{margin:.1f}-point margin, so Tokop rejects the candidate rather than trading away more "
+        "quality than the workload owner allowed."
+    )
+    faq = (
+        '**"Why was the cheaper candidate rejected?"**\n'
+        "Because its paired interval does not satisfy the predeclared non-inferiority margin. "
+        "Cost savings cannot override that quality gate."
+    )
+    return explanation, faq
+
+
 def main(*, check: bool = False) -> Path:
     report = build_report()
     proof = report["proof"]
@@ -105,6 +158,8 @@ def main(*, check: bool = False) -> Path:
     judge_bias = judged_vars["judge_bias"]
     cost_optimal_rate = judged_vars["cost_optimal_rate"]
     coverage_line = judged_vars["coverage_line"]
+    proof_interpretation, proof_faq = _proof_interpretation(proof)
+    proof_n = proof["delta_accuracy"]["n"]
 
     rows = ""
     for pipeline_id in ("B0", "B1", "B2", "B3"):
@@ -169,10 +224,7 @@ Click **Run proof**.
 
 Read the verdict label aloud: **{proof["verdict"]["display"]}**.
 
-This is the moment that matters. The interval's lower bound sits at
-{proof["delta_accuracy"]["low"] * 100:+.1f} points, right on the 3-point margin — so Tokop says
-*inconclusive* and tells you exactly how many more tasks would settle it. It does not round
-towards the pleasing answer.
+{proof_interpretation}
 
 Then the savings waterfall:
 
@@ -214,7 +266,7 @@ Close with the honest part:
 
 Scroll to **Without the answer key**.
 
-> "Everything above rests on 200 tasks with known answers. Almost nobody has that. So: a cheap
+> "Everything above rests on {proof_n} tasks with known answers. Almost nobody has that. So: a cheap
 > judge — {judged_model} — grades every task, and a strong grader re-grades
 > **{judged_annotated} of them ({judged_share:.0f}%)**, chosen where a strong label buys the most
 > interval. The judge on its own says **{judge_only_point:+.1f} points**. Corrected, it says
@@ -264,10 +316,7 @@ marks 20% of one class of correct answers wrong. The naive judge-only interval s
 true accuracy; the corrected interval still covers it, at every committed seed. That test is a
 release blocker — `make verify` runs it by name.
 
-**"Why is the verdict inconclusive rather than a pass?"**
-Because the interval straddles the margin by a fraction of a point. Reporting that as a pass is
-how cost-cutting decisions go wrong. It tells you the remedy instead: about
-{proof["verdict"]["additional_tasks_needed"]} more tasks.
+{proof_faq}
 """
     path = Path(__file__).resolve().parent.parent / "docs" / "DEMO.md"
     if check:
